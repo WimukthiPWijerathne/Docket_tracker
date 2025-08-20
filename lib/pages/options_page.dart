@@ -1,15 +1,21 @@
 import 'package:flutter/material.dart';
 import 'login_page.dart';
 
-class OptionsPage extends StatelessWidget {
+class OptionsPage extends StatefulWidget {
   const OptionsPage({super.key});
+
+  @override
+  State<OptionsPage> createState() => _OptionsPageState();
+}
+
+class _OptionsPageState extends State<OptionsPage> {
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Docket Tracker'),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: const Color(0xFF4E342E),
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
@@ -29,11 +35,11 @@ class OptionsPage extends StatelessWidget {
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [
-              Color(0xFF2196F3),
-              Color(0xFF1976D2),
+              Color(0xFF4E342E),
+              Color(0xFF3E2723),
             ],
           ),
         ),
@@ -72,12 +78,12 @@ class OptionsPage extends StatelessWidget {
                         context,
                         'Add Docket',
                         Icons.assignment,
-                        Colors.orange,
+                        const Color(0xFF8D6E63),
                         () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Add Docket selected!'),
-                              backgroundColor: Colors.orange,
+                              backgroundColor: Color(0xFF8D6E63),
                             ),
                           );
                         },
@@ -88,12 +94,12 @@ class OptionsPage extends StatelessWidget {
                         context,
                         'View Current Docket',
                         Icons.assessment,
-                        Colors.green,
+                        const Color(0xFF6D4C41),
                         () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('View Current Docket selected!'),
-                              backgroundColor: Colors.green,
+                              backgroundColor: Color(0xFF6D4C41),
                             ),
                           );
                         },
@@ -117,46 +123,142 @@ class OptionsPage extends StatelessWidget {
     Color color,
     VoidCallback onTap,
   ) {
-    return Card(
-      elevation: 8,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                color.withOpacity(0.8),
-                color,
-              ],
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                icon,
-                size: 48,
-                color: Colors.white,
+    return _HoverableCard(
+      title: title,
+      icon: icon,
+      color: color,
+      onTap: onTap,
+    );
+  }
+}
+
+class _HoverableCard extends StatefulWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _HoverableCard({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  State<_HoverableCard> createState() => _HoverableCardState();
+}
+
+class _HoverableCardState extends State<_HoverableCard>
+    with SingleTickerProviderStateMixin {
+  bool _isHovered = false;
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _elevationAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 200),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 1.05,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+    _elevationAnimation = Tween<double>(
+      begin: 8.0,
+      end: 16.0,
+    ).animate(CurvedAnimation(
+      parent: _animationController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _onHover(bool isHovered) {
+    setState(() {
+      _isHovered = isHovered;
+    });
+    if (isHovered) {
+      _animationController.forward();
+    } else {
+      _animationController.reverse();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => _onHover(true),
+      onExit: (_) => _onHover(false),
+      child: AnimatedBuilder(
+        animation: _animationController,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: _scaleAnimation.value,
+            child: Card(
+              elevation: _elevationAnimation.value,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
               ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+              child: InkWell(
+                onTap: widget.onTap,
+                borderRadius: BorderRadius.circular(16),
+                child: Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        widget.color.withOpacity(_isHovered ? 0.8 : 0.6),
+                        widget.color.withOpacity(_isHovered ? 1.0 : 0.8),
+                      ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: widget.color.withOpacity(_isHovered ? 0.4 : 0.3),
+                        blurRadius: _isHovered ? 12 : 8,
+                        offset: Offset(0, _isHovered ? 6 : 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        widget.icon,
+                        size: _isHovered ? 44 : 40,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        widget.title,
+                        style: TextStyle(
+                          fontSize: _isHovered ? 17 : 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
