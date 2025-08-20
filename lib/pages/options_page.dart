@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login_page.dart';
+import 'docket_type_selection_page.dart';
 
 class OptionsPage extends StatelessWidget {
   const OptionsPage({super.key});
@@ -59,10 +60,9 @@ class OptionsPage extends StatelessWidget {
                         Icons.assignment,
                         const Color(0xFFFFD700),
                         () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('Add Docket selected!'),
-                              backgroundColor: Theme.of(context).colorScheme.secondary,
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const DocketTypeSelectionPage(),
                             ),
                           );
                         },
