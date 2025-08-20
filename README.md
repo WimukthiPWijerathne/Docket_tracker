@@ -1,16 +1,34 @@
-# leco_docket_tracker
+# LECO Docket Tracker
 
-A new Flutter project.
+A **Flutter mobile application** for digitizing docket collection, categorization, task assignment, and payment tracking for LECO depot operations. This app enables CSEs to collect dockets, assign tasks to field workers (electricians, technical officers), and manage payments efficiently across multiple depots.
 
-## Getting Started
+---
 
-This project is a starting point for a Flutter application.
+## Table of Contents
 
-A few resources to get you started if this is your first Flutter project:
+- [Features](#features)
+- [System Architecture](#system-architecture)
+- [Data Models](#data-models)
+- [Project Structure](#project-structure)
+- [Setup Instructions](#setup-instructions)
+- [Dependencies](#dependencies)
+- [Running the App](#running-the-app)
+- [Future Enhancements](#future-enhancements)
+- [Contributing](#contributing)
+- [License](#license)
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+---
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Features
+
+- **Docket Collection**: Capture photos of dockets, categorize them, and store locally or in the cloud.
+- **Task Assignment**: Assign dockets to available workers per depot.
+- **Record Management**: Track active, completed, and overdue tasks.
+- **Payment Management**: Calculate worker payments based on task rates and priority.
+- **User Management**: CSE authentication and depot-based role management.
+- **Multi-Depot Support**: Supports multiple depots with separate CSEs and workers.
+- **Offline-first Capability**: Works offline with local SQLite storage and syncs when online.
+
+---
+
+## System Architecture
