@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 class DocketTypeSelectionPage extends StatefulWidget {
   const DocketTypeSelectionPage({super.key});
 
   @override
-  State<DocketTypeSelectionPage> createState() => _DocketTypeSelectionPageState();
+  State<DocketTypeSelectionPage> createState() =>
+      _DocketTypeSelectionPageState();
 }
 
 class _DocketTypeSelectionPageState extends State<DocketTypeSelectionPage> {
@@ -22,6 +24,7 @@ class _DocketTypeSelectionPageState extends State<DocketTypeSelectionPage> {
 
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
+  final ImagePicker _imagePicker = ImagePicker();
 
   @override
   void initState() {
@@ -49,8 +52,8 @@ class _DocketTypeSelectionPageState extends State<DocketTypeSelectionPage> {
     final int crossAxisCount = width >= 900
         ? 4
         : width >= 600
-            ? 3
-            : 2; // keep 2 on phones
+        ? 3
+        : 2; // keep 2 on phones
 
     return Scaffold(
       appBar: AppBar(
@@ -87,17 +90,13 @@ class _DocketTypeSelectionPageState extends State<DocketTypeSelectionPage> {
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                   children: filtered
-                      .map((type) => _DocketTypeCard(
-                            title: type,
-                            icon: _iconFor(type),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => DocketTypePlaceholderPage(title: type),
-                                ),
-                              );
-                            },
-                          ))
+                      .map(
+                        (type) => _DocketTypeCard(
+                          title: type,
+                          icon: _iconFor(type),
+                          onTap: () => _openCameraForDocket(type),
+                        ),
+                      )
                       .toList(),
                 ),
               ),
@@ -106,6 +105,34 @@ class _DocketTypeSelectionPageState extends State<DocketTypeSelectionPage> {
         ),
       ),
     );
+  }
+
+  Future<void> _openCameraForDocket(String docketType) async {
+    try {
+      final XFile? photo = await _imagePicker.pickImage(
+        source: ImageSource.camera,
+      );
+      if (!mounted) return;
+      if (photo == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Camera cancelled for $docketType')),
+        );
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Captured image for $docketType: ${photo.name}'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to open camera for $docketType: $error'),
+        ),
+      );
+    }
   }
 
   IconData _iconFor(String title) {
@@ -139,7 +166,11 @@ class _DocketTypeCard extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
 
-  const _DocketTypeCard({required this.title, required this.icon, required this.onTap});
+  const _DocketTypeCard({
+    required this.title,
+    required this.icon,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -151,10 +182,10 @@ class _DocketTypeCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         splashColor: const Color(0xFFFFD700).withOpacity(0.25),
-        overlayColor: MaterialStateProperty.resolveWith<Color?>((states) {
-          if (states.contains(MaterialState.pressed) ||
-              states.contains(MaterialState.focused) ||
-              states.contains(MaterialState.hovered)) {
+        overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+          if (states.contains(WidgetState.pressed) ||
+              states.contains(WidgetState.focused) ||
+              states.contains(WidgetState.hovered)) {
             return const Color(0xFFFFD700).withOpacity(0.18);
           }
           return null;
@@ -210,5 +241,3 @@ class DocketTypePlaceholderPage extends StatelessWidget {
     );
   }
 }
-
-
