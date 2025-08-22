@@ -29,16 +29,17 @@ class _LoginPageState extends State<LoginPage> {
 
       Future.delayed(const Duration(seconds: 2), () {
         setState(() => _isLoading = false);
-
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Login successful! Redirecting...'),
-            backgroundColor: Colors.green,
+            backgroundColor: Color(0xFF2E7D32),
             duration: Duration(seconds: 1),
           ),
         );
 
         Future.delayed(const Duration(seconds: 1), () {
+          if (!mounted) return;
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
               builder: (context) => const OptionsPage(),
@@ -52,33 +53,13 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF4E342E), Color(0xFF3E2723)],
+      appBar: AppBar(title: const Text('LECO Docket Tracker')),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24.0),
+            child: _buildForm(context),
           ),
-        ),
-        child: Stack(
-          children: [
-            Center(
-              child: Image.asset(
-                'assets/images/leco_logo.webp',
-                width: 200,
-                height: 200,
-                fit: BoxFit.contain,
-              ),
-            ),
-            SafeArea(
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(24.0),
-                  child: _buildForm(context),
-                ),
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -86,7 +67,8 @@ class _LoginPageState extends State<LoginPage> {
 
   Widget _buildForm(BuildContext context) {
     return Card(
-      elevation: 8,
+      elevation: 4,
+      color: Theme.of(context).cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
       ),
@@ -97,9 +79,9 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-                             Image.asset('assets/images/leco_logo.webp',
-                   width: 60, height: 60, fit: BoxFit.contain),
-               const SizedBox(height: 16),
+              Image.asset('assets/images/leco_logo.webp',
+                  width: 80, height: 80, fit: BoxFit.contain),
+              const SizedBox(height: 24),
               Text(
                 'Docket Tracker',
                 style: Theme.of(context)
@@ -107,7 +89,7 @@ class _LoginPageState extends State<LoginPage> {
                     .headlineMedium
                     ?.copyWith(
                       fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
+                      color: Theme.of(context).colorScheme.primary,
                     ),
               ),
                              const SizedBox(height: 8),
@@ -116,7 +98,7 @@ class _LoginPageState extends State<LoginPage> {
                  style: Theme.of(context)
                      .textTheme
                      .bodyMedium
-                     ?.copyWith(color: Colors.grey[600]),
+                     ?.copyWith(color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7)),
                ),
                const SizedBox(height: 20),
               TextFormField(
@@ -156,7 +138,11 @@ class _LoginPageState extends State<LoginPage> {
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _handleLogin,
                   child: _isLoading
-                      ? const CircularProgressIndicator()
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                       : const Text('Log In'),
                 ),
               ),

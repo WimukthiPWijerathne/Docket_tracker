@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login_page.dart';
+import 'docket_type_selection_page.dart';
 
 class OptionsPage extends StatefulWidget {
   const OptionsPage({super.key});
@@ -15,8 +16,11 @@ class _OptionsPageState extends State<OptionsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Docket Tracker'),
+<<<<<<< HEAD
         backgroundColor: const Color(0xFF4E342E),
         foregroundColor: Colors.white,
+=======
+>>>>>>> 6df9fa3c6a7221fca33a819bf796dcb4b86514c4
         elevation: 0,
         actions: [
           IconButton(
@@ -32,6 +36,7 @@ class _OptionsPageState extends State<OptionsPage> {
           ),
         ],
       ),
+<<<<<<< HEAD
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -44,6 +49,9 @@ class _OptionsPageState extends State<OptionsPage> {
           ),
         ),
         child: SafeArea(
+=======
+      body: SafeArea(
+>>>>>>> 6df9fa3c6a7221fca33a819bf796dcb4b86514c4
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
@@ -53,16 +61,14 @@ class _OptionsPageState extends State<OptionsPage> {
                 Text(
                   'Welcome!',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.primary,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Choose an option to continue',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.white70,
-                  ),
+                  style: Theme.of(context).textTheme.bodyLarge,
                 ),
                 const SizedBox(height: 40),
 
@@ -78,12 +84,20 @@ class _OptionsPageState extends State<OptionsPage> {
                         context,
                         'Add Docket',
                         Icons.assignment,
+<<<<<<< HEAD
                         const Color(0xFF8D6E63),
                         () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Add Docket selected!'),
                               backgroundColor: Color(0xFF8D6E63),
+=======
+                        const Color(0xFFFFD700),
+                        () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const DocketTypeSelectionPage(),
+>>>>>>> 6df9fa3c6a7221fca33a819bf796dcb4b86514c4
                             ),
                           );
                         },
@@ -94,12 +108,21 @@ class _OptionsPageState extends State<OptionsPage> {
                         context,
                         'View Current Docket',
                         Icons.assessment,
+<<<<<<< HEAD
                         const Color(0xFF6D4C41),
                         () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('View Current Docket selected!'),
                               backgroundColor: Color(0xFF6D4C41),
+=======
+                        const Color(0xFFFFD700),
+                        () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: const Text('View Current Docket selected!'),
+                              backgroundColor: Theme.of(context).colorScheme.secondary,
+>>>>>>> 6df9fa3c6a7221fca33a819bf796dcb4b86514c4
                             ),
                           );
                         },
@@ -107,10 +130,13 @@ class _OptionsPageState extends State<OptionsPage> {
                     ],
                   ),
                 ),
+
+                const SizedBox(height: 16),
+
+                // Example Docket Priority Badges Row
               ],
             ),
           ),
-        ),
       ),
     );
   }
@@ -123,6 +149,7 @@ class _OptionsPageState extends State<OptionsPage> {
     Color color,
     VoidCallback onTap,
   ) {
+<<<<<<< HEAD
     return _HoverableCard(
       title: title,
       icon: icon,
@@ -254,12 +281,63 @@ class _HoverableCardState extends State<_HoverableCard>
                       ),
                     ],
                   ),
+=======
+    return Card(
+      elevation: 2,
+      color: Theme.of(context).cardColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: color,
+                child: Icon(icon, color: const Color(0xFF003366)),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.onSurface,
+>>>>>>> 6df9fa3c6a7221fca33a819bf796dcb4b86514c4
                 ),
               ),
             ),
           );
         },
       ),
+    );
+  }
+}
+
+class _PriorityChip extends StatelessWidget {
+  final String label;
+  final Color color;
+  final bool onDark;
+  const _PriorityChip({required this.label, required this.color, required this.onDark});
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      label: Text(
+        label,
+        style: TextStyle(
+          color: onDark ? Colors.white : const Color(0xFF003366),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      backgroundColor: color,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     );
   }
 }
