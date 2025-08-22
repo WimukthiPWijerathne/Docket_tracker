@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:leco_docket_tracker/utils/docket_camera_helper.dart';
 
 class DocketTypeSelectionPage extends StatefulWidget {
   const DocketTypeSelectionPage({super.key});
@@ -24,7 +25,8 @@ class _DocketTypeSelectionPageState extends State<DocketTypeSelectionPage> {
 
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
-  final ImagePicker _imagePicker = ImagePicker();
+  // Keep for potential preview/next-step usage; ignore if unused for now.
+  // File? _lastCaptured;
 
   @override
   void initState() {
@@ -109,20 +111,23 @@ class _DocketTypeSelectionPageState extends State<DocketTypeSelectionPage> {
 
   Future<void> _openCameraForDocket(String docketType) async {
     try {
-      final XFile? photo = await _imagePicker.pickImage(
-        source: ImageSource.camera,
+      final File? captured = await openCustomCameraForDocket(
+        context,
+        docketType: docketType,
       );
       if (!mounted) return;
-      if (photo == null) {
+      if (captured == null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Camera cancelled for $docketType')),
         );
         return;
       }
-
+      // setState(() => _lastCaptured = captured);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Captured image for $docketType: ${photo.name}'),
+          content: Text(
+            'Captured image for $docketType: ${captured.path.split('/').last}',
+          ),
         ),
       );
     } catch (error) {
