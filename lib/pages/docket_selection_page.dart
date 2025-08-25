@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'show_dockets.dart';
 
 class DocketSelectionPage extends StatefulWidget {
   const DocketSelectionPage({super.key});
@@ -128,7 +129,11 @@ class _DocketSelectionPageState extends State<DocketSelectionPage> {
                             count: entry.value,
                             icon: _iconFor(entry.key),
                             onTap: () {
-                              _showDocketDetails(context, entry.key, entry.value);
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => ShowDocketsPage(title: entry.key),
+                                ),
+                              );
                             },
                           ))
                       .toList(),
@@ -166,40 +171,7 @@ class _DocketSelectionPageState extends State<DocketSelectionPage> {
     }
   }
 
-  void _showDocketDetails(BuildContext context, String title, int count) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(title),
-          content: Text('There are $count dockets available for $title.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Navigate to docket list page or create new docket
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Selected $title with $count dockets'),
-                    backgroundColor: const Color(0xFF003366),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF003366),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Select'),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // Removed dialog in favor of direct navigation to ShowDocketsPage.
 }
 
 class _DocketCard extends StatelessWidget {
