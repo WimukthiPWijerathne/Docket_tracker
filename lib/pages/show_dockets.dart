@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'assign.dart';
 
 class ShowDocketsPage extends StatefulWidget {
   final String title;
@@ -187,10 +188,10 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
                         return;
                       }
 
-                      Navigator.pushNamed(
-                        context,
-                        '/assign',
-                        arguments: {'dockets': selectedDockets},
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AssignPage(dockets: selectedDockets),
+                        ),
                       );
                     },
                     style: ElevatedButton.styleFrom(

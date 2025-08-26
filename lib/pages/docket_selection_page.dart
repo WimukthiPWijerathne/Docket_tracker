@@ -47,6 +47,12 @@ class _DocketSelectionPageState extends State<DocketSelectionPage> {
         .where((entry) => entry.key.toLowerCase().contains(_query))
         .toList();
 
+    // Get top 3 most common docket types
+    final List<MapEntry<String, int>> topThree = _docketCounts.entries
+        .toList()
+        ..sort((a, b) => b.value.compareTo(a.value))
+        ..take(3).toList();
+
     final double width = MediaQuery.of(context).size.width;
     final int crossAxisCount = width >= 900
         ? 4
@@ -78,7 +84,114 @@ class _DocketSelectionPageState extends State<DocketSelectionPage> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 28),
+              const SizedBox(height: 20),
+              
+              // Top 3 Most Common Docket Types Section
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF003366).withOpacity(0.1),
+                      const Color(0xFFFFD700).withOpacity(0.1),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: const Color(0xFF003366).withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.trending_up,
+                          color: const Color(0xFF003366),
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Most Common Docket Types',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF003366),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        // Use column layout for very narrow screens
+                        if (constraints.maxWidth < 400) {
+                          return Column(
+                            children: topThree.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final docketEntry = entry.value;
+                              return Container(
+                                width: double.infinity,
+                                margin: EdgeInsets.only(
+                                  bottom: index < topThree.length - 1 ? 8 : 0,
+                                ),
+                                child: _TopDocketCard(
+                                  title: docketEntry.key,
+                                  count: docketEntry.value,
+                                  rank: index + 1,
+                                  icon: _iconFor(docketEntry.key),
+                                  isMobile: true,
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => ShowDocketsPage(title: docketEntry.key),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        } else {
+                          // Use row layout for wider screens
+                          return Row(
+                            children: topThree.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final docketEntry = entry.value;
+                              return Expanded(
+                                child: Container(
+                                  margin: EdgeInsets.only(
+                                    right: index < topThree.length - 1 ? 8 : 0,
+                                  ),
+                                  child: _TopDocketCard(
+                                    title: docketEntry.key,
+                                    count: docketEntry.value,
+                                    rank: index + 1,
+                                    icon: _iconFor(docketEntry.key),
+                                    isMobile: false,
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => ShowDocketsPage(title: docketEntry.key),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
               
               // Search field
               TextField(
@@ -269,6 +382,210 @@ class _DocketCard extends StatelessWidget {
              ),
            ),
          ),
+      ),
+    );
+  }
+}
+
+class _TopDocketCard extends StatelessWidget {
+  final String title;
+  final int count;
+  final int rank;
+  final IconData icon;
+  final VoidCallback onTap;
+  final bool isMobile;
+
+  const _TopDocketCard({
+    required this.title,
+    required this.count,
+    required this.rank,
+    required this.icon,
+    required this.onTap,
+    this.isMobile = false,
+  });
+
+  Color get _rankColor {
+    switch (rank) {
+      case 1:
+        return const Color(0xFFFFD700); // Gold
+      case 2:
+        return const Color(0xFFC0C0C0); // Silver
+      case 3:
+        return const Color(0xFFCD7F32); // Bronze
+      default:
+        return const Color(0xFF003366);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: isMobile ? const EdgeInsets.all(16) : const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: LinearGradient(
+              colors: [
+                Colors.white,
+                _rankColor.withOpacity(0.1),
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+          child: isMobile 
+            ? Row(
+                children: [
+                  // Rank badge
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: _rankColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _rankColor.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$rank',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  
+                  // Icon
+                  Icon(
+                    icon,
+                    color: const Color(0xFF003366),
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  
+                  // Title and count
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF003366),
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF003366),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            '$count available',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Rank badge
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: _rankColor,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: _rankColor.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$rank',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  
+                  // Icon
+                  Icon(
+                    icon,
+                    color: const Color(0xFF003366),
+                    size: 20,
+                  ),
+                  const SizedBox(height: 6),
+                  
+                  // Title
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF003366),
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 4),
+                  
+                  // Count
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF003366),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+        ),
       ),
     );
   }
