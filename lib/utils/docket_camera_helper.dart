@@ -4,8 +4,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:camera/camera.dart';
+import 'file_helper.dart';
+import '../pages/post_capture_options_page.dart';
 
 /// Docket type → abbreviation mapping
 final Map<String, String> docketTypeMap = {
@@ -50,9 +51,9 @@ Future<File?> openCameraForDocket(String docketType) async {
         "${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}";
     final newFileName = "${abbr}_$formattedDate.jpg";
 
-    // Get app storage directory (temporary for now)
-    final dir = await getTemporaryDirectory();
-    final targetPath = "${dir.path}/$newFileName";
+    // Get app storage directory
+    final folderPath = await getAppStoragePath();
+    final targetPath = "$folderPath/$newFileName";
 
     // Compress and save the image
     final XFile? compressedXFile =
@@ -182,8 +183,8 @@ class _DocketCameraPageState extends State<_DocketCameraPage>
           "${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_"
           "${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}";
       final newFileName = "${abbr}_$formattedDate.jpg";
-      final dir = await getTemporaryDirectory();
-      final targetPath = "${dir.path}/$newFileName";
+      final folderPath = await getAppStoragePath();
+      final targetPath = "$folderPath/$newFileName";
 
       final XFile? compressedXFile =
           await FlutterImageCompress.compressAndGetFile(
@@ -193,9 +194,19 @@ class _DocketCameraPageState extends State<_DocketCameraPage>
           );
 
       if (!mounted) return;
-      Navigator.of(
-        context,
-      ).pop(compressedXFile != null ? File(compressedXFile.path) : null);
+      if (compressedXFile != null) {
+        final file = File(compressedXFile.path);
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => PostCaptureOptionsPage(
+              filePath: file.path,
+              docketType: widget.docketType,
+            ),
+          ),
+        );
+      } else {
+        Navigator.of(context).pop();
+      }
     } catch (e, st) {
       developer.log('Capture error: $e', name: 'DocketCamera', stackTrace: st);
     } finally {

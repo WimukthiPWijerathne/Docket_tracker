@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
 import 'package:leco_docket_tracker/utils/docket_camera_helper.dart';
 
 class DocketTypeSelectionPage extends StatefulWidget {
@@ -111,25 +110,11 @@ class _DocketTypeSelectionPageState extends State<DocketTypeSelectionPage> {
 
   Future<void> _openCameraForDocket(String docketType) async {
     try {
-      final File? captured = await openCustomCameraForDocket(
+      await openCustomCameraForDocket(
         context,
         docketType: docketType,
       );
-      if (!mounted) return;
-      if (captured == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Camera cancelled for $docketType')),
-        );
-        return;
-      }
-      // setState(() => _lastCaptured = captured);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Captured image for $docketType: ${captured.path.split('/').last}',
-          ),
-        ),
-      );
+      // No need to handle return value since camera now navigates to PostCaptureOptionsPage
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
