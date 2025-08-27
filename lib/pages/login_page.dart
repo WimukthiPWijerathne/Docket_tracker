@@ -97,7 +97,7 @@ class _LoginPageState extends State<LoginPage> {
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
-                    ?.copyWith(color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7)),
+                    ?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
               ),
               const SizedBox(height: 32),
               TextFormField(
