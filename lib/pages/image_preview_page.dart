@@ -17,7 +17,10 @@ class ImagePreviewPage extends StatefulWidget {
     this.capturedFile,
     this.filePath,
     required this.docketType,
-  }) : assert(capturedFile != null || filePath != null, 'Either capturedFile or filePath must be provided');
+  }) : assert(
+         capturedFile != null || filePath != null,
+         'Either capturedFile or filePath must be provided',
+       );
 
   @override
   State<ImagePreviewPage> createState() => _ImagePreviewPageState();
@@ -30,7 +33,10 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
   @override
   void initState() {
     super.initState();
-    developer.log('ImagePreviewPage: initState called.', name: 'ImagePreviewPage');
+    developer.log(
+      'ImagePreviewPage: initState called.',
+      name: 'ImagePreviewPage',
+    );
     // Don't auto-upload anymore - let user preview first
   }
 
@@ -47,11 +53,12 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
 
     try {
       File fileToUpload;
-      
       if (widget.capturedFile != null) {
         // Need to save and compress the captured file first
-        developer.log('ImagePreviewPage: Saving and compressing captured file', name: 'ImagePreviewPage');
-        
+        developer.log(
+          'ImagePreviewPage: Saving and compressing captured file',
+          name: 'ImagePreviewPage',
+        );
         // Get abbreviation for docket type
         final docketTypeMap = {
           'Service Line Maintenance': 'SLM',
@@ -65,41 +72,46 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
           'Pole Top Maintenance': 'PTM',
         };
         final abbr = docketTypeMap[widget.docketType] ?? "UNK";
-        
         // Generate timestamped filename
         final now = DateTime.now();
         final formattedDate =
             "${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_"
             "${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}";
         final newFileName = "${abbr}_$formattedDate.jpg";
-        
         // Get app storage directory
         final folderPath = await getAppStoragePath();
         final targetPath = "$folderPath/$newFileName";
-        
         // Compress and save the image
-        final XFile? compressedXFile = await FlutterImageCompress.compressAndGetFile(
-          widget.capturedFile!.path,
-          targetPath,
-          quality: 20,
-        );
-        
+        final XFile? compressedXFile =
+            await FlutterImageCompress.compressAndGetFile(
+              widget.capturedFile!.path,
+              targetPath,
+              quality: 20,
+            );
         if (compressedXFile == null) {
           throw Exception('Failed to compress image');
         }
-        
         fileToUpload = File(compressedXFile.path);
       } else {
         // Use existing file path
         fileToUpload = File(widget.filePath!);
       }
 
-      developer.log('ImagePreviewPage: Uploading file: ${fileToUpload.path}', name: 'ImagePreviewPage');
-      
+      developer.log(
+        'ImagePreviewPage: Uploading file: ${fileToUpload.path}',
+        name: 'ImagePreviewPage',
+      );
+      // Get just the file name without path
       final fileName = fileToUpload.path.split('/').last;
-      final success = await ApiService.uploadDocketImage(fileToUpload, fileName);
-
-      developer.log('ImagePreviewPage: Upload success status: $success', name: 'ImagePreviewPage');
+      // Log the file details
+      print('Uploading file: $fileName');
+      print('File exists: ${await fileToUpload.exists()}');
+      print('File size: ${await fileToUpload.length()} bytes');
+      final success = await ApiService.uploadDocketImage(
+        fileToUpload,
+        fileName,
+      );
+      print('Image upload status: $success');
 
       if (!mounted) return;
 
@@ -111,33 +123,40 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Image uploaded successfully!'),
+            content: Text('Upload successful'),
             backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => PostCaptureOptionsPage(
+              filePath: fileToUpload.path,
+              docketType: widget.docketType,
+            ),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Upload failed. Please try again.'),
+            content: Text('Image upload failed'),
             backgroundColor: Colors.red,
           ),
         );
       }
     } catch (e, stackTrace) {
-      developer.log('Error during upload: $e', name: 'ImagePreviewPage', stackTrace: stackTrace);
-      
+      developer.log(
+        'Error during upload: $e',
+        name: 'ImagePreviewPage',
+        stackTrace: stackTrace,
+      );
       if (!mounted) return;
-      
       setState(() {
         _isUploading = false;
         _uploadSuccess = false;
       });
-      
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -147,38 +166,37 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
     return WillPopScope(
       onWillPop: () async => !_isUploading,
       child: Scaffold(
-      appBar: AppBar(
-        title: const Text('Preview & Upload'),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Expanded(
-                child: Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Center(
-                      child: Image.file(
-                        File(_imagePath),
-                        fit: BoxFit.contain,
+        appBar: AppBar(title: const Text('Preview & Upload')),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              children: [
+                Expanded(
+                  child: Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Center(
+                        child: Image.file(
+                          File(_imagePath),
+                          fit: BoxFit.contain,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              _buildBottomBar(),
-            ],
+                const SizedBox(height: 16),
+                _buildBottomBar(),
+              ],
+            ),
           ),
         ),
       ),
-    ));
+    );
   }
 
   Widget _buildBottomBar() {
@@ -198,7 +216,10 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
         children: [
           const Icon(Icons.check_circle, color: Colors.green, size: 48),
           const SizedBox(height: 8),
-          const Text('Upload successful!', style: TextStyle(color: Colors.green, fontSize: 16)),
+          const Text(
+            'Upload successful!',
+            style: TextStyle(color: Colors.green, fontSize: 16),
+          ),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: () => Navigator.of(context).pushReplacement(
@@ -276,7 +297,9 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: const Text('Are you sure you want to delete this image? This action cannot be undone.'),
+          content: const Text(
+            'Are you sure you want to delete this image? This action cannot be undone.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
