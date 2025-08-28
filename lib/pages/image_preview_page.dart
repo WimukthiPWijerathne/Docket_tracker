@@ -2,7 +2,6 @@ import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:leco_docket_tracker/services/api_service.dart';
 import '../utils/file_helper.dart';
 import 'post_capture_options_page.dart';
@@ -107,36 +106,67 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       print('Uploading file: $fileName');
       print('File exists: ${await fileToUpload.exists()}');
       print('File size: ${await fileToUpload.length()} bytes');
-      final success = await ApiService.uploadDocketImage(
+      final imageUploadSuccess = await ApiService.uploadDocketImage(
         fileToUpload,
         fileName,
       );
-      print('Image upload status: $success');
+      print('Image upload status: $imageUploadSuccess');
 
       if (!mounted) return;
 
-      setState(() {
-        _isUploading = false;
-        _uploadSuccess = success;
-      });
-
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Upload successful'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
+      if (imageUploadSuccess) {
+        // Prepare DocketDetails data (replace with actual values from your UI/state)
+        final docketDetails = {
+          'Depot':
+              'MATARA', // Using a default depot, replace with actual depot selection
+          'DocketType': widget.docketType,
+          'ImageName': fileName,
+          'uploadedBy': 'USER001', // Replace with actual user ID
+          'UploadedTime': DateTime.now().toIso8601String(),
+          'AssignedTo': 'PENDING', // Initially set to PENDING
+          'AssignedTime': '', // Empty until assigned
+          'CompletedTime': '', // Empty until completed
+          'DocketSerial':
+              fileName.split('_')[0] +
+              '_' +
+              DateTime.now().millisecondsSinceEpoch.toString(),
+        };
+        final detailsUploadSuccess = await ApiService.uploadDocketDetails(
+          docketDetails,
         );
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => PostCaptureOptionsPage(
-              filePath: fileToUpload.path,
-              docketType: widget.docketType,
+        setState(() {
+          _isUploading = false;
+          _uploadSuccess = detailsUploadSuccess;
+        });
+        if (detailsUploadSuccess) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Upload successful'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
             ),
-          ),
-        );
+          );
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => PostCaptureOptionsPage(
+                filePath: fileToUpload.path,
+                docketType: widget.docketType,
+              ),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Docket details upload failed'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       } else {
+        setState(() {
+          _isUploading = false;
+          _uploadSuccess = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Image upload failed'),
