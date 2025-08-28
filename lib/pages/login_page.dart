@@ -92,15 +92,17 @@ class _LoginPageState extends State<LoginPage> {
                       color: Theme.of(context).colorScheme.primary,
                     ),
               ),
-                             const SizedBox(height: 8),
-               Text(
-                 'Log in to continue',
-                 style: Theme.of(context)
-                     .textTheme
-                     .bodyMedium
-                     ?.copyWith(color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7)),
-               ),
-               const SizedBox(height: 20),
+
+              const SizedBox(height: 8),
+              Text(
+                'Log in to continue',
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+              ),
+              const SizedBox(height: 32),
+
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(
