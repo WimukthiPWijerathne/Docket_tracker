@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:leco_docket_tracker/services/api_service.dart';
+import '../services/database_service.dart';
 import '../utils/file_helper.dart';
 import 'post_capture_options_page.dart';
 
@@ -28,6 +29,7 @@ class ImagePreviewPage extends StatefulWidget {
 class _ImagePreviewPageState extends State<ImagePreviewPage> {
   bool _isUploading = false;
   bool? _uploadSuccess;
+  bool _dbSuccess = false;
 
   @override
   void initState() {
@@ -111,6 +113,18 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
         fileName,
       );
       print('Image upload status: $imageUploadSuccess');
+
+      // Upload to database
+      final dbUploadSuccess = await DatabaseService.uploadDocketDetails(
+        widget.docketType,
+        fileName,
+      );
+      print('Database upload status: $dbUploadSuccess');
+
+      // Update state
+      setState(() {
+        _dbSuccess = dbUploadSuccess;
+      });
 
       if (!mounted) return;
 
@@ -204,7 +218,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
         children: [
           CircularProgressIndicator(),
           SizedBox(height: 16),
-          Text('Uploading image, please wait...'),
+          Text('Uploading image and details...'),
         ],
       );
     }
@@ -215,9 +229,9 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
         children: [
           const Icon(Icons.check_circle, color: Colors.green, size: 48),
           const SizedBox(height: 8),
-          const Text(
-            'Upload successful!',
-            style: TextStyle(color: Colors.green, fontSize: 16),
+          Text(
+            _dbSuccess ? 'Image and details uploaded!' : 'Image uploaded, details failed',
+            style: TextStyle(color: _dbSuccess ? Colors.green : Colors.orange, fontSize: 16),
           ),
           const SizedBox(height: 16),
           ElevatedButton(
