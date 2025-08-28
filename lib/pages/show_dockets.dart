@@ -14,6 +14,7 @@ class ShowDocketsPage extends StatefulWidget {
 class _ShowDocketsPageState extends State<ShowDocketsPage> {
   final DocketService _docketService = DocketService();
   List<Docket> dockets = [];
+  List<Docket> filteredDockets = []; // Add this to store filtered dockets
   List<bool> status = [];
   bool isLoading = true;
   String? errorMessage;
@@ -35,9 +36,14 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
     try {
       final fetchedDockets = await _docketService.fetchDockets();
       if (mounted) {
+        // Filter dockets by the selected docket type
+        final filtered = fetchedDockets.where((docket) => 
+          docket.docketType == widget.title).toList();
+        
         setState(() {
-          dockets = fetchedDockets;
-          status = List<bool>.filled(dockets.length, false);
+          dockets = fetchedDockets; // Keep all dockets for reference
+          filteredDockets = filtered; // Store filtered dockets
+          status = List<bool>.filled(filteredDockets.length, false);
           isLoading = false;
         });
       }
@@ -46,9 +52,11 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
         setState(() {
           errorMessage = e.toString();
           isLoading = false;
-          // Fallback to dummy data for testing
+          // Fallback to dummy data for testing - also filter these
           dockets = _generateDummyDockets();
-          status = List<bool>.filled(dockets.length, false);
+          filteredDockets = dockets.where((docket) => 
+            docket.docketType == widget.title).toList();
+          status = List<bool>.filled(filteredDockets.length, false);
         });
       }
     }
@@ -60,7 +68,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
       final String formatted = '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
       return Docket(
         id: 'dummy_${index + 1}',
-        docketType: 'Type ${index + 1}',
+        docketType: widget.title, // Use the selected title as docket type
         depot: 'Location ${index + 1}',
         imageName: 'image_${index + 1}.jpg',
         uploadedBy: 'User ${index + 1}',
@@ -91,7 +99,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
       return;
     }
 
-    final selectedDocketIds = selectedIndices.map((i) => dockets[i].id).toList();
+    final selectedDocketIds = selectedIndices.map((i) => filteredDockets[i].id).toList(); // Use filteredDockets
     
     // Show loading dialog
     showDialog(
@@ -228,7 +236,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
     const double headerHeight = 56.0;
     const double maxHeight = 400.0;
     
-    double contentHeight = headerHeight + (dockets.length * rowHeight);
+    double contentHeight = headerHeight + (filteredDockets.length * rowHeight); // Use filteredDockets
     double tableHeight = contentHeight > maxHeight ? maxHeight : contentHeight;
 
     return Scaffold(
@@ -254,6 +262,14 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 color: Color(0xFF003366),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Total: ${filteredDockets.length} dockets', // Show filtered count
+              style: const TextStyle(
+                fontSize: 16,
+                color: Color(0xFF666666),
               ),
             ),
             const SizedBox(height: 16),
@@ -297,13 +313,33 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
                   Expanded(
                     child: isLoading
                         ? const Center(child: CircularProgressIndicator())
-                        : dockets.isEmpty
-                            ? const Center(child: Text('No dockets available'))
+                        : filteredDockets.isEmpty // Use filteredDockets
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.inbox,
+                                      size: 64,
+                                      color: Colors.grey[400],
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'No dockets available for "${widget.title}"',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey[600],
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              )
                             : ListView.builder(
                                 padding: EdgeInsets.zero,
-                                itemCount: dockets.length,
+                                itemCount: filteredDockets.length, // Use filteredDockets
                                 itemBuilder: (context, index) {
-                                  final docket = dockets[index];
+                                  final docket = filteredDockets[index]; // Use filteredDockets
                                   return _buildSimpleRow(
                                     docket.uploadedTime.isNotEmpty ? docket.uploadedTime : 'N/A',
                                     docket.depot.isNotEmpty ? docket.depot : 'Unknown Location',
