@@ -5,37 +5,6 @@ import 'package:http/http.dart' as http;
 import 'dart:async';
 
 class ApiService {
-  static Future<bool> uploadDocketDetails(
-    Map<String, dynamic> docketData,
-  ) async {
-    print('DEBUG: Uploading docket details to API');
-    print('DEBUG: Request data: $docketData');
-    var uri = Uri.parse('https://powerprox.sltidc.lk/POSTDocketDetails.php');
-    print('DEBUG: API URL: $uri');
-    try {
-      final response = await http.post(uri, body: docketData);
-      print('DEBUG: Response status: ${response.statusCode}');
-      print('DEBUG: Response body: ${response.body}');
-      if (response.statusCode == 200) {
-        developer.log('DocketDetails upload successful!', name: 'ApiService');
-        return true;
-      } else {
-        developer.log(
-          'DocketDetails upload failed with status [33m${response.statusCode}[0m: ${response.body}',
-          name: 'ApiService',
-        );
-        return false;
-      }
-    } catch (e, stackTrace) {
-      developer.log(
-        'Error uploading DocketDetails: $e',
-        name: 'ApiService',
-        error: e,
-        stackTrace: stackTrace,
-      );
-      return false;
-    }
-  }
 
   static Future<bool> uploadDocketImage(File imageFile, String fileName) async {
     print(
