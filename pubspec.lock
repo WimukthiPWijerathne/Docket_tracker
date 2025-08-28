@@ -219,6 +219,10 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+
+  http:
+    dependency: "direct main"
+
   flutter_web_plugins:
     dependency: transitive
     description: flutter
@@ -226,6 +230,7 @@ packages:
     version: "0.0.0"
   http:
     dependency: "direct main"
+
     description:
       name: http
       sha256: bb2ce4590bc2667c96f318d68cac1b5a7987ec819351d32b1c987239a815e007
@@ -240,6 +245,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.2"
+
   image_picker:
     dependency: "direct main"
     description:
@@ -304,6 +310,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.2.2"
+    
   intl:
     dependency: "direct main"
     description:
@@ -312,6 +319,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "0.19.0"
+
   leak_tracker:
     dependency: transitive
     description:
@@ -541,6 +549,7 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+
   xdg_directories:
     dependency: transitive
     description:
@@ -548,7 +557,7 @@ packages:
       sha256: "7a3f37b05d989967cdddcbb571f1ea834867ae2faa29725fd085180e0883aa15"
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.0"
+
 sdks:
   dart: ">=3.8.1 <4.0.0"
   flutter: ">=3.29.0"
