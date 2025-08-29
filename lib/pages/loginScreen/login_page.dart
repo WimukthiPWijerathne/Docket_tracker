@@ -1,6 +1,6 @@
 // lib/pages/login_page.dart
 import 'package:flutter/material.dart';
-import 'options_page.dart';
+import '../HomePage/options_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -110,7 +110,7 @@ class _LoginPageState extends State<LoginPage> {
                   prefixIcon: Icon(Icons.email),
                 ),
                 validator: (value) =>
-                    value != 'paliyagoda@leco.com' ? 'Invalid Email' : null,
+                    value != 'h' ? 'Invalid Email' : null,
               ),
                              const SizedBox(height: 12),
                TextFormField(
@@ -131,7 +131,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 validator: (value) =>
-                    value != '123456' ? 'Invalid Password' : null,
+                    value != 'h' ? 'Invalid Password' : null,
               ),
               const SizedBox(height: 24),
               SizedBox(

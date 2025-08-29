@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'login_page.dart';
-import 'docket_type_selection_page.dart';
-import 'docket_selection_page.dart';
-import 'assign.dart';
+import '../loginScreen/login_page.dart';
+import '../addDocket/docket_type_selection_page.dart';
+import '../docket_selection_page.dart';
+import '../assign.dart';
 
 class OptionsPage extends StatefulWidget {
   const OptionsPage({super.key});

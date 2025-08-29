@@ -1,15 +1,19 @@
+// pages/image_preview_page.dart
 import 'dart:developer' as developer;
 import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:leco_docket_tracker/services/api_service.dart';
-import '../services/database_service.dart';
-import '../utils/file_helper.dart';
-import 'post_capture_options_page.dart';
+import 'package:image_picker/image_picker.dart';
+
+import '../../services/api_service.dart';
+import '../../utils/file_helper.dart';
+import '../post_capture_options_page.dart';
+import 'http_post_docket_details.dart';
 
 class ImagePreviewPage extends StatefulWidget {
   final XFile? capturedFile;
-  final String? filePath; // Keep for backward compatibility
+  final String? filePath;
   final String docketType;
 
   const ImagePreviewPage({
@@ -18,9 +22,9 @@ class ImagePreviewPage extends StatefulWidget {
     this.filePath,
     required this.docketType,
   }) : assert(
-         capturedFile != null || filePath != null,
-         'Either capturedFile or filePath must be provided',
-       );
+  capturedFile != null || filePath != null,
+  'Either capturedFile or filePath must be provided',
+  );
 
   @override
   State<ImagePreviewPage> createState() => _ImagePreviewPageState();
@@ -29,38 +33,28 @@ class ImagePreviewPage extends StatefulWidget {
 class _ImagePreviewPageState extends State<ImagePreviewPage> {
   bool _isUploading = false;
   bool? _uploadSuccess;
-  bool _dbSuccess = false;
 
   @override
   void initState() {
     super.initState();
-    developer.log(
-      'ImagePreviewPage: initState called.',
-      name: 'ImagePreviewPage',
-    );
-    // Don't auto-upload anymore - let user preview first
+    developer.log('ImagePreviewPage: initState called.', name: 'ImagePreviewPage');
   }
 
-  String get _imagePath {
-    return widget.capturedFile?.path ?? widget.filePath!;
-  }
+  String get _imagePath => widget.capturedFile?.path ?? widget.filePath!;
 
   Future<void> _startUpload() async {
-    print('DEBUG: _startUpload called!'); // Simple print for debugging
     setState(() {
       _isUploading = true;
       _uploadSuccess = null;
     });
 
     try {
+      // 1) Prepare the file (compress if needed)
       File fileToUpload;
       if (widget.capturedFile != null) {
-        // Need to save and compress the captured file first
-        developer.log(
-          'ImagePreviewPage: Saving and compressing captured file',
-          name: 'ImagePreviewPage',
-        );
-        // Get abbreviation for docket type
+        developer.log('Saving & compressing captured file', name: 'ImagePreviewPage');
+
+        // Map your docket abbreviations
         final docketTypeMap = {
           'Service Line Maintenance': 'SLM',
           'Meter Testing': 'MT',
@@ -73,58 +67,38 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
           'Pole Top Maintenance': 'PTM',
         };
         final abbr = docketTypeMap[widget.docketType] ?? "UNK";
-        // Generate timestamped filename
+
+        // Timestamped filename (YYYYMMDD_HHMMSS)
         final now = DateTime.now();
-        final formattedDate =
+        final ts =
             "${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_"
             "${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}";
-        final newFileName = "${abbr}_$formattedDate.jpg";
-        // Get app storage directory
+        final newFileName = "${abbr}_$ts.jpg";
+
         final folderPath = await getAppStoragePath();
         final targetPath = "$folderPath/$newFileName";
-        // Compress and save the image
-        final XFile? compressedXFile =
-            await FlutterImageCompress.compressAndGetFile(
-              widget.capturedFile!.path,
-              targetPath,
-              quality: 20,
-            );
+
+        final XFile? compressedXFile = await FlutterImageCompress.compressAndGetFile(
+          widget.capturedFile!.path,
+          targetPath,
+          quality: 20,
+        );
         if (compressedXFile == null) {
           throw Exception('Failed to compress image');
         }
         fileToUpload = File(compressedXFile.path);
       } else {
-        // Use existing file path
         fileToUpload = File(widget.filePath!);
       }
 
-      developer.log(
-        'ImagePreviewPage: Uploading file: ${fileToUpload.path}',
-        name: 'ImagePreviewPage',
-      );
-      // Get just the file name without path
       final fileName = fileToUpload.path.split('/').last;
-      // Log the file details
-      print('Uploading file: $fileName');
-      print('File exists: ${await fileToUpload.exists()}');
-      print('File size: ${await fileToUpload.length()} bytes');
+      developer.log('Uploading file: $fileName', name: 'ImagePreviewPage');
+
+      // 2) Upload image binary via HTTP (not SFTP)
       final imageUploadSuccess = await ApiService.uploadDocketImage(
         fileToUpload,
         fileName,
       );
-      print('Image upload status: $imageUploadSuccess');
-
-      // Upload to database
-      final dbUploadSuccess = await DatabaseService.uploadDocketDetails(
-        widget.docketType,
-        fileName,
-      );
-      print('Database upload status: $dbUploadSuccess');
-
-      // Update state
-      setState(() {
-        _dbSuccess = dbUploadSuccess;
-      });
 
       if (!mounted) return;
 
@@ -133,19 +107,22 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
         _uploadSuccess = imageUploadSuccess;
       });
 
+      // 3) If image upload successful -> proceed to database insert
       if (imageUploadSuccess) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Upload successful'),
+            content: Text('Image upload successful. Saving details...'),
             backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
+            duration: Duration(seconds: 2),
           ),
         );
+
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => PostCaptureOptionsPage(
-              filePath: fileToUpload.path,
+            builder: (_) => HttpPostDocketDetails(
               docketType: widget.docketType,
+              fileName: fileName,
+              filePath: fileToUpload.path,
             ),
           ),
         );
@@ -157,12 +134,8 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
           ),
         );
       }
-    } catch (e, stackTrace) {
-      developer.log(
-        'Error during upload: $e',
-        name: 'ImagePreviewPage',
-        stackTrace: stackTrace,
-      );
+    } catch (e, st) {
+      developer.log('Error during upload: $e', name: 'ImagePreviewPage', stackTrace: st);
       if (!mounted) return;
       setState(() {
         _isUploading = false;
@@ -218,39 +191,12 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
         children: [
           CircularProgressIndicator(),
           SizedBox(height: 16),
-          Text('Uploading image and details...'),
-        ],
-      );
-    }
-
-    if (_uploadSuccess == true) {
-      // Upload successful, show success message and navigation
-      return Column(
-        children: [
-          const Icon(Icons.check_circle, color: Colors.green, size: 48),
-          const SizedBox(height: 8),
-          Text(
-            _dbSuccess ? 'Image and details uploaded!' : 'Image uploaded, details failed',
-            style: TextStyle(color: _dbSuccess ? Colors.green : Colors.orange, fontSize: 16),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => PostCaptureOptionsPage(
-                  filePath: _imagePath,
-                  docketType: widget.docketType,
-                ),
-              ),
-            ),
-            child: const Text('Continue'),
-          ),
+          Text('Uploading image...'),
         ],
       );
     }
 
     if (_uploadSuccess == false) {
-      // Upload failed, show Retry and Delete
       return Row(
         children: [
           Expanded(
@@ -266,7 +212,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
           const SizedBox(width: 16),
           Expanded(
             child: ElevatedButton(
-              onPressed: () => _startUpload(), // Retry
+              onPressed: _startUpload,
               child: const Text('Retry Upload'),
             ),
           ),
@@ -310,9 +256,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: const Text(
-            'Are you sure you want to delete this image? This action cannot be undone.',
-          ),
+          content: const Text('Are you sure you want to delete this image? This action cannot be undone.'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -320,7 +264,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
             ),
             ElevatedButton(
               onPressed: () {
-                Navigator.of(context).pop(); // Close dialog
+                Navigator.of(context).pop();
                 _confirmDelete(context);
               },
               style: ElevatedButton.styleFrom(

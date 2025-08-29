@@ -6,7 +6,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:camera/camera.dart';
 import 'file_helper.dart';
-import '../pages/image_preview_page.dart';
+import '../pages/addDocket/image_preview_page.dart';
 
 /// Docket type → abbreviation mapping
 final Map<String, String> docketTypeMap = {
