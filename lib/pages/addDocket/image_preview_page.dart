@@ -30,6 +30,19 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
   bool _isUploading = false;
   bool? _uploadSuccess;
   bool _dbSuccess = false;
+  
+  // Controllers for location details
+  final TextEditingController _transformerController = TextEditingController();
+  final TextEditingController _poleController = TextEditingController();
+  final TextEditingController _meterShiftingController = TextEditingController();
+  
+  @override
+  void dispose() {
+    _transformerController.dispose();
+    _poleController.dispose();
+    _meterShiftingController.dispose();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -46,7 +59,16 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
   }
 
   Future<void> _startUpload() async {
-    print('DEBUG: _startUpload called!'); // Simple print for debugging
+    print('DEBUG: _startUpload called!');
+    
+    // Validate required fields
+    if (_transformerController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter transformer number')),
+      );
+      return;
+    }
+    
     setState(() {
       _isUploading = true;
       _uploadSuccess = null;
@@ -114,6 +136,13 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       );
       print('Image upload status: $imageUploadSuccess');
 
+      // Prepare location details
+      final locationDetails = [
+        'Transformer: ${_transformerController.text}',
+        if (_poleController.text.isNotEmpty) 'Pole: ${_poleController.text}',
+        if (_meterShiftingController.text.isNotEmpty) 'Meter Shift: ${_meterShiftingController.text}',
+      ].join(', ');
+      
       // Upload to database
       final dbUploadSuccess = await Navigator.of(context).pushReplacement(
         MaterialPageRoute(
@@ -121,6 +150,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
             docketType: widget.docketType,
             fileName: fileName,
             filePath: fileToUpload.path,
+            locationDetails: locationDetails,
           ),
         ),
       );
@@ -180,6 +210,57 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
     }
   }
 
+  Widget _buildLocationInputField(TextEditingController controller, String label, {TextInputType? keyboardType}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: TextField(
+        controller: controller,
+        decoration: InputDecoration(
+          labelText: label,
+          border: const OutlineInputBorder(),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+        ),
+        keyboardType: keyboardType,
+      ),
+    );
+  }
+
+  Widget _buildLocationDetailsSection() {
+    return Card(
+      margin: const EdgeInsets.all(16.0),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Location Details *',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            _buildLocationInputField(
+              _transformerController,
+              'Transformer Number *',
+              keyboardType: TextInputType.text,
+            ),
+            const SizedBox(height: 8),
+            _buildLocationInputField(
+              _poleController,
+              'Pole Number',
+              keyboardType: TextInputType.text,
+            ),
+            const SizedBox(height: 8),
+            _buildLocationInputField(
+              _meterShiftingController,
+              'Meter Shifting Details',
+              keyboardType: TextInputType.text,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -208,6 +289,8 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+                _buildLocationDetailsSection(),
                 const SizedBox(height: 16),
                 _buildBottomBar(),
               ],
