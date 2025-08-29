@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../service/dockey_service.dart';
 import '../models/dockets.dart';
+import '../pages/assign.dart';
 
 class ShowDocketsPage extends StatefulWidget {
   final String title;
@@ -80,27 +81,37 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
       );
     });
   }
+  
 
-  Future<void> _onAssign() async {
-    if (!mounted) return;
-    
-    final selectedIndices = <int>[];
-    for (int i = 0; i < status.length; i++) {
-      if (status[i]) selectedIndices.add(i);
-    }
+  
+Future<void> _onAssign() async {
+  if (!mounted) return;
+  
+  final selectedIndices = <int>[];
+  for (int i = 0; i < status.length; i++) {
+    if (status[i]) selectedIndices.add(i);
+  }
 
-    if (selectedIndices.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select at least one docket'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-      return;
-    }
+  if (selectedIndices.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please select at least one docket'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+    return;
+  }
 
-    final selectedDocketIds = selectedIndices.map((i) => filteredDockets[i].id).toList(); // Use filteredDockets
-    
+  final selectedDocketIds = selectedIndices.map((i) => filteredDockets[i].id).toList();
+  
+  // Navigate to assign.dart with selected dockets
+  if (mounted) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AssignPage(dockets: selectedDocketIds),
+      ),
+    );
     // Show loading dialog
     showDialog(
       context: context,
@@ -153,6 +164,8 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
         );
       }
     }
+  }
+
   }
 
   void _onCancel() {

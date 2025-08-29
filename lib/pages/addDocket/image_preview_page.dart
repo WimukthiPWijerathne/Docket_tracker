@@ -3,8 +3,8 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:leco_docket_tracker/services/api_service.dart';
-import '../utils/file_helper.dart';
-import 'DocketGrabbing/http_post_docket_details.dart';
+import '../../utils/file_helper.dart';
+import '../docketGrabbing/http_post_docket_details.dart';
 import 'post_capture_options_page.dart';
 
 class ImagePreviewPage extends StatefulWidget {

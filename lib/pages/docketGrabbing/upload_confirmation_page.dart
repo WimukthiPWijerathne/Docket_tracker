@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import '../post_capture_options_page.dart';
+import '../addDocket/post_capture_options_page.dart';
 
 class UploadResultPage extends StatefulWidget {
   final bool isSuccess;
