@@ -12,6 +12,7 @@ class HttpPostDocketDetails extends StatefulWidget {
   final String fileName;
   final String? filePath;
   final String? locationDetails;
+  final String? docketSerial;
 
   const HttpPostDocketDetails({
     super.key,
@@ -19,6 +20,7 @@ class HttpPostDocketDetails extends StatefulWidget {
     required this.fileName,
     this.filePath,
     this.locationDetails,
+    this.docketSerial,
   });
 
   @override
@@ -60,6 +62,7 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
         widget.docketType,
         widget.fileName,
         locationDetails: widget.locationDetails,
+        docketSerial: widget.docketSerial,
       );
 
       if (!mounted) return;
@@ -96,46 +99,44 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
       String docketType,
       String imageName, {
       String? locationDetails,
+      String? docketSerial,
       }) async {
     try {
       final now = DateTime.now();
       final uploadedTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
 
-      // Keys must match your PHP $_POST indexes exactly
-      final Map<String, String> formBody = {
-        'Depot': 'Paliyagoda',
+      final Map<String, String> postData = {
+        'Depot': 'Paliyagoda', // Hardcoded for now
         'DocketType': docketType,
         'ImageName': imageName,
-        'uploadedBy': 'CSE001',
-        'AssignedTo': 'WORKER001',
-        'locationDetails': locationDetails ?? 'Not provided',
-        'UploadedTime': uploadedTime,
-        'DocketSerial': 'DS${now.millisecondsSinceEpoch}',
+        'UploadedBy': 'FieldWorker1', // Replace with actual user
+        'UploadedTime': DateTime.now().toIso8601String(),
+        'AssignedTo': 'OfficeStaff1', // Replace with actual assignment logic
+        'LocationDetails': locationDetails ?? '',
       };
 
-      debugPrint('DB INSERT - Form body: $formBody');
+      // Add docket serial to the post data if available
+      if (docketSerial != null && docketSerial.isNotEmpty) {
+        postData['DocketSerial'] = docketSerial;
+      }
 
-      final resp = await http
-          .post(
+      final response = await http.post(
         Uri.parse('https://powerprox.sltidc.lk/POSTDocketDetails.php'),
-        headers: const {
-          'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
-        },
-        body: formBody,
-      )
-          .timeout(const Duration(seconds: 15));
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: postData.map((key, value) => MapEntry(key, value.toString())),
+      ).timeout(const Duration(seconds: 30));
 
-      debugPrint('DB INSERT - Response ${resp.statusCode}');
-      debugPrint('DB INSERT - Response body: ${resp.body}');
+      debugPrint('DB INSERT - Response ${response.statusCode}');
+      debugPrint('DB INSERT - Response body: ${response.body}');
 
-      if (resp.statusCode != 200) {
-        debugPrint('DB INSERT - HTTP error: ${resp.statusCode}');
+      if (response.statusCode != 200) {
+        debugPrint('DB INSERT - HTTP error: ${response.statusCode}');
         return false;
       }
 
       // Parse JSON response from your PHP script
       try {
-        final decoded = jsonDecode(resp.body);
+        final decoded = jsonDecode(response.body);
         if (decoded is Map && decoded['status'] == 'success') {
           debugPrint('DB INSERT - Success! ID: ${decoded['id']}');
           return true;
@@ -147,8 +148,8 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
         debugPrint('DB INSERT - JSON parse error: $jsonError');
         // If it's not JSON but HTTP 200, might still be success
         // Check for obvious error indicators
-        if (resp.body.contains('Fatal error') ||
-            resp.body.contains('mysqli_sql_exception')) {
+        if (response.body.contains('Fatal error') ||
+            response.body.contains('mysqli_sql_exception')) {
           return false;
         }
         return true;
