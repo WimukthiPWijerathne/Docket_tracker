@@ -1,9 +1,17 @@
 import 'package:flutter/material.dart';
-import 'login_page.dart';
-import 'docket_type_selection_page.dart';
+import '../loginScreen/login_page.dart';
+import '../addDocket/docket_type_selection_page.dart';
+import '../docket_selection_page.dart';
+import '../assign.dart';
 
-class OptionsPage extends StatelessWidget {
+class OptionsPage extends StatefulWidget {
   const OptionsPage({super.key});
+
+  @override
+  State<OptionsPage> createState() => _OptionsPageState();
+}
+
+class _OptionsPageState extends State<OptionsPage> {
 
   @override
   Widget build(BuildContext context) {
@@ -75,14 +83,14 @@ class OptionsPage extends StatelessWidget {
                         Icons.assessment,
                         const Color(0xFFFFD700),
                         () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Text('View Current Docket selected!'),
-                              backgroundColor: Theme.of(context).colorScheme.secondary,
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const DocketSelectionPage(),
                             ),
                           );
                         },
                       ),
+
                     ],
                   ),
                 ),

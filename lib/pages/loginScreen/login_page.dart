@@ -1,6 +1,6 @@
 // lib/pages/login_page.dart
 import 'package:flutter/material.dart';
-import 'options_page.dart';
+import '../HomePage/options_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -73,14 +73,15 @@ class _LoginPageState extends State<LoginPage> {
         borderRadius: BorderRadius.circular(16),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(32.0),
+        padding: const EdgeInsets.all(24.0),
         child: Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset('assets/images/leco_logo.webp', width: 96, height: 96, fit: BoxFit.contain),
-              const SizedBox(height: 16),
+              Image.asset('assets/images/leco_logo.webp',
+                  width: 80, height: 80, fit: BoxFit.contain),
+              const SizedBox(height: 24),
               Text(
                 'Docket Tracker',
                 style: Theme.of(context)
@@ -91,15 +92,17 @@ class _LoginPageState extends State<LoginPage> {
                       color: Theme.of(context).colorScheme.primary,
                     ),
               ),
+
               const SizedBox(height: 8),
               Text(
                 'Log in to continue',
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium
-                    ?.copyWith(color: Theme.of(context).colorScheme.onBackground.withOpacity(0.7)),
+                    ?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
               ),
               const SizedBox(height: 32),
+
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(
@@ -107,10 +110,10 @@ class _LoginPageState extends State<LoginPage> {
                   prefixIcon: Icon(Icons.email),
                 ),
                 validator: (value) =>
-                    value != 'paliyagoda@leco.com' ? 'Invalid Email' : null,
+                    value != 'h' ? 'Invalid Email' : null,
               ),
-              const SizedBox(height: 16),
-              TextFormField(
+                             const SizedBox(height: 12),
+               TextFormField(
                 controller: _passwordController,
                 obscureText: !_isPasswordVisible,
                 decoration: InputDecoration(
@@ -128,7 +131,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 validator: (value) =>
-                    value != '123456' ? 'Invalid Password' : null,
+                    value != 'h' ? 'Invalid Password' : null,
               ),
               const SizedBox(height: 24),
               SizedBox(
