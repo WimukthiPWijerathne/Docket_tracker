@@ -81,7 +81,7 @@ class PostCaptureOptionsPage extends StatelessWidget {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => ImagePreviewPage(filePath: filePath),
+                        builder: (context) => ImagePreviewPage(filePath: filePath, docketType: docketType),
                       ),
                     );
                   },

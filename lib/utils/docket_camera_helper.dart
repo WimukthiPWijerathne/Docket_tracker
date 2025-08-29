@@ -6,7 +6,7 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:camera/camera.dart';
 import 'file_helper.dart';
-import '../pages/post_capture_options_page.dart';
+import '../pages/image_preview_page.dart';
 
 /// Docket type → abbreviation mapping
 final Map<String, String> docketTypeMap = {
@@ -60,13 +60,18 @@ Future<File?> openCameraForDocket(String docketType) async {
         await FlutterImageCompress.compressAndGetFile(
           captured.path,
           targetPath,
-          quality: 70, // Adjust quality between 0-100
+          quality: 20, // Adjust quality between 0-100
         );
 
     if (compressedXFile != null) {
       final file = File(compressedXFile.path);
-      developer.log("Compressed & saved: ${file.path}", name: "DocketCamera");
-      return file;
+      if (file.existsSync()) {
+        developer.log("Compressed & saved: ${file.path}", name: "DocketCamera");
+        return file;
+      } else {
+        developer.log("File check failed: does not exist at ${file.path}", name: "DocketCamera");
+        return null;
+      }
     } else {
       developer.log("Compression failed", name: "DocketCamera");
       return null;
@@ -82,12 +87,12 @@ Future<File?> openCameraForDocket(String docketType) async {
 }
 
 /// Opens a custom camera page with overlay and returns captured, compressed file.
-Future<File?> openCustomCameraForDocket(
+Future<XFile?> openCustomCameraForDocket(
   BuildContext context, {
   required String docketType,
 }) async {
   try {
-    final File? result = await Navigator.of(context).push(
+    final XFile? result = await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => _DocketCameraPage(docketType: docketType),
       ),
@@ -176,37 +181,16 @@ class _DocketCameraPageState extends State<_DocketCameraPage>
     try {
       final XFile rawFile = await _controller!.takePicture();
 
-      // Rename/compress as in openCameraForDocket
-      final abbr = docketTypeMap[widget.docketType] ?? "UNK";
-      final now = DateTime.now();
-      final formattedDate =
-          "${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_"
-          "${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}";
-      final newFileName = "${abbr}_$formattedDate.jpg";
-      final folderPath = await getAppStoragePath();
-      final targetPath = "$folderPath/$newFileName";
-
-      final XFile? compressedXFile =
-          await FlutterImageCompress.compressAndGetFile(
-            rawFile.path,
-            targetPath,
-            quality: 70,
-          );
-
       if (!mounted) return;
-      if (compressedXFile != null) {
-        final file = File(compressedXFile.path);
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(
-            builder: (context) => PostCaptureOptionsPage(
-              filePath: file.path,
-              docketType: widget.docketType,
-            ),
+      // Navigate to preview page with the captured XFile, without saving yet
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => ImagePreviewPage(
+            capturedFile: rawFile,
+            docketType: widget.docketType,
           ),
-        );
-      } else {
-        Navigator.of(context).pop();
-      }
+        ),
+      );
     } catch (e, st) {
       developer.log('Capture error: $e', name: 'DocketCamera', stackTrace: st);
     } finally {
