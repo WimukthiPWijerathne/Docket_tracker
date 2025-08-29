@@ -11,12 +11,14 @@ class HttpPostDocketDetails extends StatefulWidget {
   final String docketType;
   final String fileName;
   final String? filePath;
+  final String? locationDetails;
 
   const HttpPostDocketDetails({
     super.key,
     required this.docketType,
     required this.fileName,
     this.filePath,
+    this.locationDetails,
   });
 
   @override
@@ -57,6 +59,7 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
       final dbUploadSuccess = await _uploadDocketDetailsToDatabase(
         widget.docketType,
         widget.fileName,
+        locationDetails: widget.locationDetails,
       );
 
       if (!mounted) return;
@@ -91,8 +94,9 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
   /// Sends form-encoded data to your existing PHP API
   static Future<bool> _uploadDocketDetailsToDatabase(
       String docketType,
-      String imageName,
-      ) async {
+      String imageName, {
+      String? locationDetails,
+      }) async {
     try {
       final now = DateTime.now();
       final uploadedTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
@@ -104,6 +108,7 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
         'ImageName': imageName,
         'uploadedBy': 'CSE001',
         'AssignedTo': 'WORKER001',
+        'locationDetails': locationDetails ?? 'Not provided',
         'UploadedTime': uploadedTime,
         'DocketSerial': 'DS${now.millisecondsSinceEpoch}',
       };
