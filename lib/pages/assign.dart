@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'summary.dart';
 import 'docket_selection_page.dart';
+import '../service/docket_assignment_service.dart';
+import '../models/dockets.dart';
 
 class AssignPage extends StatefulWidget {
-  final List<String> dockets;
+  final List<Docket> dockets; // Changed from List<String> to List<Docket>
 
   const AssignPage({Key? key, required this.dockets}) : super(key: key);
 
@@ -12,6 +14,7 @@ class AssignPage extends StatefulWidget {
 }
 
 class _AssignPageState extends State<AssignPage> {
+  final DocketAssignmentService _assignmentService = DocketAssignmentService();
   final List<String> allWorkers = [
     'කමල්', 'අමල්', 'සුනිල්', 'චමින්ද',
     'රුවන්', 'නිමල්', 'සමන්', 'ජයන්ත',
@@ -20,11 +23,20 @@ class _AssignPageState extends State<AssignPage> {
   List<String> availableWorkers = [];
   List<String> selectedWorkers = [];
   List<String> assignedWorkers = [];
+  Map<String, List<String>> docketAssignments = {}; // Track which workers are assigned to which dockets
 
   @override
   void initState() {
     super.initState();
     availableWorkers = List.from(allWorkers);
+    _initializeDocketAssignments();
+  }
+
+  void _initializeDocketAssignments() {
+    // Initialize assignment tracking for each docket
+    for (final docket in widget.dockets) {
+      docketAssignments[docket.id] = [];
+    }
   }
 
   // Create a soft, unique color for each worker based on their name
@@ -42,18 +54,153 @@ class _AssignPageState extends State<AssignPage> {
   String get _titleSuffix {
     if (widget.dockets.isEmpty) return '';
     if (widget.dockets.length == 1) {
-      // Use the full docket label if only one docket selected
-      return widget.dockets.first;
+      // Use the docket serial if available, otherwise use ID
+      return widget.dockets.first.docketSerial.isNotEmpty 
+          ? widget.dockets.first.docketSerial 
+          : widget.dockets.first.id;
     }
     // For multiple dockets, show count in parentheses
     return '(${widget.dockets.length})';
+  }
+
+  Future<void> _assignWorkersToSelected() async {
+    if (selectedWorkers.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one worker'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      final currentTime = DateTime.now().toIso8601String();
+      int successCount = 0;
+      int failCount = 0;
+      List<String> errorMessages = [];
+
+      // Process each selected docket
+      for (final docket in widget.dockets) {
+        // Check if this docket already has assignments (for reassigned flag)
+        final bool isReassigned = docketAssignments[docket.id]!.isNotEmpty;
+        
+        // Assign each selected worker to this docket
+        for (final worker in selectedWorkers) {
+          try {
+            final success = await _assignmentService.assignWorkerToDocket(
+              docketId: docket.id,
+              assignedPerson: worker,
+              assignedTime: currentTime,
+              reassigned: isReassigned,
+              uploadedBy: docket.uploadedBy.isNotEmpty ? docket.uploadedBy : 'Unknown',
+              uploadedTime: docket.uploadedTime.isNotEmpty ? docket.uploadedTime : currentTime,
+            );
+
+            if (success) {
+              successCount++;
+              // Track the assignment
+              if (!docketAssignments[docket.id]!.contains(worker)) {
+                docketAssignments[docket.id]!.add(worker);
+              }
+            } else {
+              failCount++;
+              errorMessages.add('Failed to assign $worker to ${docket.docketSerial}');
+            }
+          } catch (e) {
+            failCount++;
+            errorMessages.add('Error assigning $worker to ${docket.docketSerial}: $e');
+          }
+        }
+      }
+
+      Navigator.of(context).pop(); // Close loading dialog
+
+      if (successCount > 0) {
+        setState(() {
+          // Move selected workers to assigned workers
+          for (final worker in selectedWorkers) {
+            if (!assignedWorkers.contains(worker)) {
+              assignedWorkers.add(worker);
+            }
+          }
+          // Remove assigned workers from available pool
+          availableWorkers.removeWhere((w) => assignedWorkers.contains(w));
+          // Clear selected workers
+          selectedWorkers.clear();
+        });
+
+        String message = 'Successfully assigned $successCount worker-docket combinations';
+        if (failCount > 0) {
+          message += ', $failCount failed';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: failCount == 0 ? Colors.green : Colors.orange,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+
+        // Show error details if any
+        if (errorMessages.isNotEmpty) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Assignment Errors'),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: errorMessages.map((msg) => 
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Text('• $msg'),
+                    ),
+                  ).toList(),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('OK'),
+                ),
+              ],
+            ),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('All assignments failed. ${errorMessages.join(', ')}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      Navigator.of(context).pop(); // Close loading dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to process assignments: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final titleText = _titleSuffix.isEmpty
         ? 'Assign Workers'
-        : 'Assign Workers ';
+        : 'Assign Workers $_titleSuffix';
 
     return Scaffold(
       appBar: AppBar(
@@ -82,7 +229,9 @@ class _AssignPageState extends State<AssignPage> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               const SizedBox(height: 6),
-              ...widget.dockets.map((d) => Text("• $d")).toList(),
+              ...widget.dockets.map((docket) => 
+                Text("• ${docket.docketSerial.isNotEmpty ? docket.docketSerial : docket.id} (${docket.docketType})")
+              ).toList(),
               const SizedBox(height: 16),
             ],
 
@@ -112,7 +261,7 @@ class _AssignPageState extends State<AssignPage> {
                     onDeleted: () {
                       setState(() {
                         selectedWorkers.remove(worker);
-                        if (!availableWorkers.contains(worker)) {
+                        if (!availableWorkers.contains(worker) && !assignedWorkers.contains(worker)) {
                           availableWorkers.add(worker);
                           availableWorkers.sort();
                         }
@@ -243,30 +392,20 @@ class _AssignPageState extends State<AssignPage> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16.0),
                 child: ElevatedButton(
-                  onPressed: () {
-                    setState(() {
-                      assignedWorkers.addAll(selectedWorkers);
-                      selectedWorkers.clear();
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          '${assignedWorkers.length} worker(s) assigned to ${widget.dockets.length} docket(s)',
-                        ),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  },
+                  onPressed: _assignWorkersToSelected,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF003366),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: Text('Assign ${assignedWorkers.length + selectedWorkers.length > 0 ? selectedWorkers.length : ''} Worker(s)'.trim()),
+                  child: Text(
+                    'Assign ${selectedWorkers.length} Worker(s) to ${widget.dockets.length} Docket(s)',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ),
 
-            // Assigned workers
+            // Assigned workers (now with delete functionality)
             if (assignedWorkers.isNotEmpty) ...[
               const SizedBox(height: 8),
               const Text(
@@ -282,7 +421,7 @@ class _AssignPageState extends State<AssignPage> {
                 runSpacing: 8,
                 children: assignedWorkers.map((worker) {
                   final color = _colorForName(worker);
-                  return Chip(
+                  return InputChip(
                     key: ValueKey('assigned_$worker'),
                     avatar: CircleAvatar(
                       backgroundColor: color,
@@ -293,6 +432,28 @@ class _AssignPageState extends State<AssignPage> {
                     ),
                     label: Text(worker),
                     backgroundColor: Colors.green[50],
+                    onDeleted: () {
+                      setState(() {
+                        // Remove from assigned workers
+                        assignedWorkers.remove(worker);
+                        // Remove from all docket assignments
+                        for (final docketId in docketAssignments.keys) {
+                          docketAssignments[docketId]!.remove(worker);
+                        }
+                        // Add back to available workers if not already there
+                        if (!availableWorkers.contains(worker)) {
+                          availableWorkers.add(worker);
+                          availableWorkers.sort();
+                        }
+                      });
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('$worker removed from all assignments'),
+                          backgroundColor: Colors.orange,
+                        ),
+                      );
+                    },
                   );
                 }).toList(),
               ),
@@ -332,7 +493,7 @@ class _AssignPageState extends State<AssignPage> {
                             Navigator.of(context).push(
                               MaterialPageRoute(
                                 builder: (_) => SummaryPage(
-                                  dockets: widget.dockets,
+                                  dockets: widget.dockets.map((d) => d.id).toList(),
                                   assignedWorkers: assignedWorkers,
                                 ),
                               ),
@@ -345,7 +506,7 @@ class _AssignPageState extends State<AssignPage> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     child: const Text(
-                      'Assign',
+                      'Continue to Summary',
                       style:
                           TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
