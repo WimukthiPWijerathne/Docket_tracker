@@ -41,8 +41,13 @@ class ApiService {
       );
       request.files.add(multipartFile);
       
+      // Remove .jpg extension if it exists to prevent double extension
+      final cleanFileName = fileName.endsWith('.jpg') 
+          ? fileName.substring(0, fileName.length - 4)
+          : fileName;
+          
       // Add other fields as per server requirements
-      request.fields['id'] = fileName;
+      request.fields['id'] = cleanFileName;
       request.fields['subdirectory'] = subdirectory.toString();
       
       print('DEBUG: Sending request with fields: ${request.fields}');
@@ -65,9 +70,9 @@ class ApiService {
       
       if (statusCode == 200) {
         print('DEBUG: File uploaded successfully!');
-        // Handle the case where server adds an extra .jpg extension
-        final actualFileName = fileName.endsWith('.jpg') ? '$fileName.jpg' : fileName;
-        print('DEBUG: Access URL: http://124.43.136.185:8000/api/fetch-testdocket-image/$subdirectory/$actualFileName');
+        // Server adds .jpg automatically, so we use the original filename
+        final accessFileName = '$fileName.jpg';
+        print('DEBUG: Access URL: http://124.43.136.185:8000/api/fetch-testdocket-image/$subdirectory/$cleanFileName.jpg');
         return true;
       } else {
         print('ERROR: Upload failed with status $statusCode: $responseBody');
