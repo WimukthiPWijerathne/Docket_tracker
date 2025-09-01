@@ -106,14 +106,16 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
       final uploadedTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
 
       final Map<String, String> postData = {
-        'Depot': 'Paliyagoda', // Hardcoded for now
+        'Depot': 'Paliyagoda',
         'DocketType': docketType,
         'ImageName': imageName,
-        'UploadedBy': 'FieldWorker1', // Replace with actual user
-        'UploadedTime': DateTime.now().toIso8601String(),
-        'AssignedTo': 'OfficeStaff1', // Replace with actual assignment logic
-        'LocationDetails': locationDetails ?? '',
+        'UploadedBy': 'CSE001',
+        'UploadedTime': uploadedTime,
+        'AssignedTo': 'WORKER001',
+        'locationDetails': locationDetails ?? '',
       };
+
+      debugPrint('DB INSERT - Form body: $postData');
 
       // Add docket serial to the post data if available
       if (docketSerial != null && docketSerial.isNotEmpty) {
