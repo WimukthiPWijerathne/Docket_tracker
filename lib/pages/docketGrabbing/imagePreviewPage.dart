@@ -95,9 +95,17 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       developer.log('Uploading file: $fileName', name: 'ImagePreviewPage');
 
       // 2) Upload image binary via HTTP (not SFTP)
+      final subdirectoryMap = {
+        'Service Line Maintenance': 1,
+        'Meter Testing': 2,
+        'Estimate': 3,
+      };
+      final subdirectory = subdirectoryMap[widget.docketType] ?? 4;
+      
       final imageUploadSuccess = await ApiService.uploadDocketImage(
         fileToUpload,
         fileName,
+        subdirectory,
       );
 
       if (!mounted) return;
