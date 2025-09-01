@@ -223,53 +223,99 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
     }
   }
 
-  Widget _buildLocationInputField(TextEditingController controller, String label, {TextInputType? keyboardType}) {
+  Widget _buildLocationInputField(TextEditingController controller, String label, 
+      {TextInputType? keyboardType, String? helperText, bool isRequired = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-      child: TextField(
-        controller: controller,
-        decoration: InputDecoration(
-          labelText: label,
-          border: const OutlineInputBorder(),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-        ),
-        keyboardType: keyboardType,
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                label,
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+              if (isRequired) const Text(
+                ' *',
+                style: TextStyle(color: Colors.red),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          TextField(
+            controller: controller,
+            decoration: InputDecoration(
+              hintText: 'Enter ${label.toLowerCase()}',
+              helperText: helperText,
+              helperMaxLines: 2,
+              border: const OutlineInputBorder(),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+              filled: true,
+              fillColor: Colors.grey[50],
+            ),
+            keyboardType: keyboardType,
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildLocationDetailsSection() {
     return Card(
-      margin: const EdgeInsets.all(16.0),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Location Details *',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16.0),
+            decoration: const BoxDecoration(
+              color: Color(0xFF003366),
+              borderRadius: BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
             ),
-            const SizedBox(height: 12),
-            _buildLocationInputField(
+            child: const Text(
+              'Location Details',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0, bottom: 4.0),
+            child: _buildLocationInputField(
               _transformerController,
-              'Transformer Number *',
+              'Transformer Number',
               keyboardType: TextInputType.text,
+              isRequired: true,
+              helperText: 'Required. Enter the transformer number for this docket.',
             ),
-            const SizedBox(height: 8),
-            _buildLocationInputField(
-              _poleController,
-              'Pole Number',
-              keyboardType: TextInputType.text,
-            ),
-            const SizedBox(height: 8),
-            _buildLocationInputField(
+          ),
+          _buildLocationInputField(
+            _poleController,
+            'Pole Number',
+            keyboardType: TextInputType.text,
+            helperText: 'Optional. If applicable, enter the pole number.',
+          ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: _buildLocationInputField(
               _meterShiftingController,
               'Meter Shifting Details',
               keyboardType: TextInputType.text,
+              helperText: 'Optional. Provide details if this involves meter shifting.',
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -277,42 +323,120 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
-      onWillPop: () async => !_isUploading,
+      onWillPop: () async {
+        if (_isUploading) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please wait while we finish uploading'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+          return false;
+        }
+        return true;
+      },
       child: Scaffold(
-        appBar: AppBar(title: const Text('Preview & Upload')),
+        appBar: AppBar(
+          title: const Text(
+            'Review & Submit',
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+          ),
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+        ),
         body: SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.of(context).size.height * 0.5,
-                    ),
-                    child: Card(
-                      elevation: 4,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with docket type
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                color: const Color(0xFFF5F7FA),
+                child: Text(
+                  'Docket Type: ${widget.docketType}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF003366),
+                    fontSize: 15,
+                  ),
+                ),
+              ),
+              
+              // Main content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Image preview with better styling
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: Text(
+                          'Preview',
+                          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                color: Colors.grey[700],
+                                fontWeight: FontWeight.w600,
+                              ),
+                        ),
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Center(
-                          child: Image.file(
-                            File(_imagePath),
-                            fit: BoxFit.contain,
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey[200]!),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: AspectRatio(
+                              aspectRatio: 3/4,
+                              child: Image.file(
+                                File(_imagePath),
+                                fit: BoxFit.cover,
+                              ),
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                      
+                      const SizedBox(height: 16),
+                      
+                      // Location details section
+                      _buildLocationDetailsSection(),
+                      
+                      const SizedBox(height: 24),
+                    ],
                   ),
-                  const SizedBox(height: 16),
-                  _buildLocationDetailsSection(),
-                  const SizedBox(height: 16),
-                  _buildBottomBar(),
-                ],
+                ),
               ),
-            ),
+              
+              // Bottom action bar
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, -2),
+                    ),
+                  ],
+                ),
+                child: _buildBottomBar(),
+              ),
+            ],
           ),
         ),
       ),
@@ -321,85 +445,223 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
 
   Widget _buildBottomBar() {
     if (_isUploading) {
-      return const Column(
+      return Column(
         children: [
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
-          Text('Uploading image and details...'),
+          const CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF003366)),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Uploading your docket...',
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w500,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Please wait while we process your request',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey[600],
+                ),
+            textAlign: TextAlign.center,
+          ),
         ],
       );
     }
 
     if (_uploadSuccess == true) {
-      // Upload successful, show success message and navigation
       return Column(
         children: [
-          const Icon(Icons.check_circle, color: Colors.green, size: 48),
-          const SizedBox(height: 8),
-          Text(
-            _dbSuccess ? 'Image and details uploaded!' : 'Image uploaded, details failed',
-            style: TextStyle(color: _dbSuccess ? Colors.green : Colors.orange, fontSize: 16),
-          ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => PostCaptureOptionsPage(
-                  filePath: _imagePath,
-                  docketType: widget.docketType,
-                ),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _dbSuccess ? Colors.green[50] : Colors.orange[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: _dbSuccess ? Colors.green[100]! : Colors.orange[100]!,
               ),
             ),
-            child: const Text('Continue'),
+            child: Row(
+              children: [
+                Icon(
+                  _dbSuccess ? Icons.check_circle : Icons.warning_amber_rounded,
+                  color: _dbSuccess ? Colors.green : Colors.orange,
+                  size: 32,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _dbSuccess ? 'Upload Successful!' : 'Partial Upload',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: _dbSuccess ? Colors.green[800] : Colors.orange[800],
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        _dbSuccess 
+                            ? 'Your docket has been successfully uploaded.'
+                            : 'Image uploaded but there was an issue with the details.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: _dbSuccess ? Colors.green[700] : Colors.orange[700],
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (context) => PostCaptureOptionsPage(
+                    filePath: _imagePath,
+                    docketType: widget.docketType,
+                  ),
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF003366),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                elevation: 0,
+              ),
+              child: const Text(
+                'Continue',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+            ),
           ),
         ],
       );
     }
 
     if (_uploadSuccess == false) {
-      // Upload failed, show Retry and Delete
-      return Row(
+      return Column(
         children: [
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () => _deleteImage(context),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Delete'),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red[50],
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.red[100]!),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.red, size: 32),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Upload Failed',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                              color: Colors.red[800],
+                              fontWeight: FontWeight.w600,
+                            ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'There was an issue uploading your docket. Please try again.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: Colors.red[700],
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () => _startUpload(), // Retry
-              child: const Text('Retry Upload'),
-            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () => _deleteImage(context),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Delete'),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _startUpload,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF003366),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    elevation: 0,
+                  ),
+                  child: const Text('Retry Upload'),
+                ),
+              ),
+            ],
           ),
         ],
       );
     }
 
     // Initial state - show preview options
-    return Row(
+    return Column(
       children: [
-        Expanded(
-          child: ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.grey,
-              foregroundColor: Colors.white,
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                label: const Text('Retake Photo'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.grey[800],
+                  side: BorderSide(color: Colors.grey[300]!),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
             ),
-            child: const Text('Retake'),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: _startUpload,
-            child: const Text('Save & Upload'),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _startUpload,
+                icon: const Icon(Icons.cloud_upload_outlined, size: 20),
+                label: const Text('Save & Upload'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF003366),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
