@@ -6,51 +6,76 @@ import 'dart:async';
 
 class ApiService {
 
-  static Future<bool> uploadDocketImage(File imageFile, String fileName) async {
-    print(
-      'DEBUG: ApiService.uploadDocketImage called with file: ${imageFile.path}',
-    );
-    var uri = Uri.parse('http://124.43.136.185:8000/api/upload-testdocket');
-    var request = http.MultipartRequest('POST', uri);
-
-    // Add required fields based on API response
-    request.fields['id'] = DateTime.now().millisecondsSinceEpoch.toString();
-    request.fields['subdirectory'] = 'dockets';
-
-    var multipartFile = await http.MultipartFile.fromPath(
-      'images',
-      imageFile.path,
-    );
-    request.files.add(multipartFile);
-    print(
-      'DEBUG: About to send HTTP request to $uri with fields: ${request.fields}',
-    );
-
+  /// Uploads a docket image to the server with the specified subdirectory
+  /// 
+  /// [imageFile] - The image file to upload
+  /// [fileName] - The name to save the file as on the server
+  /// [subdirectory] - The subdirectory to store the image in (1-4):
+  ///                  1 - Service Line Maintenance
+  ///                  2 - Meter Testing
+  ///                  3 - Estimation
+  ///                  4 - All other
+  static Future<bool> uploadDocketImage(
+    File imageFile, 
+    String fileName, 
+    int subdirectory,
+  ) async {
     try {
-      var response = await request.send();
+      print('DEBUG: Starting upload of ${imageFile.path} as $fileName to subdirectory $subdirectory');
+      print('DEBUG: File exists: ${await imageFile.exists()}');
+      
+      if (!await imageFile.exists()) {
+        print('ERROR: File does not exist at path: ${imageFile.path}');
+        return false;
+      }
+      
+      var uri = Uri.parse('http://124.43.136.185:8000/api/upload-testdocket');
+      print('DEBUG: Uploading to URL: $uri');
+      
+      var request = http.MultipartRequest('POST', uri);
+      
+      // Add the image file with the correct field name
+      var multipartFile = await http.MultipartFile.fromPath(
+        'images',  // Field name should match server expectation
+        imageFile.path,
+      );
+      request.files.add(multipartFile);
+      
+      // Add other fields as per server requirements
+      request.fields['id'] = fileName;
+      request.fields['subdirectory'] = subdirectory.toString();
+      
+      print('DEBUG: Sending request with fields: ${request.fields}');
+      print('DEBUG: File size: ${await imageFile.length()} bytes');
+      
+      // Send the request with timeout
+      var response = await request.send().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          print('ERROR: Upload timed out after 30 seconds');
+          throw TimeoutException('Upload timed out');
+        },
+      );
+      
       final responseBody = await response.stream.bytesToString();
-
-      if (response.statusCode == 200) {
-        developer.log('Upload successful!', name: 'ApiService');
+      final statusCode = response.statusCode;
+      
+      print('DEBUG: Server response status: $statusCode');
+      print('DEBUG: Server response: $responseBody');
+      
+      if (statusCode == 200) {
+        print('DEBUG: File uploaded successfully!');
+        // Handle the case where server adds an extra .jpg extension
+        final actualFileName = fileName.endsWith('.jpg') ? '$fileName.jpg' : fileName;
+        print('DEBUG: Access URL: http://124.43.136.185:8000/api/fetch-testdocket-image/$subdirectory/$actualFileName');
         return true;
       } else {
-        print(
-          'DEBUG: Upload failed with status ${response.statusCode}: $responseBody',
-        );
-        developer.log(
-          'Upload failed with status ${response.statusCode}: $responseBody',
-          name: 'ApiService',
-        );
+        print('ERROR: Upload failed with status $statusCode: $responseBody');
         return false;
       }
     } catch (e, stackTrace) {
-      print('DEBUG: Exception during upload: $e');
-      developer.log(
-        'Error uploading image: $e',
-        name: 'ApiService',
-        error: e,
-        stackTrace: stackTrace,
-      );
+      print('ERROR: Exception during upload: $e');
+      print('Stack trace: $stackTrace');
       return false;
     }
   }

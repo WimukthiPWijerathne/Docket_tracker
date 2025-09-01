@@ -69,6 +69,8 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       return;
     }
     
+    // Removed OCR service functionality
+    String? docketSerial;
     setState(() {
       _isUploading = true;
       _uploadSuccess = null;
@@ -130,9 +132,19 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       print('Uploading file: $fileName');
       print('File exists: ${await fileToUpload.exists()}');
       print('File size: ${await fileToUpload.length()} bytes');
+      // Determine subdirectory based on docket type
+      final subdirectoryMap = {
+        'Service Line Maintenance': 1,
+        'Meter Testing': 2,
+        'Estimate': 3,
+        // All other types go to subdirectory 4
+      };
+      final subdirectory = subdirectoryMap[widget.docketType] ?? 4;
+      
       final imageUploadSuccess = await ApiService.uploadDocketImage(
         fileToUpload,
         fileName,
+        subdirectory,
       );
       print('Image upload status: $imageUploadSuccess');
 
@@ -144,16 +156,17 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       ].join(', ');
       
       // Upload to database
-      final dbUploadSuccess = await Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
+      final dbUploadSuccess = await Navigator.of(context).pushReplacement<bool, bool>(
+        MaterialPageRoute<bool>(
           builder: (_) => HttpPostDocketDetails(
             docketType: widget.docketType,
             fileName: fileName,
             filePath: fileToUpload.path,
             locationDetails: locationDetails,
+            docketSerial: docketSerial, // Pass the extracted docket serial
           ),
         ),
-      );
+      ) ?? false;
       // stop execution so we don’t run the old flow
 
 
@@ -268,32 +281,37 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       child: Scaffold(
         appBar: AppBar(title: const Text('Preview & Upload')),
         body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Expanded(
-                  child: Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                children: [
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(context).size.height * 0.5,
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Center(
-                        child: Image.file(
-                          File(_imagePath),
-                          fit: BoxFit.contain,
+                    child: Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Center(
+                          child: Image.file(
+                            File(_imagePath),
+                            fit: BoxFit.contain,
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                _buildLocationDetailsSection(),
-                const SizedBox(height: 16),
-                _buildBottomBar(),
-              ],
+                  const SizedBox(height: 16),
+                  _buildLocationDetailsSection(),
+                  const SizedBox(height: 16),
+                  _buildBottomBar(),
+                ],
+              ),
             ),
           ),
         ),

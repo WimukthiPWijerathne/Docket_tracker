@@ -67,7 +67,7 @@ class UploadService {
   }
 
   /// Uploads image file to server
-  static Future<bool> uploadImageFile(File imageFile) async {
+  static Future<bool> uploadImageFile(File imageFile, String docketType) async {
     try {
       final fileName = imageFile.path.split('/').last;
 
@@ -80,9 +80,18 @@ class UploadService {
       print('File exists: ${await imageFile.exists()}');
       print('File size: ${await imageFile.length()} bytes');
 
+      // Determine subdirectory based on docket type
+      final subdirectoryMap = {
+        'Service Line Maintenance': 1,
+        'Meter Testing': 2,
+        'Estimate': 3,
+      };
+      final subdirectory = subdirectoryMap[docketType] ?? 4;
+      
       final uploadSuccess = await ApiService.uploadDocketImage(
         imageFile,
         fileName,
+        subdirectory,
       );
 
       print('Image upload status: $uploadSuccess');
