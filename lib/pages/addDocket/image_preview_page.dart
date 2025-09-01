@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:leco_docket_tracker/services/api_service.dart';
+import 'package:leco_docket_tracker/services/ocr_service.dart';
 import '../../utils/file_helper.dart';
 import '../docketGrabbing/http_post_docket_details.dart';
 import 'post_capture_options_page.dart';
@@ -67,6 +68,22 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
         const SnackBar(content: Text('Please enter transformer number')),
       );
       return;
+    }
+    
+    // Extract docket serial using OCR
+    String? docketSerial;
+    try {
+      final ocrService = OcrService();
+      final imageFile = File(_imagePath);
+      docketSerial = await ocrService.extractDocketSerial(imageFile);
+      if (docketSerial != null) {
+        print('Extracted docket serial: $docketSerial');
+      } else {
+        print('No docket serial found in image');
+      }
+    } catch (e) {
+      print('Error during OCR processing: $e');
+      // Continue with upload even if OCR fails
     }
     
     setState(() {
@@ -161,6 +178,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
             fileName: fileName,
             filePath: fileToUpload.path,
             locationDetails: locationDetails,
+            docketSerial: docketSerial, // Pass the extracted docket serial
           ),
         ),
       ) ?? false;
