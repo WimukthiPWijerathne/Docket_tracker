@@ -1,13 +1,28 @@
 class AssignmentRequest {
-  final String docketId;
-  final String assignedTo;
+  final String docketID;
+  final String assignedPersons;
+  final String assignedTime;
+  final bool reassigned;
+  final String uploadedBy;
+  final String uploadedTime;
 
-  AssignmentRequest({required this.docketId, required this.assignedTo});
+  AssignmentRequest({
+    required this.docketID,
+    required this.assignedPersons,
+    required this.assignedTime,
+    required this.reassigned,
+    required this.uploadedBy,
+    required this.uploadedTime,
+  });
 
   Map<String, dynamic> toJson() => {
-        'docketId': docketId,
-        'assignedTo': assignedTo,
-      };
+    'docketID': docketID,
+    'assignedPersons': assignedPersons,
+    'assignedTime': assignedTime,
+    'reassigned': reassigned,
+    'uploadedBy': uploadedBy,
+    'uploadedTime': uploadedTime,
+  };
 }
 
 class AssignmentResponse {

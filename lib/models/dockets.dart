@@ -25,15 +25,15 @@ class Docket {
 
   factory Docket.fromJson(Map<String, dynamic> json) {
     return Docket(
-      id: json['id']?.toString() ?? '',
+      id: json['ID']?.toString() ?? json['id']?.toString() ?? '',
       depot: json['Depot']?.toString() ?? '',
       docketType: json['DocketType']?.toString() ?? '',
       docketSerial: json['DocketSerial']?.toString() ?? '',
       completedTime: json['CompletedTime']?.toString() ?? '',
-      assignedTo: json['AssignTo']?.toString() ?? '',
+      assignedTo: json['AssignedTo']?.toString() ?? json['AssignTo']?.toString() ?? '',
       assignTime: json['AssignedTime']?.toString() ?? '',
       uploadedTime: json['UploadedTime']?.toString() ?? '',
-      uploadedBy: json['UploadedBy']?.toString() ?? '',
+      uploadedBy: json['uploadedBy']?.toString() ?? json['UploadedBy']?.toString() ?? '',
       imageName: json['ImageName']?.toString() ?? '',
     );
   }

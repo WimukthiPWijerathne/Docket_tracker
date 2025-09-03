@@ -74,6 +74,7 @@ class _AssignPageState extends State<AssignPage> {
       return;
     }
 
+    // Show loading dialog
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -94,12 +95,14 @@ class _AssignPageState extends State<AssignPage> {
         // Assign each selected worker to this docket
         for (final worker in selectedWorkers) {
           try {
+            print('🔄 Assigning worker $worker to docket ${docket.docketSerial} (${docket.id})');
+            
             final success = await _assignmentService.assignWorkerToDocket(
               docketId: docket.id,
               assignedPerson: worker,
               assignedTime: currentTime,
               reassigned: isReassigned,
-              uploadedBy: docket.uploadedBy.isNotEmpty ? docket.uploadedBy : 'Unknown',
+              uploadedBy: docket.uploadedBy.isNotEmpty ? docket.uploadedBy : 'CSE001',
               uploadedTime: docket.uploadedTime.isNotEmpty ? docket.uploadedTime : currentTime,
             );
 
@@ -109,14 +112,23 @@ class _AssignPageState extends State<AssignPage> {
               if (!docketAssignments[docket.id]!.contains(worker)) {
                 docketAssignments[docket.id]!.add(worker);
               }
+              print('✅ Successfully assigned $worker to ${docket.docketSerial}');
             } else {
               failCount++;
-              errorMessages.add('Failed to assign $worker to ${docket.docketSerial}');
+              final errorMsg = 'Failed to assign $worker to ${docket.docketSerial} (${docket.id})';
+              errorMessages.add(errorMsg);
+              print('❌ $errorMsg');
             }
-          } catch (e) {
+          } catch (e, stackTrace) {
             failCount++;
-            errorMessages.add('Error assigning $worker to ${docket.docketSerial}: $e');
+            final errorMsg = 'Error assigning $worker to ${docket.docketSerial}: $e';
+            errorMessages.add(errorMsg);
+            print('❌ $errorMsg');
+            print('Stack trace: $stackTrace');
           }
+          
+          // Small delay between assignments to avoid overwhelming the server
+          await Future.delayed(const Duration(milliseconds: 200));
         }
       }
 
