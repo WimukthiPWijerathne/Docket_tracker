@@ -5,6 +5,38 @@ import '../models/dockets.dart';
 class DocketService {
   final String baseUrl = "https://powerprox.sltidc.lk/GETDocketDetails.php";
 
+  // Fetch a single docket by ID
+  Future<Docket?> fetchDocketById(String docketId) async {
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl?id=$docketId'),
+        headers: {'Accept': 'application/json'},
+      );
+
+      print('Fetch docket by ID status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final responseBody = response.body;
+        if (responseBody.isEmpty) {
+          print('Empty response when fetching docket by ID');
+          return null;
+        }
+
+        dynamic jsonData = json.decode(responseBody);
+        
+        if (jsonData is List) {
+          return jsonData.isNotEmpty ? Docket.fromJson(jsonData.first) : null;
+        } else if (jsonData is Map<String, dynamic>) {
+          return Docket.fromJson(jsonData);
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error in fetchDocketById: $e');
+      return null;
+    }
+  }
+
   Future<List<Docket>> fetchDockets() async {
     try {
       // Use the baseUrl directly since it's already the complete endpoint
