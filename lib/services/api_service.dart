@@ -29,7 +29,7 @@ class ApiService {
         return false;
       }
       
-      var uri = Uri.parse('http://124.43.136.185:8000/api/upload-testdocket');
+      var uri = Uri.parse('http://124.43.181.243:8000/api/upload-testdocket');
       print('DEBUG: Uploading to URL: $uri');
       
       var request = http.MultipartRequest('POST', uri);
