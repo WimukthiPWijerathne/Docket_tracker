@@ -44,6 +44,9 @@ dependencies:
   intl: ^0.19.0
   google_mlkit_text_recognition: ^0.13.0
   
+  shimmer: ^3.0.0
+  pull_to_refresh: ^2.0.0
+  
 
 dev_dependencies:
   flutter_test:

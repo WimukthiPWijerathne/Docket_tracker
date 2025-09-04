@@ -16,7 +16,7 @@ class DatabaseService {
         'DocketType': docketType,
         'ImageName': imageName,
         'uploadedBy': 'CSE001',
-        'AssignedTo': 'WORKER001',
+        'AssignedTo': '0',
         'UploadedTime': uploadedTime,
         'DocketSerial': 'DS${now.millisecondsSinceEpoch}',
       };
