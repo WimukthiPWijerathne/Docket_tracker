@@ -23,7 +23,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
 
   // API bases
   // static const String httpsImageBase = 'https://powerprox.sltidc.lk'; 
-  static const String httpImageBase = 'http://124.43.136.185:8000';
+  static const String httpImageBase = 'http://124.43.181.243:8000';
 
   @override
   void initState() {
