@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'login_page.dart';
-import 'docket_type_selection_page.dart';
-import 'docket_selection_page.dart';
-import 'assign.dart';
+import '../loginScreen/login_page.dart';
+import '../addDocket/docket_type_selection_page.dart';
+import '../docket_selection_page.dart';
+import '../assign.dart';
+import '../workersProfile/workersProfile.dart';
 
 class OptionsPage extends StatefulWidget {
   const OptionsPage({super.key});
@@ -90,6 +91,18 @@ class _OptionsPageState extends State<OptionsPage> {
                           );
                         },
                       ),
+                      _buildOptionCard(context,
+                       'View Workers in the Depo',
+                        Icons.assessment_rounded,
+                        const Color(0xFFFFD700),
+                        (){
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_)=> WorkerListPage(),
+                            )
+                          );
+                        }
+                        )
 
                     ],
                   ),

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'image_preview_page.dart';
+
 import 'docket_type_selection_page.dart';
-import '../utils/docket_camera_helper.dart';
+import 'simple_preview_page.dart';
+import '../../utils/docket_camera_helper.dart';
 
 class PostCaptureOptionsPage extends StatelessWidget {
   final String filePath;
@@ -81,7 +82,7 @@ class PostCaptureOptionsPage extends StatelessWidget {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => ImagePreviewPage(filePath: filePath, docketType: docketType),
+                        builder: (context) => SimplePreviewPage(filePath: filePath, docketType: docketType),
                       ),
                     );
                   },

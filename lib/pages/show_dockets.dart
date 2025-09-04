@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
+
 import 'package:http/http.dart' as http; // Add this import for debugging
 import '../service/dockey_service.dart';
 import '../models/dockets.dart';
@@ -23,7 +23,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
   bool isLoading = true;
   String? errorMessage;
 
-  static const String httpImageBase = 'http://124.43.136.185:8000';
+  static const String httpImageBase = 'http://124.43.181.243:8000';
 
   @override
   void initState() {
@@ -371,111 +371,102 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
     );
   }
 
-  Widget _buildImageCell(String? imageName, String docketType) {
-    if (imageName == null || imageName.isEmpty) {
-      return const Row(
-        children: [
-          Icon(Icons.image_not_supported, size: 16, color: Colors.grey),
-          SizedBox(width: 4),
-          Expanded(
-            child: Text('No image', style: TextStyle(fontSize: 11, color: Colors.grey), overflow: TextOverflow.ellipsis),
-          ),
-        ],
-      );
-    }
-
-    final String imageUrl = _imageUrlFor(docketType, imageName);
-    debugPrint('Loading image from URL: $imageUrl');
-
-    return Row(
+ Widget _buildImageCell(String? imageName, String docketType) {
+  if (imageName == null || imageName.isEmpty) {
+    return const Row(
       children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: CachedNetworkImage(
-              imageUrl: imageUrl,
-              httpHeaders: {
-                'Accept': 'image/*',
-                'Cache-Control': 'no-cache',
-              },
-              memCacheWidth: 48,
-              maxHeightDiskCache: 48,
-              useOldImageOnUrlChange: true,
-              fit: BoxFit.cover,
-              placeholder: (context, url) => const Center(
-                child: SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-              errorWidget: (context, url, error) {
-                // Log the error with more details
-                debugPrint('Image load failed: $url → $error');
-                debugPrint('Error type: ${error.runtimeType}');
-                debugPrint('Error stack trace: ${StackTrace.current}');
-                
-                // Debug the image response when there's an error
-                _debugImageResponse(url);
-                
-                // Determine error type
-                IconData errorIcon = Icons.error_outline;
-                Color errorColor = Colors.red;
-                String errorTooltip = 'Error loading image';
-                
-                if (error.toString().contains('Failed to fetch') ||
-                    error.toString().contains('NetworkException')) {
-                  errorIcon = Icons.cloud_off;
-                  errorColor = Colors.orange;
-                  errorTooltip = 'Network error. Check your connection.';
-                } else if (error.toString().contains('404')) {
-                  errorIcon = Icons.image_not_supported;
-                  errorColor = Colors.grey;
-                  errorTooltip = 'Image not found on server';
-                } else if (error.toString().contains('FormatException') ||
-                          error.toString().contains('EncodingError')) {
-                  errorIcon = Icons.broken_image;
-                  errorColor = Colors.purple;
-                  errorTooltip = 'Invalid image format or corrupted file';
-                  // Try to debug the actual response
-                  _debugImageResponse(url);
-                }
-                
-                return Tooltip(
-                  message: errorTooltip,
-                  child: GestureDetector(
-                    onTap: () => _showImageErrorDialog(url, error.toString()),
-                    child: Icon(errorIcon, size: 16, color: errorColor),
-                  ),
-                );
-              },
-              // Add timeout and retry options
-              fadeInDuration: const Duration(milliseconds: 200),
-              fadeOutDuration: const Duration(milliseconds: 200),
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
+        Icon(Icons.image_not_supported, size: 16, color: Colors.grey),
+        SizedBox(width: 4),
         Expanded(
-          child: GestureDetector(
-            onTap: () => _showImageDialog(imageName, docketType),
-            child: Text(
-              imageName,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF003366), decoration: TextDecoration.underline),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
+          child: Text('No image', style: TextStyle(fontSize: 11, color: Colors.grey), overflow: TextOverflow.ellipsis),
         ),
       ],
     );
   }
 
+  final String imageUrl = _imageUrlFor(docketType, imageName);
+  debugPrint('Loading image from URL: $imageUrl');
+
+  return Row(
+    children: [
+      Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(4),
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return const Center(
+                child: SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              // Log the error with more details
+              debugPrint('Image load failed: $imageUrl → $error');
+              debugPrint('Error type: ${error.runtimeType}');
+              
+              // Debug the image response when there's an error
+              _debugImageResponse(imageUrl);
+              
+              // Determine error type
+              IconData errorIcon = Icons.error_outline;
+              Color errorColor = Colors.red;
+              String errorTooltip = 'Error loading image';
+              
+              if (error.toString().contains('Failed to fetch') ||
+                  error.toString().contains('NetworkException')) {
+                errorIcon = Icons.cloud_off;
+                errorColor = Colors.orange;
+                errorTooltip = 'Network error. Check your connection.';
+              } else if (error.toString().contains('404')) {
+                errorIcon = Icons.image_not_supported;
+                errorColor = Colors.grey;
+                errorTooltip = 'Image not found on server';
+              } else if (error.toString().contains('FormatException') ||
+                        error.toString().contains('EncodingError')) {
+                errorIcon = Icons.broken_image;
+                errorColor = Colors.purple;
+                errorTooltip = 'Invalid image format or corrupted file';
+                // Try to debug the actual response
+                _debugImageResponse(imageUrl);
+              }
+              
+              return Tooltip(
+                message: errorTooltip,
+                child: GestureDetector(
+                  onTap: () => _showImageErrorDialog(imageUrl, error.toString()),
+                  child: Icon(errorIcon, size: 16, color: errorColor),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+      const SizedBox(width: 6),
+      Expanded(
+        child: GestureDetector(
+          onTap: () => _showImageDialog(imageName, docketType),
+          child: Text(
+            imageName,
+            style: const TextStyle(fontSize: 11, color: Color(0xFF003366), decoration: TextDecoration.underline),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    ],
+  );
+}
   void _showImageErrorDialog(String url, String error) {
     showDialog(
       context: context,
@@ -536,14 +527,13 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
               child: const Text('Run Diagnostics'),
             ),
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                // Force refresh the cached network image
-                CachedNetworkImage.evictFromCache(url);
-                setState(() {}); // Trigger rebuild to retry loading
-              },
-              child: const Text('Retry'),
-            ),
+  onPressed: () {
+    Navigator.of(context).pop();
+    // Simply trigger a rebuild to retry loading
+    setState(() {}); 
+  },
+  child: const Text('Retry'),
+),
           ],
         );
       },
@@ -697,49 +687,48 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
                     ),
                   ),
                   Flexible(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: CachedNetworkImage(
-                        imageUrl: imageUrl,
-                        fit: BoxFit.contain,
-                        httpHeaders: const {
-                          'Accept': 'image/jpeg,image/png,image/webp,image/*,*/*;q=0.8',
-                          'User-Agent': 'Flutter App',
-                        },
-                        placeholder: (context, url) => const Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              CircularProgressIndicator(),
-                              SizedBox(height: 16),
-                              Text("Loading image..."),
-                            ],
-                          ),
-                        ),
-                        errorWidget: (context, url, error) => Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Icon(Icons.error, color: Colors.red, size: 48),
-                              const SizedBox(height: 16),
-                              const Text("Failed to load image", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 8),
-                              SelectableText("URL: $imageUrl", style: const TextStyle(fontSize: 12)),
-                              const SizedBox(height: 8),
-                              Text("Error: $error", style: const TextStyle(fontSize: 12, color: Colors.red)),
-                              const SizedBox(height: 16),
-                              ElevatedButton(
-                                onPressed: () async {
-                                  await _debugImageUrl(imageUrl);
-                                },
-                                child: const Text('Debug URL'),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
+  child: Padding(
+    padding: const EdgeInsets.all(16),
+    child: Image.network(
+      imageUrl,
+      fit: BoxFit.contain,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text("Loading image..."),
+            ],
+          ),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error, color: Colors.red, size: 48),
+            const SizedBox(height: 16),
+            const Text("Failed to load image", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            SelectableText("URL: $imageUrl", style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 8),
+            Text("Error: $error", style: const TextStyle(fontSize: 12, color: Colors.red)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () async {
+                await _debugImageUrl(imageUrl);
+              },
+              child: const Text('Debug URL'),
+            ),
+          ],
+        ),
+      ),
+    ),
+  ),
+),
                 ],
               ),
             ),
