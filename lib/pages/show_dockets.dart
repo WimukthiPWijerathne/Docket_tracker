@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
 import '../service/dockey_service.dart';
 import '../models/dockets.dart';
 import '../pages/assign.dart';
@@ -21,8 +23,10 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
   bool isLoading = true;
   String? errorMessage;
 
-  // API bases
-  // static const String httpsImageBase = 'https://powerprox.sltidc.lk'; 
+  // ✅ Depot filter
+  final List<String> depots = ['All', 'Kadana', 'Mahara', 'Paliyagoda', 'Wattala'];
+  String selectedDepot = 'All';
+
   static const String httpImageBase = 'http://124.43.181.243:8000';
 
   @override
@@ -31,7 +35,6 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
     _loadDockets();
   }
 
-  // Map docket type strings to numeric IDs expected by backend
   String _getDocketTypeNumber(String docketType) {
     switch (docketType.toLowerCase().trim()) {
       case 'service line maintainance':
@@ -46,12 +49,8 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
     }
   }
 
-  // Pick base URL depending on platform
-  String _imageBaseForPlatform() {
-    return  httpImageBase;
-  }
+  String _imageBaseForPlatform() => httpImageBase;
 
-  // Check if name already has an extension
   bool _hasImageExtension(String name) {
     final lower = name.toLowerCase();
     return lower.endsWith('.jpg') ||
@@ -60,12 +59,10 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
         lower.endsWith('.webp');
   }
 
-  // Ensure image name ends with extension
   String _safeImageName(String name) {
     return _hasImageExtension(name) ? name : '$name.jpg';
   }
 
-  // Build final image URL
   String _imageUrlFor(String docketType, String imageName) {
     final type = _getDocketTypeNumber(docketType);
     final safeName = _safeImageName(imageName);
@@ -83,8 +80,11 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
     try {
       final fetchedDockets = await _docketService.fetchDockets();
       if (mounted) {
+        // Filter by docket type and depot
         final filtered = fetchedDockets
             .where((docket) => docket.docketType == widget.title)
+            .where((docket) =>
+                selectedDepot == 'All' ? true : docket.depot == selectedDepot)
             .toList();
 
         setState(() {
@@ -100,8 +100,11 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
           errorMessage = e.toString();
           isLoading = false;
           dockets = _generateDummyDockets();
-          filteredDockets =
-              dockets.where((docket) => docket.docketType == widget.title).toList();
+          filteredDockets = dockets
+              .where((docket) => docket.docketType == widget.title)
+              .where((docket) =>
+                  selectedDepot == 'All' ? true : docket.depot == selectedDepot)
+              .toList();
           status = List<bool>.filled(filteredDockets.length, false);
         });
       }
@@ -116,7 +119,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
       return Docket(
         id: 'dummy_${index + 1}',
         docketType: widget.title,
-        depot: 'Location ${index + 1}',
+        depot: depots[(index % (depots.length - 1)) + 1], // rotate depots
         imageName: 'sample_image_${index + 1}.jpg',
         uploadedBy: 'User ${index + 1}',
         uploadedTime: formatted,
@@ -154,7 +157,10 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AssignPage(dockets: selectedDockets),
+        builder: (context) => AssignPage(
+          dockets: selectedDockets,
+          depot: selectedDepot,
+        ),
       ),
     );
   }
@@ -221,7 +227,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
             Expanded(flex: 2, child: Text(date, style: const TextStyle(fontSize: 12))),
             Expanded(flex: 2, child: Text(location, style: const TextStyle(fontSize: 12))),
             Expanded(flex: 2, child: Text(docketType, style: const TextStyle(fontSize: 12))),
-            Expanded(flex: 2, child: _buildImageCell(imageName, docketType)),
+            Expanded(flex: 2, child: Text(imageName ?? 'No image', style: const TextStyle(fontSize: 12))),
             Expanded(
               flex: 1,
               child: Center(
@@ -240,133 +246,6 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildImageCell(String? imageName, String docketType) {
-    if (imageName == null || imageName.isEmpty) {
-      return const Row(
-        children: [
-          Icon(Icons.image_not_supported, size: 16, color: Colors.grey),
-          SizedBox(width: 4),
-          Expanded(
-            child: Text('No image', style: TextStyle(fontSize: 11, color: Colors.grey), overflow: TextOverflow.ellipsis),
-          ),
-        ],
-      );
-    }
-
-    final String imageUrl = _imageUrlFor(docketType, imageName);
-
-    return Row(
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: const Color(0xFF003366).withOpacity(0.1),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Image.network(
-              imageUrl,
-              width: 24,
-              height: 24,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                debugPrint('Image loading error: $error');
-                debugPrint('Failed URL: $imageUrl');
-                return const Icon(Icons.broken_image, size: 16, color: Colors.grey);
-              },
-            ),
-          ),
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: GestureDetector(
-            onTap: () => _showImageDialog(imageName, docketType),
-            child: Text(
-              imageName,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF003366), decoration: TextDecoration.underline),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  void _showImageDialog(String imageName, String docketType) {
-    final String imageUrl = _imageUrlFor(docketType, imageName);
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Center(
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.9,
-                maxHeight: MediaQuery.of(context).size.height * 0.8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF003366),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(8),
-                        topRight: Radius.circular(8),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.image, color: Colors.white),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text('Docket Image',
-                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close, color: Colors.white),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Flexible(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Image.network(
-                        imageUrl,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Column(
-                            children: [
-                              const Icon(Icons.error, color: Colors.red, size: 48),
-                              const Text("Failed to load image"),
-                              SelectableText("URL: $imageUrl\nError: $error"),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
     );
   }
 
@@ -393,10 +272,40 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(widget.title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF003366))),
+            Text(widget.title,
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF003366))),
             const SizedBox(height: 8),
-            Text('Total: ${filteredDockets.length} dockets', style: const TextStyle(fontSize: 16, color: Color(0xFF666666))),
+            Text('Total: ${filteredDockets.length} dockets',
+                style: const TextStyle(fontSize: 16, color: Color(0xFF666666))),
             const SizedBox(height: 16),
+
+            // ✅ Depot filter dropdown
+            Row(
+              children: [
+                const Text("Filter by Depot: ",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF003366))),
+                const SizedBox(width: 12),
+                DropdownButton<String>(
+                  value: selectedDepot,
+                  items: depots.map((depot) {
+                    return DropdownMenuItem<String>(
+                      value: depot,
+                      child: Text(depot),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedDepot = value;
+                      });
+                      _loadDockets();
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
             if (errorMessage != null)
               Container(
                 padding: const EdgeInsets.all(12),
@@ -410,10 +319,14 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
                   children: [
                     const Icon(Icons.warning, color: Colors.orange),
                     const SizedBox(width: 8),
-                    Expanded(child: Text('API Error: Using demo data. $errorMessage', style: const TextStyle(color: Colors.orange))),
+                    Expanded(
+                        child: Text('API Error: Using demo data. $errorMessage',
+                            style: const TextStyle(color: Colors.orange))),
                   ],
                 ),
               ),
+
+            // Table
             Container(
               height: tableHeight,
               decoration: BoxDecoration(
@@ -447,6 +360,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
                 ],
               ),
             ),
+
             const SizedBox(height: 20),
             Row(
               children: [
@@ -458,7 +372,8 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: const Text('Assign', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: const Text('Assign',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -470,7 +385,8 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: const Text('Cancel',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
