@@ -14,6 +14,7 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _employeeIdController = TextEditingController(); // ✅ new
   String selectedDepot = 'Kadana';
   bool _isLoading = false;
 
@@ -26,6 +27,7 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
       final body = {
         "firstName": _firstNameController.text.trim(),
         "lastName": _lastNameController.text.trim(),
+        "employeeNo": _employeeIdController.text.trim(), // ✅ send employee ID
         "depot": selectedDepot,
       };
       
@@ -43,7 +45,7 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
           Navigator.pop(context, {
             "name": "${body['firstName']} ${body['lastName']}".trim(),
             "depot": selectedDepot,
-            "employeeNo": data['employeeNo']?.toString() ?? "",
+            "employeeNo": body['employeeNo'],
           });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -73,6 +75,7 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _employeeIdController.dispose();
     super.dispose();
   }
 
@@ -118,6 +121,23 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
                     return "Please enter the last name";
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+
+              // ✅ Employee ID
+              TextFormField(
+                controller: _employeeIdController,
+                decoration: const InputDecoration(
+                  labelText: "Employee ID",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.badge),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return "Please enter the employee ID";
                   }
                   return null;
                 },

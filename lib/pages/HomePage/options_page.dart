@@ -4,16 +4,18 @@ import '../addDocket/docket_type_selection_page.dart';
 import '../docket_selection_page.dart';
 import '../assign.dart';
 import '../workersProfile/workersProfile.dart';
+// Create a new page for Assigned Dockets
+import '../AssignedDockets/assigned_dockets_page.dart'; 
 
 class OptionsPage extends StatefulWidget {
-  const OptionsPage({super.key});
+  final String role; // role parameter
+  const OptionsPage({super.key, required this.role});
 
   @override
   State<OptionsPage> createState() => _OptionsPageState();
 }
 
 class _OptionsPageState extends State<OptionsPage> {
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -24,7 +26,6 @@ class _OptionsPageState extends State<OptionsPage> {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () {
-              // Navigate back to Login page
               Navigator.of(context).pushReplacement(
                 MaterialPageRoute(
                   builder: (context) => const LoginPage(),
@@ -35,34 +36,37 @@ class _OptionsPageState extends State<OptionsPage> {
         ],
       ),
       body: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Welcome Text
-                Text(
-                  'Welcome!',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Choose an option to continue',
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 40),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Welcome Text
+              Text(
+                'Welcome ${widget.role.toUpperCase()}!',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.primary,
+                      fontWeight: FontWeight.bold,
+                    ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Choose an option to continue',
+                style: Theme.of(context).textTheme.bodyLarge,
+              ),
+              const SizedBox(height: 40),
 
-                // Options Grid
-                Expanded(
-                  child: GridView.count(
-                    crossAxisCount: 2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    children: [
-                      // Option 1 — Add Docket
+              // Options Grid
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  children: [
+                    // ---- Add Docket (CE, CS, CRO) ----
+                    if (widget.role == "ce" ||
+                        widget.role == "cs" ||
+                        widget.role == "cro")
                       _buildOptionCard(
                         context,
                         'Add Docket',
@@ -77,7 +81,10 @@ class _OptionsPageState extends State<OptionsPage> {
                         },
                       ),
 
-                      // Option 2 — View Current Docket
+                    // ---- View Current Docket (CE, CS, Worker) ----
+                    if (widget.role == "ce" ||
+                        widget.role == "cs" 
+                        )
                       _buildOptionCard(
                         context,
                         'View Current Docket',
@@ -91,29 +98,43 @@ class _OptionsPageState extends State<OptionsPage> {
                           );
                         },
                       ),
-                      _buildOptionCard(context,
-                       'View Workers in the Depo',
-                        Icons.assessment_rounded,
+
+                    // ---- View Workers (CE, CS only) ----
+                    if (widget.role == "ce" || widget.role == "cs")
+                      _buildOptionCard(
+                        context,
+                        'View Workers in the Depo',
+                        Icons.people,
                         const Color(0xFFFFD700),
-                        (){
+                        () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_)=> WorkerListPage(),
-                            )
+                              builder: (_) => WorkerListPage(),
+                            ),
                           );
-                        }
-                        )
+                        },
+                      ),
 
-                    ],
-                  ),
+                    // ---- Assigned Dockets (All Roles) ----
+                    _buildOptionCard(
+                      context,
+                      'Assigned Dockets',
+                      Icons.assignment_turned_in,
+                      const Color(0xFFFFD700),
+                      () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const AssignedDocketsPage(),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
-
-                const SizedBox(height: 16),
-
-                // Example Docket Priority Badges Row
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
       ),
     );
   }
@@ -159,28 +180,6 @@ class _OptionsPageState extends State<OptionsPage> {
           ),
         ),
       ),
-    );
-  }
-}
-
-class _PriorityChip extends StatelessWidget {
-  final String label;
-  final Color color;
-  final bool onDark;
-  const _PriorityChip({required this.label, required this.color, required this.onDark});
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      label: Text(
-        label,
-        style: TextStyle(
-          color: onDark ? Colors.white : const Color(0xFF003366),
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      backgroundColor: color,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
     );
   }
 }
