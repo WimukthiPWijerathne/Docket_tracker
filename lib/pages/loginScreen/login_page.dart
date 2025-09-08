@@ -1,6 +1,5 @@
-// lib/pages/login_page.dart
 import 'package:flutter/material.dart';
-import '../HomePage/options_page.dart';
+import '../HomePage/options_page.dart'; // import OptionsPage
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -30,22 +29,49 @@ class _LoginPageState extends State<LoginPage> {
       Future.delayed(const Duration(seconds: 2), () {
         setState(() => _isLoading = false);
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Login successful! Redirecting...'),
-            backgroundColor: Color(0xFF2E7D32),
-            duration: Duration(seconds: 1),
-          ),
-        );
 
-        Future.delayed(const Duration(seconds: 1), () {
-          if (!mounted) return;
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => const OptionsPage(),
+        String email = _emailController.text.trim();
+        String password = _passwordController.text.trim();
+
+        // Dummy role assignment (replace with backend login logic)
+        String? role;
+        if (email == "ce" && password == "1") {
+          role = "ce"; // Chief Engineer
+        } else if (email == "cs" && password == "2") {
+          role = "cs";
+        } else if (email == "cr" && password == "3") {
+          role = "cro";
+        } else if (email == "w" && password == "4") {
+          role = "worker";
+        }
+
+        if (role != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Login successful! Redirecting...'),
+              backgroundColor: const Color(0xFF2E7D32),
+              duration: const Duration(seconds: 1),
             ),
           );
-        });
+
+          // Navigate to OptionsPage and pass the role
+          Future.delayed(const Duration(seconds: 1), () {
+            if (!mounted) return;
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => OptionsPage(role: role!), // pass role here
+              ),
+            );
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid credentials!'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       });
     }
   }
@@ -84,25 +110,22 @@ class _LoginPageState extends State<LoginPage> {
               const SizedBox(height: 24),
               Text(
                 'Docket Tracker',
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineMedium
-                    ?.copyWith(
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Theme.of(context).colorScheme.primary,
                     ),
               ),
-
               const SizedBox(height: 8),
               Text(
                 'Log in to continue',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7)),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.7),
+                    ),
               ),
               const SizedBox(height: 32),
-
               TextFormField(
                 controller: _emailController,
                 decoration: const InputDecoration(
@@ -110,10 +133,10 @@ class _LoginPageState extends State<LoginPage> {
                   prefixIcon: Icon(Icons.email),
                 ),
                 validator: (value) =>
-                    value != 'h' ? 'Invalid Email' : null,
+                    value == null || value.isEmpty ? 'Enter email' : null,
               ),
-                             const SizedBox(height: 12),
-               TextFormField(
+              const SizedBox(height: 12),
+              TextFormField(
                 controller: _passwordController,
                 obscureText: !_isPasswordVisible,
                 decoration: InputDecoration(
@@ -131,7 +154,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 validator: (value) =>
-                    value != 'h' ? 'Invalid Password' : null,
+                    value == null || value.isEmpty ? 'Enter password' : null,
               ),
               const SizedBox(height: 24),
               SizedBox(
