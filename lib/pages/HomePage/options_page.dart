@@ -4,9 +4,11 @@ import '../addDocket/docket_type_selection_page.dart';
 import '../docket_selection_page.dart';
 import '../assign.dart';
 import '../workersProfile/workersProfile.dart';
+// Create a new page for Assigned Dockets
+import '../AssignedDockets/assigned_dockets_page.dart'; 
 
 class OptionsPage extends StatefulWidget {
-  final String role; // NEW: role parameter
+  final String role; // role parameter
   const OptionsPage({super.key, required this.role});
 
   @override
@@ -61,7 +63,7 @@ class _OptionsPageState extends State<OptionsPage> {
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
                   children: [
-                    // ---- Add Docket (Visible for CE, CS, CRO) ----
+                    // ---- Add Docket (CE, CS, CRO) ----
                     if (widget.role == "ce" ||
                         widget.role == "cs" ||
                         widget.role == "cro")
@@ -79,10 +81,10 @@ class _OptionsPageState extends State<OptionsPage> {
                         },
                       ),
 
-                    // ---- View Current Docket (Visible for CE, CS, Worker) ----
+                    // ---- View Current Docket (CE, CS, Worker) ----
                     if (widget.role == "ce" ||
-                        widget.role == "cs" ||
-                        widget.role == "worker")
+                        widget.role == "cs" 
+                        )
                       _buildOptionCard(
                         context,
                         'View Current Docket',
@@ -97,7 +99,7 @@ class _OptionsPageState extends State<OptionsPage> {
                         },
                       ),
 
-                    // ---- View Workers (Only CE, CS) ----
+                    // ---- View Workers (CE, CS only) ----
                     if (widget.role == "ce" || widget.role == "cs")
                       _buildOptionCard(
                         context,
@@ -112,6 +114,21 @@ class _OptionsPageState extends State<OptionsPage> {
                           );
                         },
                       ),
+
+                    // ---- Assigned Dockets (All Roles) ----
+                    _buildOptionCard(
+                      context,
+                      'Assigned Dockets',
+                      Icons.assignment_turned_in,
+                      const Color(0xFFFFD700),
+                      () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const AssignedDocketsPage(),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),
