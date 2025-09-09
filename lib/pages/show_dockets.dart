@@ -1,74 +1,40 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-import '../../models/assigned_docket.dart';
-import '../../service/assigned_docket_service.dart';
 
-class AssignedDocketDetailsPage extends StatefulWidget {
-  final AssignedDocket docket;
+import '../service/dockey_service.dart';
+import '../models/dockets.dart';
+import '../pages/assign.dart';
 
-  const AssignedDocketDetailsPage({
-    super.key,
-    required this.docket,
-  });
+class ShowDocketsPage extends StatefulWidget {
+  final String title;
+
+  const ShowDocketsPage({super.key, required this.title});
 
   @override
-  State<AssignedDocketDetailsPage> createState() => _AssignedDocketDetailsPageState();
+  State<ShowDocketsPage> createState() => _ShowDocketsPageState();
 }
 
-class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
-  final AssignedDocketService _service = AssignedDocketService();
+class _ShowDocketsPageState extends State<ShowDocketsPage> {
+  final DocketService _docketService = DocketService();
+  List<Docket> dockets = [];
+  List<Docket> filteredDockets = [];
+  List<bool> status = [];
+  bool isLoading = true;
+  String? errorMessage;
 
-  // Image related variables
-  String? docketImageName;
-  bool isLoadingImage = true;
-  String? imageError;
+  // ✅ Depot filter
+  final List<String> depots = ['All', 'Kadana', 'Mahara', 'Paliyagoda', 'Wattala'];
+  String selectedDepot = 'All';
 
   static const String httpImageBase = 'http://124.43.181.243:8000';
-  static const String docketDetailsApiBase = 'https://powerprox.sltidc.lk/GETDocketDetails.php';
 
   @override
   void initState() {
     super.initState();
-    _fetchDocketImageName();
+    _loadDockets();
   }
 
-  // Fetch image name from docket details API
-  Future<void> _fetchDocketImageName() async {
-    try {
-      final response = await http.get(
-        Uri.parse('$docketDetailsApiBase?ID=${widget.docket.docketID}'),
-        headers: {'Content-Type': 'application/json'},
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && data['data'] != null) {
-          setState(() {
-            docketImageName = data['data']['image_name'];
-            isLoadingImage = false;
-          });
-        } else {
-          setState(() {
-            imageError = 'No image data found';
-            isLoadingImage = false;
-          });
-        }
-      } else {
-        setState(() {
-          imageError = 'Failed to fetch image details';
-          isLoadingImage = false;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        imageError = 'Error fetching image: $e';
-        isLoadingImage = false;
-      });
-    }
-  }
-
-  // Get docket type number for image URL
   String _getDocketTypeNumber(String docketType) {
     switch (docketType.toLowerCase().trim()) {
       case 'service line maintainance':
@@ -83,7 +49,8 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
     }
   }
 
-  // Check if filename has image extension
+  String _imageBaseForPlatform() => httpImageBase;
+
   bool _hasImageExtension(String name) {
     final lower = name.toLowerCase();
     return lower.endsWith('.jpg') ||
@@ -92,849 +59,339 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
         lower.endsWith('.webp');
   }
 
-  // Ensure image name has extension
   String _safeImageName(String name) {
     return _hasImageExtension(name) ? name : '$name.jpg';
   }
 
-  // Build image URL
   String _imageUrlFor(String docketType, String imageName) {
     final type = _getDocketTypeNumber(docketType);
     final safeName = _safeImageName(imageName);
-    return '$httpImageBase/api/fetch-testdocket-image/$type/$safeName';
+    return '${_imageBaseForPlatform()}/api/fetch-testdocket-image/$type/$safeName';
+  }
+
+  Future<void> _loadDockets() async {
+    if (!mounted) return;
+
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final fetchedDockets = await _docketService.fetchDockets();
+      if (mounted) {
+        // Filter by docket type and depot
+        final filtered = fetchedDockets
+            .where((docket) => docket.docketType == widget.title)
+            .where((docket) =>
+                selectedDepot == 'All' ? true : docket.depot == selectedDepot)
+            .toList();
+
+        setState(() {
+          dockets = fetchedDockets;
+          filteredDockets = filtered;
+          status = List<bool>.filled(filteredDockets.length, false);
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          errorMessage = e.toString();
+          isLoading = false;
+          dockets = _generateDummyDockets();
+          filteredDockets = dockets
+              .where((docket) => docket.docketType == widget.title)
+              .where((docket) =>
+                  selectedDepot == 'All' ? true : docket.depot == selectedDepot)
+              .toList();
+          status = List<bool>.filled(filteredDockets.length, false);
+        });
+      }
+    }
+  }
+
+  List<Docket> _generateDummyDockets() {
+    return List.generate(6, (index) {
+      final DateTime date = DateTime.now().subtract(Duration(days: index));
+      final String formatted =
+          '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      return Docket(
+        id: 'dummy_${index + 1}',
+        docketType: widget.title,
+        depot: depots[(index % (depots.length - 1)) + 1], // rotate depots
+        imageName: 'sample_image_${index + 1}.jpg',
+        uploadedBy: 'User ${index + 1}',
+        uploadedTime: formatted,
+        assignedTo: '',
+        assignTime: '',
+        completedTime: '',
+        docketSerial: 'DS${index + 1}'.padLeft(6, '0'),
+      );
+    });
+  }
+
+  Future<void> _onAssign() async {
+    if (!mounted) return;
+
+    final selectedIndices = <int>[];
+    for (int i = 0; i < status.length; i++) {
+      if (status[i]) selectedIndices.add(i);
+    }
+
+    if (selectedIndices.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select at least one docket'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final selectedDockets =
+        selectedIndices.map((i) => filteredDockets[i]).toList();
+
+    if (!mounted) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AssignPage(
+          dockets: selectedDockets,
+          depot: selectedDepot,
+        ),
+      ),
+    );
+  }
+
+  void _onCancel() {
+    if (!mounted) return;
+    setState(() {
+      for (int i = 0; i < status.length; i++) {
+        status[i] = false;
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('All selections cancelled'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  Widget _buildSimpleRow(
+    String date,
+    String location,
+    String docketType,
+    String? imageName,
+    bool isSelected,
+    int index, {
+    bool isHeader = false,
+  }) {
+    if (isHeader) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF003366).withOpacity(0.1),
+          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+        ),
+        child: const Row(
+          children: [
+            Expanded(flex: 2, child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
+            Expanded(flex: 2, child: Text('Location', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
+            Expanded(flex: 2, child: Text('Type', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
+            Expanded(flex: 2, child: Text('Docket Image', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
+            Expanded(flex: 1, child: Center(child: Text('Select', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366))))),
+          ],
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: () {
+        if (mounted) {
+          setState(() {
+            status[index] = !status[index];
+          });
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF003366).withOpacity(0.05) : Colors.white,
+          border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        ),
+        child: Row(
+          children: [
+            Expanded(flex: 2, child: Text(date, style: const TextStyle(fontSize: 12))),
+            Expanded(flex: 2, child: Text(location, style: const TextStyle(fontSize: 12))),
+            Expanded(flex: 2, child: Text(docketType, style: const TextStyle(fontSize: 12))),
+            Expanded(flex: 2, child: Text(imageName ?? 'No image', style: const TextStyle(fontSize: 12))),
+            Expanded(
+              flex: 1,
+              child: Center(
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: isSelected ? const Color(0xFF003366) : Colors.grey),
+                    borderRadius: BorderRadius.circular(3),
+                    color: isSelected ? const Color(0xFF003366) : Colors.transparent,
+                  ),
+                  child: isSelected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isOverdue = widget.docket.isOverdue();
-    final isInProgress = widget.docket.isOngoing && !isOverdue;
-    
+    const double rowHeight = 56.0;
+    const double headerHeight = 56.0;
+    const double maxHeight = 400.0;
+
+    double contentHeight = headerHeight + (filteredDockets.length * rowHeight);
+    double tableHeight = contentHeight > maxHeight ? maxHeight : contentHeight;
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 1,
-        title: Row(
-          children: [
-            Text(
-              "Docket ${widget.docket.docketID}",
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 18,
-                color: Colors.black87,
-              ),
-            ),
-            if (isOverdue) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      "OVERDUE",
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.red.shade800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else if (isInProgress) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.green.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade800,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      "IN PROGRESS",
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green.shade800,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
+        title: Text(widget.title),
+        backgroundColor: const Color(0xFF003366),
+        foregroundColor: Colors.white,
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadDockets),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image Card (Small and Rounded)
-            _buildImageCard(),
+            Text(widget.title,
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF003366))),
+            const SizedBox(height: 8),
+            Text('Total: ${filteredDockets.length} dockets',
+                style: const TextStyle(fontSize: 16, color: Color(0xFF666666))),
             const SizedBox(height: 16),
-            
-            // Header Card
-            _buildHeaderCard(),
-            const SizedBox(height: 16),
-            
-            // Details Section
-            _buildDetailsSection(),
-            const SizedBox(height: 16),
-            
-            // Timeline Section
-            _buildTimelineSection(),
-            const SizedBox(height: 16),
-            
-            // Action Buttons
-            if (widget.docket.isOngoing) _buildActionButtons(),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ),
-    );
-  }
 
-  Widget _buildImageCard() {
-    return Container(
-      height: 120,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: isLoadingImage
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
+            // ✅ Depot filter dropdown
+            Row(
+              children: [
+                const Text("Filter by Depot: ",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF003366))),
+                const SizedBox(width: 12),
+                DropdownButton<String>(
+                  value: selectedDepot,
+                  items: depots.map((depot) {
+                    return DropdownMenuItem<String>(
+                      value: depot,
+                      child: Text(depot),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        selectedDepot = value;
+                      });
+                      _loadDockets();
+                    }
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            if (errorMessage != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade300),
+                ),
+                child: Row(
                   children: [
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Loading image...',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                      ),
-                    ),
+                    const Icon(Icons.warning, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    Expanded(
+                        child: Text('API Error: Using demo data. $errorMessage',
+                            style: const TextStyle(color: Colors.orange))),
                   ],
                 ),
-              )
-            : imageError != null || docketImageName == null
-                ? Container(
-                    color: Colors.grey[100],
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.image_not_supported,
-                            size: 32,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'No image',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : Image.network(
-                    _imageUrlFor('service line maintenance', docketImageName!),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey[100],
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                size: 32,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Failed to load',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-      ),
-    );
-  }
-
-  Widget _buildHeaderCard() {
-    final isOverdue = widget.docket.isOverdue();
-    final isInProgress = widget.docket.isOngoing && !isOverdue;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.receipt_long, size: 20, color: Colors.grey),
-              const SizedBox(width: 8),
-              Text(
-                "Assignment ID",
-                style: TextStyle(
-                  fontSize: 12,
-                  color: Colors.grey[600],
-                  fontWeight: FontWeight.w500,
-                ),
               ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            widget.docket.assignmentID,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          
-          // Status badge
-          if (isOverdue || isInProgress)
+
+            // Table
             Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              height: tableHeight,
               decoration: BoxDecoration(
-                color: isOverdue 
-                    ? Colors.red.shade100 
-                    : Colors.green.shade100,
-                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
+              child: Column(
                 children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: isOverdue 
-                          ? Colors.red.shade800 
-                          : Colors.green.shade800,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    isOverdue ? "OVERDUE" : "IN PROGRESS",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: isOverdue 
-                          ? Colors.red.shade800 
-                          : Colors.green.shade800,
-                    ),
+                  _buildSimpleRow('Date', 'Location', 'Type', null, false, -1, isHeader: true),
+                  Expanded(
+                    child: isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : filteredDockets.isEmpty
+                            ? Center(child: Text('No dockets available for "${widget.title}"'))
+                            : ListView.builder(
+                                padding: EdgeInsets.zero,
+                                itemCount: filteredDockets.length,
+                                itemBuilder: (context, index) {
+                                  final docket = filteredDockets[index];
+                                  return _buildSimpleRow(
+                                    docket.uploadedTime.isNotEmpty ? docket.uploadedTime : 'N/A',
+                                    docket.depot.isNotEmpty ? docket.depot : 'Unknown Location',
+                                    docket.docketType.isNotEmpty ? docket.docketType : 'Unknown Type',
+                                    docket.imageName,
+                                    status.length > index ? status[index] : false,
+                                    index,
+                                  );
+                                },
+                              ),
                   ),
                 ],
               ),
             ),
 
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.grey[50],
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.grey[200]!),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(height: 20),
+            Row(
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.people, size: 16, color: Colors.grey),
-                    const SizedBox(width: 6),
-                    Text(
-                      "Assigned Persons",
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        fontWeight: FontWeight.w500,
-                      ),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : _onAssign,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003366),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                  ],
+                    child: const Text('Assign',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.docket.assignedPersons.isNotEmpty 
-                    ? widget.docket.assignedPersons
-                    : "Not assigned",
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : _onCancel,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey.shade600,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    child: const Text('Cancel',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailsSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Details",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildDetailRow("Assignment ID", widget.docket.assignmentID, Icons.fingerprint),
-          _buildDetailRow("Docket ID", widget.docket.docketID, Icons.receipt),
-          _buildDetailRow("Uploaded By", widget.docket.uploadedBy, Icons.person),
-          _buildDetailRow("Upload Time", widget.docket.formattedUploadedTime, Icons.cloud_upload),
-          _buildDetailRow("Reassignment Count", "${widget.docket.reassignmentCount}", Icons.repeat),
-          if (widget.docket.isCompleted)
-            _buildDetailRow("Work Duration", widget.docket.formattedWorkDuration, Icons.timer),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 16, color: Colors.grey[600]),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value.isNotEmpty ? value : "N/A",
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimelineSection() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Timeline",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildTimelineItem(
-            "Uploaded",
-            widget.docket.formattedUploadedTime,
-            Icons.cloud_upload,
-            isCompleted: true,
-          ),
-          _buildTimelineItem(
-            "Assigned",
-            widget.docket.formattedAssignedTime,
-            Icons.assignment_turned_in,
-            isCompleted: true,
-          ),
-          if (widget.docket.isCompleted)
-            _buildTimelineItem(
-              "Completed",
-              widget.docket.formattedCompletedTime,
-              Icons.check_circle,
-              isCompleted: true,
-              isLast: true,
-            )
-          else
-            _buildTimelineItem(
-              widget.docket.isOverdue() ? "Overdue" : "In Progress",
-              widget.docket.timeSinceAssignment,
-              widget.docket.isOverdue() ? Icons.warning : Icons.hourglass_empty,
-              isCompleted: false,
-              isLast: true,
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTimelineItem(
-    String title,
-    String time,
-    IconData icon, {
-    required bool isCompleted,
-    bool isLast = false,
-  }) {
-    final isOverdue = title == "Overdue";
-    final isInProgress = title == "In Progress";
-    final color = isOverdue ? Colors.red : (isCompleted ? Colors.green : Colors.orange);
-    
-    return Row(
-      children: [
-        Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(6),
-              decoration: BoxDecoration(
-                color: isCompleted ? color : Colors.white,
-                shape: BoxShape.circle,
-                border: Border.all(color: color, width: 2),
-              ),
-              child: Icon(
-                icon,
-                color: isCompleted ? Colors.white : color,
-                size: 14,
-              ),
-            ),
-            if (!isLast)
-              Container(
-                height: 20,
-                width: 2,
-                color: Colors.grey[300],
-                margin: const EdgeInsets.symmetric(vertical: 4),
-              ),
           ],
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Status badge
-                if (isOverdue || isInProgress)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isOverdue ? Colors.red.shade100 : Colors.green.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      isOverdue ? "OVERDUE" : "IN PROGRESS",
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: isOverdue ? Colors.red.shade800 : Colors.green.shade800,
-                      ),
-                    ),
-                  ),
-                if (isOverdue || isInProgress) const SizedBox(height: 4),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: isOverdue ? Colors.red : Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  time,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildActionButtons() {
-    final isOverdue = widget.docket.isOverdue();
-    final isInProgress = widget.docket.isOngoing && !isOverdue;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isOverdue 
-              ? Colors.red.shade300 
-              : Colors.green.shade300,
-          width: 1.5,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  "Actions",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: isOverdue 
-                        ? Colors.red.shade800 
-                        : Colors.green.shade800,
-                  ),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isOverdue 
-                      ? Colors.red.shade100 
-                      : Colors.green.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  isOverdue ? "OVERDUE" : "IN PROGRESS",
-                  style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                    color: isOverdue 
-                        ? Colors.red.shade800 
-                        : Colors.green.shade800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildActionButton(
-                  "Mark Completed",
-                  Icons.check_circle,
-                  isOverdue ? Colors.red : Colors.green,
-                  () => _markAsCompleted(),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildActionButton(
-                  "Reassign",
-                  Icons.repeat,
-                  Colors.grey[700]!,
-                  () => _reassignDocket(),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButton(
-    String text,
-    IconData icon,
-    Color color,
-    VoidCallback onPressed,
-  ) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(
-        text,
-        style: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
-        ),
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
-        elevation: 1,
-      ),
-    );
-  }
-
-  void _markAsCompleted() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          title: const Text("Mark as Completed"),
-          content: Text(
-            "Are you sure you want to mark this assignment as completed?\n\nAssignment ID: ${widget.docket.assignmentID}\nDocket ID: ${widget.docket.docketID}",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _performMarkAsCompleted();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text("Mark Completed"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _reassignDocket() {
-    final TextEditingController personController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          title: const Text("Reassign Docket"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text("Reassign Assignment ID: ${widget.docket.assignmentID}"),
-              const SizedBox(height: 16),
-              TextField(
-                controller: personController,
-                decoration: const InputDecoration(
-                  labelText: "New Assigned Persons",
-                  hintText: "Enter comma-separated person IDs",
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.people),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (personController.text.trim().isNotEmpty) {
-                  Navigator.of(context).pop();
-                  _performReassignment(personController.text.trim());
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey[700],
-                foregroundColor: Colors.white,
-              ),
-              child: const Text("Reassign"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _performMarkAsCompleted() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(
-          child: CircularProgressIndicator(),
-        );
-      },
-    );
-
-    try {
-      final success = await _service.markAsCompleted(widget.docket.assignmentID);
-      
-      Navigator.of(context).pop(); // Close loading dialog
-      
-      if (success) {
-        _showSnackBar(
-          "Assignment marked as completed successfully!",
-          Colors.green,
-          Icons.check_circle,
-        );
-        Navigator.of(context).pop();
-      } else {
-        _showSnackBar(
-          "Failed to mark assignment as completed.",
-          Colors.red,
-          Icons.error,
-        );
-      }
-    } catch (e) {
-      Navigator.of(context).pop();
-      _showSnackBar(
-        "Error: $e",
-        Colors.red,
-        Icons.error,
-      );
-    }
-  }
-
-  void _performReassignment(String newAssignedPersons) async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(
-          child: CircularProgressIndicator(),
-        );
-      },
-    );
-
-    try {
-      final success = await _service.reassignDocket(
-        widget.docket.assignmentID,
-        newAssignedPersons,
-      );
-      
-      Navigator.of(context).pop();
-      
-      if (success) {
-        _showSnackBar(
-          "Assignment has been reassigned successfully!",
-          Colors.green,
-          Icons.check_circle,
-        );
-        Navigator.of(context).pop();
-      } else {
-        _showSnackBar(
-          "Failed to reassign assignment.",
-          Colors.red,
-          Icons.error,
-        );
-      }
-    } catch (e) {
-      Navigator.of(context).pop();
-      _showSnackBar(
-        "Error: $e",
-        Colors.red,
-        Icons.error,
-      );
-    }
-  }
-
-  void _showSnackBar(String message, Color color, IconData icon) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            Icon(icon, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: color,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
         ),
       ),
     );
