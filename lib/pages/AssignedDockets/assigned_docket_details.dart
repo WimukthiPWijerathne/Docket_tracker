@@ -37,26 +37,35 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   Future<void> _fetchDocketImageName() async {
     try {
       final response = await http.get(
-        Uri.parse('$docketDetailsApiBase?docket_id=${widget.docket.docketID}'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse(docketDetailsApiBase),
       );
 
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['success'] == true && data['data'] != null) {
+        final List<dynamic> data = json.decode(response.body);
+
+        // Find the matching docket
+        final record = data.firstWhere(
+          (item) => item['ID'].toString() == widget.docket.docketID,
+          orElse: () => null,
+        );
+
+        if (record != null && record['ImageName'] != null) {
           setState(() {
-            docketImageName = data['data']['image_name'];
+            docketImageName = record['ImageName'];
             isLoadingImage = false;
           });
+
+          debugPrint(
+              "📷 Image for docket ${widget.docket.docketID}: $docketImageName");
         } else {
           setState(() {
-            imageError = 'No image data found';
+            imageError = 'No image found for this docket';
             isLoadingImage = false;
           });
         }
       } else {
         setState(() {
-          imageError = 'Failed to fetch image details';
+          imageError = 'Failed to fetch docket details';
           isLoadingImage = false;
         });
       }
@@ -67,6 +76,9 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
       });
     }
   }
+
+  // Get docket type number for image URL
+
 
   // Get docket type number for image URL
   String _getDocketTypeNumber(String docketType) {
@@ -457,7 +469,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
           _buildDetailRow("Assignment ID", widget.docket.assignmentID, Icons.fingerprint),
           _buildDetailRow("Docket ID", widget.docket.docketID, Icons.receipt),
           _buildDetailRow("Uploaded By", widget.docket.uploadedBy, Icons.person),
-          _buildDetailRow("Upload Time", widget.docket.formattedUploadedTime, Icons.cloud_upload),
+          _buildDetailRow("Assigned Time", widget.docket.formattedUploadedTime, Icons.cloud_upload),
           _buildDetailRow("Reassignment Count", "${widget.docket.reassignmentCount}", Icons.repeat),
           if (widget.docket.isCompleted)
             _buildDetailRow("Work Duration", widget.docket.formattedWorkDuration, Icons.timer),
