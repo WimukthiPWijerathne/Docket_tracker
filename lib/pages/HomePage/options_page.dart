@@ -6,6 +6,8 @@ import '../assign.dart';
 import '../workersProfile/workersProfile.dart';
 // Create a new page for Assigned Dockets
 import '../AssignedDockets/assigned_dockets_page.dart'; 
+// 🔹 Import Workers Summary page (you can create this later)
+import '../../pages/workersSummey/workers_summery_page.dart';
 
 class OptionsPage extends StatefulWidget {
   final String role; // role parameter
@@ -81,10 +83,8 @@ class _OptionsPageState extends State<OptionsPage> {
                         },
                       ),
 
-                    // ---- View Current Docket (CE, CS, Worker) ----
-                    if (widget.role == "ce" ||
-                        widget.role == "cs" 
-                        )
+                    // ---- View Current Docket (CE, CS) ----
+                    if (widget.role == "ce" || widget.role == "cs")
                       _buildOptionCard(
                         context,
                         'View Current Docket',
@@ -110,6 +110,22 @@ class _OptionsPageState extends State<OptionsPage> {
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => WorkerListPage(),
+                            ),
+                          );
+                        },
+                      ),
+
+                    // ---- 🔹 Workers Summary (CE, CS only) ----
+                    if (widget.role == "ce" || widget.role == "cs")
+                      _buildOptionCard(
+                        context,
+                        'Workers Summary',
+                        Icons.bar_chart,
+                        const Color(0xFFFFD700),
+                        () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const WorkersSummaryPage(),
                             ),
                           );
                         },
