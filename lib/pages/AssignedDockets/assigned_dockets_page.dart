@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../service/dockey_service.dart';
-import '../../models/dockets.dart';
+import '../../service/assigned_docket_service.dart';
+import '../../models/assigned_docket.dart';
+import '../AssignedDockets/assigned_docket_details.dart';
 
 class AssignedDocketsPage extends StatefulWidget {
   const AssignedDocketsPage({super.key});
@@ -9,100 +10,68 @@ class AssignedDocketsPage extends StatefulWidget {
   State<AssignedDocketsPage> createState() => _AssignedDocketsPageState();
 }
 
-class _AssignedDocketsPageState extends State<AssignedDocketsPage> {
-  late Future<List<Docket>> _assignedDocketsFuture;
-  final DocketService _docketService = DocketService();
+class _AssignedDocketsPageState extends State<AssignedDocketsPage>
+    with TickerProviderStateMixin {
+  late Future<List<AssignedDocket>> _assignedDocketsFuture;
+  final AssignedDocketService _assignedDocketService = AssignedDocketService();
+  late AnimationController _animationController;
+  String _selectedFilter = 'All';
+  final List<String> _filterOptions = ['All', 'In Progress', 'Completed'];
 
   @override
   void initState() {
     super.initState();
-    _assignedDocketsFuture = _fetchAssignedDockets();
+    _assignedDocketsFuture = _assignedDocketService.fetchAssignedDockets();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _animationController.forward();
   }
 
-  // Fetch assigned dockets (filter from all dockets)
-  Future<List<Docket>> _fetchAssignedDockets() async {
-    try {
-      final allDockets = await _docketService.fetchDockets();
-      
-      // Filter only assigned dockets (dockets with assignedTo field)
-      final assignedDockets = allDockets.where((docket) {
-        return docket.assignedTo.isNotEmpty &&
-               docket.assignTime.isNotEmpty;
-      }).toList();
-      
-      return assignedDockets;
-    } catch (e) {
-      print('Error fetching assigned dockets: $e');
-      rethrow;
-    }
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   void _refreshData() {
     setState(() {
-      _assignedDocketsFuture = _fetchAssignedDockets();
+      _assignedDocketsFuture = _assignedDocketService.fetchAssignedDockets();
     });
+    _animationController.reset();
+    _animationController.forward();
   }
 
-  // Helper method to format date/time for display
-  String formatDateTime(String? dateTimeString) {
-    if (dateTimeString == null || dateTimeString.isEmpty) {
-      return "N/A";
-    }
-    try {
-      final dateTime = DateTime.parse(dateTimeString);
-      return "${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}";
-    } catch (e) {
-      return dateTimeString; // Return original string if parsing fails
-    }
-  }
-
-  // Get status based on completed time
-  String _getStatus(Docket docket) {
-    return docket.completedTime.isNotEmpty ? "Completed" : "Ongoing";
-  }
-
-  Color _getStatusColor(Docket docket) {
-    return docket.completedTime.isNotEmpty ? Colors.green : Colors.orange;
-  }
-
-  // Get docket type color
-  Color _getDocketTypeColor(String docketType) {
-    switch (docketType.toLowerCase()) {
-      case 'urgent':
-      case 'priority':
-      case 'high':
-        return Colors.red;
-      case 'normal':
-      case 'medium':
-        return Colors.blue;
-      case 'low':
-        return Colors.green;
+  List<AssignedDocket> _filterDockets(List<AssignedDocket> dockets) {
+    switch (_selectedFilter) {
+      case 'In Progress':
+        return dockets.where((d) => d.isOngoing).toList();
+      case 'Completed':
+        return dockets.where((d) => d.isCompleted).toList();
       default:
-        return Colors.grey;
-    }
-  }
-
-  String _getWorkDuration(Docket docket) {
-    if (docket.completedTime.isNotEmpty) {
-      final completedTime = DateTime.parse(docket.completedTime);
-      final assignTime = DateTime.parse(docket.assignTime);
-      final duration = completedTime.difference(assignTime);
-      final hours = duration.inHours;
-      final minutes = duration.inMinutes % 60;
-      return "$hours hours $minutes minutes";
-    } else {
-      return "In Progress";
+        return dockets;
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text("Assigned Dockets"),
-        backgroundColor: Theme.of(context).primaryColor,
+        elevation: 0,
+        title: const Text(
+          "Assigned Dockets",
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: Colors.indigo[600],
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.filter_list),
+            onPressed: _showFilterDialog,
+            tooltip: "Filter",
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refreshData,
@@ -110,7 +79,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage> {
           ),
         ],
       ),
-      body: FutureBuilder<List<Docket>>(
+      body: FutureBuilder<List<AssignedDocket>>(
         future: _assignedDocketsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -118,9 +87,18 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 16),
-                  Text("Loading assigned dockets..."),
+                  CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo),
+                  ),
+                  SizedBox(height: 24),
+                  Text(
+                    "Loading assigned dockets...",
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
                 ],
               ),
             );
@@ -128,422 +106,715 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage> {
 
           if (snapshot.hasError) {
             return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red[300],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    "Error loading data",
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 8),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Text(
-                      "${snapshot.error}",
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.red[50],
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Icon(
+                        Icons.error_outline,
+                        size: 64,
+                        color: Colors.red[400],
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      "Oops! Something went wrong",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "Unable to load assigned dockets",
                       textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      style: TextStyle(
+                        fontSize: 16,
                         color: Colors.grey[600],
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _refreshData,
-                    child: const Text("Retry"),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final assignedDockets = snapshot.data ?? [];
-
-          if (assignedDockets.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.inbox_outlined,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    "No assigned dockets available",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return Column(
-            children: [
-              Container(
-                width: double.infinity,
-                margin: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _buildSummaryCard(
-                        title: "Total Assigned",
-                        count: assignedDockets.length,
-                        color: Colors.blue,
-                        icon: Icons.assignment,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildSummaryCard(
-                        title: "Ongoing",
-                        count: assignedDockets.where((d) => d.completedTime.isEmpty).length,
-                        color: Colors.orange,
-                        icon: Icons.hourglass_empty,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildSummaryCard(
-                        title: "Completed",
-                        count: assignedDockets.where((d) => d.completedTime.isNotEmpty).length,
-                        color: Colors.green,
-                        icon: Icons.check_circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildSummaryCard(
-                        title: "Reassigned",
-                        count: 0, // Reassignment count is not available in the Docket model
-                        color: Colors.purple,
-                        icon: Icons.repeat,
+                    const SizedBox(height: 24),
+                    ElevatedButton.icon(
+                      onPressed: _refreshData,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text("Try Again"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 24,
+                          vertical: 12,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ],
                 ),
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.vertical,
-                    child: Container(
-                      margin: const EdgeInsets.symmetric(horizontal: 16),
+            );
+          }
+
+          final allDockets = snapshot.data ?? [];
+          final filteredDockets = _filterDockets(allDockets);
+
+          if (allDockets.isEmpty) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(16),
                       ),
-                      child: DataTable(
-                        columnSpacing: 20,
-                        headingRowColor: MaterialStateProperty.all(Colors.grey.shade100),
-                        columns: const [
-                          DataColumn(label: Text("Docket ID", style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text("Type", style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text("Assigned To", style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text("Assigned Time", style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text("Reassigned", style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text("Status", style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text("Duration", style: TextStyle(fontWeight: FontWeight.bold))),
-                          DataColumn(label: Text("Actions", style: TextStyle(fontWeight: FontWeight.bold))),
-                        ],
-                        rows: assignedDockets.map((docket) {
-                          return DataRow(
-                            color: MaterialStateProperty.resolveWith<Color?>(
-                              (Set<MaterialState> states) {
-                                return null; // No reassignment color available
-                              },
-                            ),
-                            cells: [
-                              // DataCell(Text(docket.docketID.isNotEmpty ? docket.docketID : "N/A", style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14))),
-                              DataCell(Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: _getDocketTypeColor(docket.docketType).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(4),
-                                ),
-                                child: Text(
-                                  docket.docketType.isNotEmpty ? docket.docketType : "N/A",
-                                  style: TextStyle(
-                                    color: _getDocketTypeColor(docket.docketType),
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              )),
-                              DataCell(Text(docket.assignedTo.isNotEmpty ? docket.assignedTo : "N/A", style: const TextStyle(fontSize: 14))),
-                              DataCell(Text(formatDateTime(docket.assignTime), style: const TextStyle(fontSize: 12))),
-                              // <-- Updated reassigned column
-                              DataCell(Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.grey.shade200,
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Text(
-                                  "No",
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontWeight: FontWeight.w500,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              )),
-                              DataCell(Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: _getStatusColor(docket).withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(16),
-                                  border: Border.all(color: _getStatusColor(docket).withOpacity(0.3)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      docket.completedTime.isNotEmpty ? Icons.check_circle : Icons.schedule, 
-                                      size: 12, 
-                                      color: _getStatusColor(docket)
-                                    ),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _getStatus(docket), 
-                                      style: TextStyle(
-                                        color: _getStatusColor(docket), 
-                                        fontWeight: FontWeight.w500, 
-                                        fontSize: 12
-                                      )
-                                    ),
-                                  ],
-                                ),
-                              )),
-                              DataCell(Text(
-                                _getWorkDuration(docket), 
-                                style: TextStyle(
-                                  fontSize: 12, 
-                                  color: docket.completedTime.isNotEmpty ? Colors.green.shade700 : Colors.orange.shade700, 
-                                  fontWeight: FontWeight.w500
-                                )
-                              )),
-                              DataCell(Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(icon: const Icon(Icons.visibility, size: 18), onPressed: () => _viewDocketDetails(docket), tooltip: "View Details"),
-                                  if (docket.completedTime.isEmpty) ...[
-                                    IconButton(
-                                      icon: const Icon(Icons.check_circle, size: 18), 
-                                      onPressed: () => _markAsCompleted(docket), 
-                                      tooltip: "Mark as Completed", 
-                                      color: Colors.green
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.repeat, size: 18), 
-                                      onPressed: () => _reassignDocket(docket), 
-                                      tooltip: "Reassign", 
-                                      color: Colors.purple
-                                    ),
-                                  ],
-                                ],
-                              )),
-                            ],
-                          );
-                        }).toList(),
+                      child: Icon(
+                        Icons.inbox_outlined,
+                        size: 64,
+                        color: Colors.grey[400],
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 24),
+                    Text(
+                      "No assigned dockets",
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey[700],
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      "There are no assigned dockets available at the moment",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.grey[500],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            );
+          }
+
+          return RefreshIndicator(
+            onRefresh: () async {
+              _refreshData();
+            },
+            color: Colors.indigo,
+            child: Column(
+              children: [
+                // Summary Cards Section
+                Container(
+                  margin: const EdgeInsets.all(16),
+                  child: _buildSummarySection(allDockets),
+                ),
+                
+                // Filter Chips
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16),
+                  height: 40,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: _filterOptions.length,
+                    itemBuilder: (context, index) {
+                      final filter = _filterOptions[index];
+                      final isSelected = _selectedFilter == filter;
+                      return Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        child: FilterChip(
+                          label: Text(filter),
+                          selected: isSelected,
+                          onSelected: (selected) {
+                            setState(() {
+                              _selectedFilter = filter;
+                            });
+                          },
+                          selectedColor: Colors.indigo[100],
+                          checkmarkColor: Colors.indigo[700],
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.indigo[700] : Colors.grey[700],
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Dockets List
+                Expanded(
+                  child: filteredDockets.isEmpty
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.filter_list_off,
+                                  size: 48,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 16),
+                                Text(
+                                  "No $_selectedFilter dockets",
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      : AnimatedBuilder(
+                          animation: _animationController,
+                          builder: (context, child) {
+                            return ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: filteredDockets.length,
+                              itemBuilder: (context, index) {
+                                final docket = filteredDockets[index];
+                                final animationDelay = index * 0.1;
+                                final animation = Tween<double>(
+                                  begin: 0,
+                                  end: 1,
+                                ).animate(
+                                  CurvedAnimation(
+                                    parent: _animationController,
+                                    curve: Interval(
+                                      animationDelay,
+                                      1.0,
+                                      curve: Curves.easeOutCubic,
+                                    ),
+                                  ),
+                                );
+
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: SlideTransition(
+                                    position: Tween<Offset>(
+                                      begin: const Offset(0, 0.3),
+                                      end: Offset.zero,
+                                    ).animate(animation),
+                                    child: _buildDocketCard(docket, index),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
           );
         },
       ),
     );
   }
 
-  Widget _buildSummaryCard({
-    required String title,
-    required int count,
-    required Color color,
-    required IconData icon,
-  }) {
-    return Container(
-  padding: const EdgeInsets.all(16),
-  decoration: BoxDecoration(
-    color: color.shade50!,
-    borderRadius: BorderRadius.circular(12),
-    border: Border.all(color: color.shade200!),
-  ),
-  child: Column(
-    children: [
-      Icon(icon, color: color.shade600!, size: 24),
-      const SizedBox(height: 8),
-      Text("$count", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color.shade700!)),
-      Text(title, style: TextStyle(fontSize: 12, color: color.shade700!, fontWeight: FontWeight.w500), textAlign: TextAlign.center),
-    ],
-  ),
-);
-  }
-
-  void _viewDocketDetails(Docket docket) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              Icon(Icons.assignment, color: Theme.of(context).primaryColor),
-              const SizedBox(width: 8),
-              Expanded(child: Text("Docket Details - ${docket.id}")),
-            ],
+  Widget _buildSummarySection(List<AssignedDocket> dockets) {
+    return Row(
+      children: [
+        Expanded(
+          child: _buildSummaryCard(
+            title: "Total",
+            count: dockets.length,
+            icon: Icons.assignment,
+            color: Colors.blue,
           ),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _buildDetailRow("Docket ID", docket.id),
-                _buildDetailRow("Type", docket.docketType),
-                _buildDetailRow("Assigned To", docket.assignedTo),
-                _buildDetailRow("Assigned Time", formatDateTime(docket.assignTime)),
-                _buildDetailRow("Status", _getStatus(docket)),
-                if (docket.completedTime.isNotEmpty) ...[
-                  _buildDetailRow("Completed Time", formatDateTime(docket.completedTime)),
-                  _buildDetailRow("Work Duration", _getWorkDuration(docket)),
-                ],
-              ],
-            ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildSummaryCard(
+            title: "In Progress",
+            count: dockets.where((d) => d.isOngoing).length,
+            icon: Icons.hourglass_empty,
+            color: Colors.orange,
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(), 
-              child: const Text("Close")
-            ),
-          ],
-        );
-      },
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _buildSummaryCard(
+            title: "Completed",
+            count: dockets.where((d) => d.isCompleted).length,
+            icon: Icons.check_circle,
+            color: Colors.green,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildDetailRow(String label, String? value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text("$label:", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+  Widget _buildSummaryCard({
+    required String title,
+    required int count,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-          Expanded(
-            child: Text(value?.isNotEmpty == true ? value! : "N/A", style: const TextStyle(fontWeight: FontWeight.w500)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(
+            "$count",
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 12,
+              color: color.withOpacity(0.8),
+              fontWeight: FontWeight.w500,
+            ),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
     );
   }
 
-  void _markAsCompleted(Docket docket) {
-    showDialog(
+  Widget _buildDocketCard(AssignedDocket docket, int index) {
+    final isCompleted = docket.isCompleted;
+    final isOverdue = docket.isOverdue();
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Material(
+        elevation: 2,
+        borderRadius: BorderRadius.circular(16),
+        shadowColor: Colors.black.withOpacity(0.1),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => _navigateToDetails(docket),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              gradient: LinearGradient(
+                colors: [
+                  Colors.white,
+                  isCompleted 
+                    ? Colors.green.withOpacity(0.05)
+                    : isOverdue 
+                      ? Colors.red.withOpacity(0.05)
+                      : Colors.blue.withOpacity(0.05),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              border: Border.all(
+                color: isCompleted 
+                  ? Colors.green.withOpacity(0.3)
+                  : isOverdue 
+                    ? Colors.red.withOpacity(0.3)
+                    : Colors.blue.withOpacity(0.2),
+                width: 1,
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      // Docket ID Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.indigo[600]!, Colors.indigo[700]!],
+                          ),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.indigo.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.receipt_long,
+                              size: 14,
+                              color: Colors.white,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              "ID: ${docket.docketID}",
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Spacer(),
+                      // Status Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isCompleted 
+                            ? Colors.green.withOpacity(0.2)
+                            : isOverdue 
+                              ? Colors.red.withOpacity(0.2)
+                              : Colors.orange.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isCompleted 
+                              ? Colors.green
+                              : isOverdue 
+                                ? Colors.red
+                                : Colors.orange,
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              isCompleted 
+                                ? Icons.check_circle
+                                : isOverdue 
+                                  ? Icons.warning
+                                  : Icons.schedule,
+                              size: 12,
+                              color: isCompleted 
+                                ? Colors.green[700]
+                                : isOverdue 
+                                  ? Colors.red[700]
+                                  : Colors.orange[700],
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              isOverdue 
+                                ? "OVERDUE"
+                                : docket.displayStatus.toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: isCompleted 
+                                  ? Colors.green[700]
+                                  : isOverdue 
+                                    ? Colors.red[700]
+                                    : Colors.orange[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Assigned Persons
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.people,
+                        size: 18,
+                        color: Colors.grey[600],
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Assigned to:",
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[50],
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey[200]!),
+                    ),
+                    child: Text(
+                      docket.assignedPersons.isNotEmpty 
+                        ? docket.assignedPersons
+                        : "Not assigned",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[800],
+                      ),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Time Information
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Assigned",
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey[500],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              docket.formattedAssignedTime,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (docket.isCompleted) 
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                "Completed",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[500],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                docket.formattedCompletedTime,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      else 
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text(
+                                "Duration",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  color: Colors.grey[500],
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                docket.timeSinceAssignment,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isOverdue ? Colors.red[700] : Colors.orange[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  
+                  // Action Row
+                  Row(
+                    children: [
+                      if (docket.hasBeenReassigned)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.purple.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.purple.withOpacity(0.3),
+                            ),
+                          ),
+                          child: Text(
+                            "Reassigned ${docket.reassignmentCount}x",
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.purple[700],
+                            ),
+                          ),
+                        ),
+                      const Spacer(),
+                      Icon(
+                        Icons.arrow_forward_ios,
+                        size: 12,
+                        color: Colors.grey[400],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _navigateToDetails(AssignedDocket docket) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            AssignedDocketDetailsPage(docket: docket),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          const begin = Offset(1.0, 0.0);
+          const end = Offset.zero;
+          const curve = Curves.easeInOutCubic;
+
+          var tween = Tween(begin: begin, end: end).chain(
+            CurveTween(curve: curve),
+          );
+
+          return SlideTransition(
+            position: animation.drive(tween),
+            child: child,
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+      ),
+    ).then((_) {
+      // Refresh data when returning from details page
+      _refreshData();
+    });
+  }
+
+  void _showFilterDialog() {
+    showModalBottomSheet(
       context: context,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Mark as Completed"),
-          content: Text("Are you sure you want to mark docket ${docket.id} as completed?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(), 
-              child: const Text("Cancel")
+        return Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(20),
+              topRight: Radius.circular(20),
             ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _performMarkAsCompleted(docket);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: const Text("Mark Completed"),
-            ),
-          ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(top: 8),
+                height: 4,
+                width: 40,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                "Filter Dockets",
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                ),
+              ),
+              const SizedBox(height: 20),
+              ..._filterOptions.map((filter) {
+                return ListTile(
+                  leading: Radio<String>(
+                    value: filter,
+                    groupValue: _selectedFilter,
+                    onChanged: (String? value) {
+                      setState(() {
+                        _selectedFilter = value!;
+                      });
+                      Navigator.pop(context);
+                    },
+                    activeColor: Colors.indigo,
+                  ),
+                  title: Text(filter),
+                  onTap: () {
+                    setState(() {
+                      _selectedFilter = filter;
+                    });
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+              const SizedBox(height: 20),
+            ],
+          ),
         );
       },
     );
   }
-
-  void _performMarkAsCompleted(Docket docket) {
-    // In a real app, you would call an API to update the docket status
-    // For now, we'll just show a snackbar and refresh the data
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 8),
-            Text("Docket ${docket.id} marked as completed"),
-          ],
-        ),
-        backgroundColor: Colors.green,
-      ),
-    );
-    _refreshData();
-  }
-
-  void _reassignDocket(Docket docket) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Reassign Docket"),
-          content: Text("Are you sure you want to reassign docket ${docket.id}?"),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(), 
-              child: const Text("Cancel")
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _performReassignment(docket);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.purple),
-              child: const Text("Reassign"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _performReassignment(Docket docket) {
-    // In a real app, you would call an API to reassign the docket
-    // For now, we'll just show a snackbar and refresh the data
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.repeat, color: Colors.white),
-            const SizedBox(width: 8),
-            Text("Docket ${docket.id} has been reassigned"),
-          ],
-        ),
-        backgroundColor: Colors.purple,
-      ),
-    );
-    _refreshData();
-  }
-}
-
-extension on Color {
-  Color? get shade700 => null;
-  
-  Color? get shade600 => null;
-  
-  // Color get shade200 => null;
-  
-  Color? get shade50 => null;
-  
-  Color? get shade200 => null;
 }
