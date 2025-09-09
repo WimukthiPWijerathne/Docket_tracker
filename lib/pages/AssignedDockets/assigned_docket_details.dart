@@ -23,10 +23,14 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   String? docketImageName;
   bool isLoadingImage = true;
   String? imageError;
+  String?docketType;
 
   static const String httpImageBase = 'http://124.43.181.243:8000';
   static const String docketDetailsApiBase = 'https://powerprox.sltidc.lk/GETDocketDetails.php';
 
+ String _imageBaseForPlatform() {
+    return  httpImageBase;
+  }
   @override
   void initState() {
     super.initState();
@@ -49,14 +53,15 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
           orElse: () => null,
         );
 
-        if (record != null && record['ImageName'] != null) {
+        if (record != null && record['ImageName'] != null && record['DocketType'] != null) {
           setState(() {
             docketImageName = record['ImageName'];
+            docketType = record['DocketType'];
             isLoadingImage = false;
           });
 
           debugPrint(
-              "📷 Image for docket ${widget.docket.docketID}: $docketImageName");
+              "📷 Image for docket ${widget.docket.docketID}: $docketType, $docketImageName");
         } else {
           setState(() {
             imageError = 'No image found for this docket';
@@ -77,13 +82,13 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
     }
   }
 
-  // Get docket type number for image URL
 
 
+
   // Get docket type number for image URL
-  String _getDocketTypeNumber(String docketType) {
+ String _getDocketTypeNumber(String docketType) {
     switch (docketType.toLowerCase().trim()) {
-      case 'service line maintainance':
+      
       case 'service line maintenance':
         return '1';
       case 'meter testing':
@@ -105,15 +110,17 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   }
 
   // Ensure image name has extension
+
+
   String _safeImageName(String name) {
     return _hasImageExtension(name) ? name : '$name.jpg';
   }
 
-  // Build image URL
+  // Build final image URL
   String _imageUrlFor(String docketType, String imageName) {
     final type = _getDocketTypeNumber(docketType);
     final safeName = _safeImageName(imageName);
-    return '$httpImageBase/api/fetch-testdocket-image/$type/$safeName';
+    return '${_imageBaseForPlatform()}/api/fetch-testdocket-image/$type/$safeName';
   }
 
   @override
@@ -289,7 +296,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                     ),
                   )
                 : Image.network(
-                    _imageUrlFor('service line maintenance', docketImageName!),
+                  _imageUrlFor(docketType ?? "unknown", docketImageName!),
                     fit: BoxFit.cover,
                     width: double.infinity,
                     errorBuilder: (context, error, stackTrace) {
