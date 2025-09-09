@@ -37,7 +37,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   Future<void> _fetchDocketImageName() async {
     try {
       final response = await http.get(
-        Uri.parse('$docketDetailsApiBase?docket_id=${widget.docket.docketID}'),
+        Uri.parse('$docketDetailsApiBase?ID=${widget.docket.docketID}'),
         headers: {'Content-Type': 'application/json'},
       );
 
@@ -457,7 +457,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
           _buildDetailRow("Assignment ID", widget.docket.assignmentID, Icons.fingerprint),
           _buildDetailRow("Docket ID", widget.docket.docketID, Icons.receipt),
           _buildDetailRow("Uploaded By", widget.docket.uploadedBy, Icons.person),
-          _buildDetailRow("Upload Time", widget.docket.formattedUploadedTime, Icons.cloud_upload),
+          _buildDetailRow("Assigned Time", widget.docket.formattedUploadedTime, Icons.cloud_upload),
           _buildDetailRow("Reassignment Count", "${widget.docket.reassignmentCount}", Icons.repeat),
           if (widget.docket.isCompleted)
             _buildDetailRow("Work Duration", widget.docket.formattedWorkDuration, Icons.timer),
