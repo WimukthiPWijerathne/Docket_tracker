@@ -4,7 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 class AddWorkerPage extends StatefulWidget {
-  const AddWorkerPage({super.key});
+  final String loggedInRole; // ✅ Pass role from login (CE or CS)
+
+  const AddWorkerPage({
+    super.key,
+    required this.loggedInRole,
+  });
 
   @override
   State<AddWorkerPage> createState() => _AddWorkerPageState();
@@ -14,23 +19,37 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
-  final TextEditingController _employeeIdController = TextEditingController(); // ✅ new
+  final TextEditingController _employeeIdController = TextEditingController();
+
   String selectedDepot = 'Kadana';
+  String? selectedRole; // ✅ role selection
   bool _isLoading = false;
 
   final List<String> depots = ['Kadana', 'Paliyagoda', 'Mahara', 'Wattala'];
 
+  // ✅ Available roles depending on logged-in role
+  List<String> getRoleOptions() {
+    if (widget.loggedInRole == "ce") {
+      return ["CS", "CRO", "Worker"];
+    } else if (widget.loggedInRole == "cs") {
+      return ["CRO", "Worker"];
+    } else {
+      return ["Worker"]; // fallback
+    }
+  }
+
   Future<void> submitWorker() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final body = {
         "firstName": _firstNameController.text.trim(),
         "lastName": _lastNameController.text.trim(),
-        "employeeNo": _employeeIdController.text.trim(), // ✅ send employee ID
+        "employeeNo": _employeeIdController.text.trim(),
         "depot": selectedDepot,
+        "role": selectedRole ?? "Worker", // ✅ send role
       };
-      
+
       final response = await http.post(
         Uri.parse('https://powerprox.sltidc.lk/POSTPeople.php'),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
@@ -41,16 +60,15 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
         final data = jsonDecode(response.body);
 
         if (data['success'] == true || data['status'] == 'success') {
-          // Return the newly added worker to the previous page
           Navigator.pop(context, {
             "name": "${body['firstName']} ${body['lastName']}".trim(),
             "depot": selectedDepot,
             "employeeNo": body['employeeNo'],
+            "designation": body['role'],
           });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(data['message'] ?? "Failed to add worker")),
+            SnackBar(content: Text(data['message'] ?? "Failed to add worker")),
           );
         }
       } else {
@@ -81,6 +99,8 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
 
   @override
   Widget build(BuildContext context) {
+    final roleOptions = getRoleOptions();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Add New Worker"),
@@ -127,7 +147,7 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
               ),
               const SizedBox(height: 12),
 
-              // ✅ Employee ID
+              // Employee ID
               TextFormField(
                 controller: _employeeIdController,
                 decoration: const InputDecoration(
@@ -166,6 +186,36 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
                   }
                 },
               ),
+              const SizedBox(height: 16),
+
+              // ✅ Role dropdown
+              DropdownButtonFormField<String>(
+                value: selectedRole,
+                decoration: const InputDecoration(
+                  labelText: "Select Role",
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.work),
+                ),
+                items: roleOptions
+                    .map((role) => DropdownMenuItem(
+                          value: role,
+                          child: Text(role),
+                        ))
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      selectedRole = value;
+                    });
+                  }
+                },
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return "Please select a role";
+                  }
+                  return null;
+                },
+              ),
               const SizedBox(height: 24),
 
               // Submit button
@@ -182,9 +232,7 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
                         },
                   icon: const Icon(Icons.add),
                   label: _isLoading
-                      ? const CircularProgressIndicator(
-                          color: Colors.white,
-                        )
+                      ? const CircularProgressIndicator(color: Colors.white)
                       : const Text("Add Worker"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.teal,

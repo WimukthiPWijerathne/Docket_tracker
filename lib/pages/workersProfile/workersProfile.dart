@@ -4,12 +4,13 @@ import 'package:http/http.dart' as http;
 import '../workersProfile/addworkers.dart';
 
 class WorkerListPage extends StatefulWidget {
-  const WorkerListPage({super.key});
+  final String loggedInRole;   // ✅ new
+
+  const WorkerListPage({super.key, required this.loggedInRole});
 
   @override
   State<WorkerListPage> createState() => _WorkerListPageState();
 }
-
 class _WorkerListPageState extends State<WorkerListPage> {
   List<Map<String, String>> allWorkers = [];
   List<Map<String, String>> displayedWorkers = [];
@@ -20,7 +21,7 @@ class _WorkerListPageState extends State<WorkerListPage> {
 
   @override
   void initState() {
-    super.initState();
+    super.initState(); 
     fetchWorkers();
   }
 
@@ -258,7 +259,7 @@ class _WorkerListPageState extends State<WorkerListPage> {
                   onPressed: () async {
                     final newWorker = await Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const AddWorkerPage(),
+                        builder: (_) => AddWorkerPage(loggedInRole: widget.loggedInRole,),
                       ),
                     );
 
