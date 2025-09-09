@@ -1,8 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../service/dockey_service.dart';
 import '../models/dockets.dart';
 import '../pages/assign.dart';
+import 'package:shimmer/shimmer.dart';
+import 'dart:io' show Platform;
 
 class ShowDocketsPage extends StatefulWidget {
   final String title;
@@ -15,11 +19,14 @@ class ShowDocketsPage extends StatefulWidget {
 
 class _ShowDocketsPageState extends State<ShowDocketsPage> {
   final DocketService _docketService = DocketService();
+  final TextEditingController _searchController = TextEditingController();
   List<Docket> dockets = [];
   List<Docket> filteredDockets = [];
   List<bool> status = [];
   bool isLoading = true;
+  bool isRefreshing = false;
   String? errorMessage;
+  final ScrollController _scrollController = ScrollController();
 
   // API bases
   // static const String httpsImageBase = 'https://powerprox.sltidc.lk'; 
@@ -29,6 +36,25 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
   void initState() {
     super.initState();
     _loadDockets();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+  
+  void _onSearchChanged() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      filteredDockets = dockets.where((docket) {
+        return docket.docketType.toLowerCase().contains(query) ||
+               docket.depot.toLowerCase().contains(query) ||
+               docket.docketSerial.toLowerCase().contains(query);
+      }).toList();
+    });
   }
 
   // Map docket type strings to numeric IDs expected by backend
@@ -72,26 +98,29 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
     return '${_imageBaseForPlatform()}/api/fetch-testdocket-image/$type/$safeName';
   }
 
-  Future<void> _loadDockets() async {
+  Future<void> _loadDockets({bool isRefresh = false}) async {
     if (!mounted) return;
 
     setState(() {
-      isLoading = true;
+      if (!isRefresh) {
+        isLoading = true;
+      } else {
+        isRefreshing = true;
+      }
       errorMessage = null;
     });
 
     try {
       final fetchedDockets = await _docketService.fetchDockets();
       if (mounted) {
-        final filtered = fetchedDockets
-            .where((docket) => docket.docketType == widget.title)
-            .toList();
-
         setState(() {
           dockets = fetchedDockets;
-          filteredDockets = filtered;
+          filteredDockets = fetchedDockets
+              .where((docket) => docket.docketType == widget.title)
+              .toList();
           status = List<bool>.filled(filteredDockets.length, false);
           isLoading = false;
+          isRefreshing = false;
         });
       }
     } catch (e) {
@@ -99,9 +128,9 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
         setState(() {
           errorMessage = e.toString();
           isLoading = false;
+          isRefreshing = false;
           dockets = _generateDummyDockets();
-          filteredDockets =
-              dockets.where((docket) => docket.docketType == widget.title).toList();
+          filteredDockets = dockets.where((docket) => docket.docketType == widget.title).toList();
           status = List<bool>.filled(filteredDockets.length, false);
         });
       }
@@ -154,7 +183,10 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AssignPage(dockets: selectedDockets),
+        builder: (context) => AssignPage(
+          dockets: selectedDockets,
+          depot: 'All', // Default depot since we're not filtering by depot in this page
+        ),
       ),
     );
   }
@@ -174,68 +206,100 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
     );
   }
 
-  Widget _buildSimpleRow(
-    String date,
-    String location,
-    String docketType,
-    String? imageName,
-    bool isSelected,
-    int index, {
-    bool isHeader = false,
-  }) {
-    if (isHeader) {
-      return Container(
+  Widget _buildLoadingShimmer() {
+    return Expanded(
+      child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFF003366).withOpacity(0.1),
-          border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
-        ),
-        child: const Row(
-          children: [
-            Expanded(flex: 2, child: Text('Date', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
-            Expanded(flex: 2, child: Text('Location', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
-            Expanded(flex: 2, child: Text('Type', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
-            Expanded(flex: 2, child: Text('Docket Image', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
-            Expanded(flex: 1, child: Center(child: Text('Select', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366))))),
-          ],
-        ),
-      );
-    }
-
-    return InkWell(
-      onTap: () {
-        if (mounted) {
-          setState(() {
-            status[index] = !status[index];
-          });
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF003366).withOpacity(0.05) : Colors.white,
-          border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-        ),
-        child: Row(
-          children: [
-            Expanded(flex: 2, child: Text(date, style: const TextStyle(fontSize: 12))),
-            Expanded(flex: 2, child: Text(location, style: const TextStyle(fontSize: 12))),
-            Expanded(flex: 2, child: Text(docketType, style: const TextStyle(fontSize: 12))),
-            Expanded(flex: 2, child: _buildImageCell(imageName, docketType)),
-            Expanded(
-              flex: 1,
-              child: Center(
-                child: Container(
-                  width: 20,
-                  height: 20,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: isSelected ? const Color(0xFF003366) : Colors.grey),
-                    borderRadius: BorderRadius.circular(3),
-                    color: isSelected ? const Color(0xFF003366) : Colors.transparent,
-                  ),
-                  child: isSelected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+        itemCount: 6,
+        itemBuilder: (context, index) {
+          return Card(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Shimmer.fromColors(
+              baseColor: Colors.grey[300]!,
+              highlightColor: Colors.grey[100]!,
+              child: Container(
+                height: 120,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
                 ),
               ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Expanded(
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, color: Colors.red[400], size: 64),
+              const SizedBox(height: 16),
+              Text(
+                'Unable to load dockets',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                      color: Colors.grey[800],
+                      fontWeight: FontWeight.w600,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                errorMessage ?? 'An unknown error occurred',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey[600],
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _loadDockets,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Try Again'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF003366),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Expanded(
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.inbox_outlined, size: 72, color: Colors.grey[400]),
+            const SizedBox(height: 16),
+            Text(
+              'No dockets found',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Try adjusting your search or add a new docket',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[500],
+                  ),
             ),
           ],
         ),
@@ -243,127 +307,208 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
     );
   }
 
-  Widget _buildImageCell(String? imageName, String docketType) {
-    if (imageName == null || imageName.isEmpty) {
-      return const Row(
-        children: [
-          Icon(Icons.image_not_supported, size: 16, color: Colors.grey),
-          SizedBox(width: 4),
-          Expanded(
-            child: Text('No image', style: TextStyle(fontSize: 11, color: Colors.grey), overflow: TextOverflow.ellipsis),
+  Widget _buildDocketCard(Docket docket, int index) {
+    final bool isSelected = status[index];
+    final formattedDate = _formatDate(docket.uploadedTime);
+    
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isSelected ? const Color(0xFF003366) : Colors.grey[200]!,
+          width: isSelected ? 1.5 : 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
-      );
-    }
-
-    final String imageUrl = _imageUrlFor(docketType, imageName);
-
-    return Row(
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(4),
-            color: const Color(0xFF003366).withOpacity(0.1),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Image.network(
-              imageUrl,
-              width: 24,
-              height: 24,
-              fit: BoxFit.cover,
-              errorBuilder: (context, error, stackTrace) {
-                debugPrint('Image loading error: $error');
-                debugPrint('Failed URL: $imageUrl');
-                return const Icon(Icons.broken_image, size: 16, color: Colors.grey);
-              },
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          onTap: () {
+            setState(() {
+              status[index] = !status[index];
+            });
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Checkbox
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFF003366) : Colors.white,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: isSelected ? const Color(0xFF003366) : Colors.grey[400]!,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: isSelected
+                            ? const Icon(Icons.check, size: 14, color: Colors.white)
+                            : null,
+                      ),
+                    ),
+                    
+                    const SizedBox(width: 12),
+                    
+                    // Docket details
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Docket number and status
+                          Row(
+                            children: [
+                              Text(
+                                'Docket ${docket.docketSerial}',
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF003366),
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: _getStatusColor(docket.assignedTo).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  docket.assignedTo.isEmpty ? 'Unassigned' : 'Assigned',
+                                  style: TextStyle(
+                                    color: _getStatusColor(docket.assignedTo),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          
+                          const SizedBox(height: 8),
+                          
+                          // Location and type
+                          Text(
+                            docket.depot,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 4),
+                          
+                          // Date and time
+                          Row(
+                            children: [
+                              Icon(Icons.access_time, size: 12, color: Colors.grey[500]),
+                              const SizedBox(width: 4),
+                              Text(
+                                formattedDate,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              const Spacer(),
+                              if (docket.imageName != null && docket.imageName!.isNotEmpty)
+                                IconButton(
+                                  icon: Icon(Icons.photo_library, 
+                                    color: Colors.blue[600], 
+                                    size: 20,
+                                  ),
+                                  onPressed: () {
+                                    _showImagePreview(docket);
+                                  },
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: GestureDetector(
-            onTap: () => _showImageDialog(imageName, docketType),
-            child: Text(
-              imageName,
-              style: const TextStyle(fontSize: 11, color: Color(0xFF003366), decoration: TextDecoration.underline),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 
-  void _showImageDialog(String imageName, String docketType) {
-    final String imageUrl = _imageUrlFor(docketType, imageName);
+  Color _getStatusColor(String? status) {
+    if (status == null || status.isEmpty) return Colors.grey;
+    if (status.toLowerCase().contains('complete')) return Colors.green;
+    if (status.toLowerCase().contains('pending')) return Colors.orange;
+    return Colors.blue;
+  }
 
+  String _formatDate(String dateString) {
+    try {
+      final date = DateTime.parse(dateString);
+      return DateFormat('MMM d, y • hh:mm a').format(date);
+    } catch (e) {
+      return dateString;
+    }
+  }
+
+  void _showImagePreview(Docket docket) {
+    if (docket.imageName == null || docket.imageName!.isEmpty) return;
+    
+    final imageUrl = _imageUrlFor(docket.docketType, docket.imageName!);
+    
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
-          child: Center(
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.9,
-                maxHeight: MediaQuery.of(context).size.height * 0.8,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: const BoxDecoration(
-                      color: Color(0xFF003366),
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(8),
-                        topRight: Radius.circular(8),
-                      ),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.image, color: Colors.white),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text('Docket Image',
-                              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          icon: const Icon(Icons.close, color: Colors.white),
-                        ),
-                      ],
-                    ),
+          insetPadding: const EdgeInsets.all(20),
+          child: Stack(
+            children: [
+              InteractiveViewer(
+                panEnabled: true,
+                boundaryMargin: const EdgeInsets.all(20),
+                minScale: 0.5,
+                maxScale: 4,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  placeholder: (context, url) => Container(
+                    padding: const EdgeInsets.all(50),
+                    child: const CircularProgressIndicator(),
                   ),
-                  Flexible(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Image.network(
-                        imageUrl,
-                        fit: BoxFit.contain,
-                        errorBuilder: (context, error, stackTrace) {
-                          return Column(
-                            children: [
-                              const Icon(Icons.error, color: Colors.red, size: 48),
-                              const Text("Failed to load image"),
-                              SelectableText("URL: $imageUrl\nError: $error"),
-                            ],
-                          );
-                        },
-                      ),
-                    ),
-                  ),
-                ],
+                  errorWidget: (context, url, error) => const Icon(Icons.error),
+                  fit: BoxFit.contain,
+                ),
               ),
-            ),
+              Positioned(
+                right: 0,
+                top: 0,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
           ),
         );
       },
@@ -372,111 +517,180 @@ class _ShowDocketsPageState extends State<ShowDocketsPage> {
 
   @override
   Widget build(BuildContext context) {
-    const double rowHeight = 56.0;
-    const double headerHeight = 56.0;
-    const double maxHeight = 400.0;
-
-    double contentHeight = headerHeight + (filteredDockets.length * rowHeight);
-    double tableHeight = contentHeight > maxHeight ? maxHeight : contentHeight;
-
+    final selectedCount = status.where((s) => s).length;
+    
     return Scaffold(
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: Text(widget.title),
+        title: Text(
+          '${widget.title} (${filteredDockets.length})',
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+            fontSize: 16,
+          ),
+        ),
         backgroundColor: const Color(0xFF003366),
-        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadDockets),
+          IconButton(
+            icon: const Icon(Icons.search, color: Colors.white, size: 24),
+            onPressed: () {
+              // Search functionality is now in the body
+            },
+          ),
+          if (selectedCount > 0)
+            TextButton.icon(
+              icon: const Icon(Icons.clear, color: Colors.white, size: 20),
+              label: const Text(
+                'Clear Selections',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              onPressed: _onCancel,
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+              ),
+            ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(widget.title, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF003366))),
-            const SizedBox(height: 8),
-            Text('Total: ${filteredDockets.length} dockets', style: const TextStyle(fontSize: 16, color: Color(0xFF666666))),
-            const SizedBox(height: 16),
-            if (errorMessage != null)
-              Container(
-                padding: const EdgeInsets.all(12),
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.orange.shade100,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.orange.shade300),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning, color: Colors.orange),
-                    const SizedBox(width: 8),
-                    Expanded(child: Text('API Error: Using demo data. $errorMessage', style: const TextStyle(color: Colors.orange))),
-                  ],
-                ),
-              ),
-            Container(
-              height: tableHeight,
+      body: Column(
+        children: [
+          // Search bar
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Container(
+              height: 40,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
-              child: Column(
+              child: TextField(
+                controller: _searchController,
+                style: const TextStyle(fontSize: 14),
+                decoration: InputDecoration(
+                  hintText: 'Search dockets...',
+                  hintStyle: TextStyle(color: Colors.grey[500], fontSize: 14),
+                  prefixIcon: Icon(Icons.search, color: Colors.grey[500], size: 20),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                  isDense: true,
+                ),
+              ),
+            ),
+          ),
+          
+          // Selected count and clear button
+          if (selectedCount > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: Colors.blue[50],
+              child: Row(
                 children: [
-                  _buildSimpleRow('Date', 'Location', 'Type', null, false, -1, isHeader: true),
-                  Expanded(
-                    child: isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : filteredDockets.isEmpty
-                            ? Center(child: Text('No dockets available for "${widget.title}"'))
-                            : ListView.builder(
-                                padding: EdgeInsets.zero,
-                                itemCount: filteredDockets.length,
-                                itemBuilder: (context, index) {
-                                  final docket = filteredDockets[index];
-                                  return _buildSimpleRow(
-                                    docket.uploadedTime.isNotEmpty ? docket.uploadedTime : 'N/A',
-                                    docket.depot.isNotEmpty ? docket.depot : 'Unknown Location',
-                                    docket.docketType.isNotEmpty ? docket.docketType : 'Unknown Type',
-                                    docket.imageName,
-                                    status.length > index ? status[index] : false,
-                                    index,
-                                  );
-                                },
-                              ),
+                  Text(
+                    '$selectedCount ${selectedCount == 1 ? 'item' : 'items'} selected',
+                    style: TextStyle(
+                      color: Colors.blue[800],
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const Spacer(),
+                  TextButton(
+                    onPressed: _onCancel,
+                    style: TextButton.styleFrom(
+                      padding: EdgeInsets.zero,
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text(
+                      'Clear Selections',
+                      style: TextStyle(
+                        color: Colors.blue,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: isLoading ? null : _onAssign,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF003366),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text('Assign', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: isLoading ? null : _onCancel,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey.shade600,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
+            
+          // Divider
+          Container(
+            height: 1,
+            color: Colors.grey[200],
+          ),
+          
+          // Main content
+          Expanded(
+            child: Builder(
+              builder: (context) {
+                if (isLoading) {
+                  return _buildLoadingShimmer();
+                } else if (errorMessage != null) {
+                  return _buildErrorState();
+                } else if (filteredDockets.isEmpty) {
+                  return _buildEmptyState();
+                } else {
+                  return Stack(
+                    children: [
+                      RefreshIndicator(
+                        onRefresh: () => _loadDockets(isRefresh: true),
+                        child: ListView.builder(
+                          controller: _scrollController,
+                          padding: const EdgeInsets.only(top: 12, bottom: 120, left: 16, right: 16),
+                          itemCount: filteredDockets.length,
+                          itemBuilder: (context, index) {
+                            final docket = filteredDockets[index];
+                            return _buildDocketCard(docket, index);
+                          },
+                        ),
+                      ),
+                      if (status.any((isSelected) => isSelected))
+                        Positioned(
+                          bottom: 16,
+                          left: 0,
+                          right: 0,
+                          child: Center(
+                            child: FloatingActionButton.extended(
+                              onPressed: _onAssign,
+                              backgroundColor: const Color(0xFF003366),
+                              foregroundColor: Colors.white,
+                              elevation: 4,
+                              icon: const Icon(Icons.assignment_ind, size: 20),
+                              label: const Text(
+                                'Assign Selected',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                }
+              },
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

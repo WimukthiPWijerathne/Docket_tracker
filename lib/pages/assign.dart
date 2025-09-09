@@ -1,70 +1,80 @@
 import 'package:flutter/material.dart';
-import 'summary.dart';
-import 'docket_selection_page.dart';
-import '../service/docket_assignment_service.dart';
-import '../models/dockets.dart';
+import '../services/worker_service.dart';
+import '../models/worker_model.dart';
+import '../service/docket_assignment_service.dart'; // ✅ added
 
 class AssignPage extends StatefulWidget {
-  final List<Docket> dockets; // Changed from List<String> to List<Docket>
+  final String depot; // default depot filter from previous page
+  final List<dynamic> dockets; // dockets passed from previous page
 
-  const AssignPage({Key? key, required this.dockets}) : super(key: key);
+  const AssignPage({super.key, required this.depot, required this.dockets});
 
   @override
   State<AssignPage> createState() => _AssignPageState();
 }
 
 class _AssignPageState extends State<AssignPage> {
+  final WorkerService _workerService = WorkerService();
   final DocketAssignmentService _assignmentService = DocketAssignmentService();
-  final List<String> allWorkers = [
-    'කමල්', 'අමල්', 'සුනිල්', 'චමින්ද',
-    'රුවන්', 'නිමල්', 'සමන්', 'ජයන්ත',
-  ];
 
-  List<String> availableWorkers = [];
-  List<String> selectedWorkers = [];
-  List<String> assignedWorkers = [];
-  Map<String, List<String>> docketAssignments = {}; // Track which workers are assigned to which dockets
+  // Workers
+  List<Worker> workers = [];
+  List<Worker> filteredWorkers = [];
+  List<bool> status = [];
+  bool isLoading = true;
+  String? errorMessage;
+
+  // Depot filter
+  final List<String> depots = ['All', 'Kadana', 'Mahara', 'Paliyagoda', 'Wattala'];
+  String selectedDepot = 'All';
 
   @override
   void initState() {
     super.initState();
-    availableWorkers = List.from(allWorkers);
-    _initializeDocketAssignments();
+    selectedDepot = widget.depot; // start with depot from previous page
+    _loadWorkers();
   }
 
-  void _initializeDocketAssignments() {
-    // Initialize assignment tracking for each docket
-    for (final docket in widget.dockets) {
-      docketAssignments[docket.id] = [];
+  Future<void> _loadWorkers() async {
+    if (!mounted) return;
+
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final fetchedWorkers = await _workerService.fetchWorkersByDepot(selectedDepot);
+      if (mounted) {
+        setState(() {
+          workers = fetchedWorkers;
+          filteredWorkers = fetchedWorkers;
+          status = List<bool>.filled(filteredWorkers.length, false);
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          errorMessage = e.toString();
+          isLoading = false;
+          workers = [];
+          filteredWorkers = [];
+          status = [];
+        });
+      }
     }
   }
 
-  // Create a soft, unique color for each worker based on their name
-  Color _colorForName(String name) {
-    final hash = name.runes.fold<int>(0, (p, c) => p + c);
-    final hue = (hash % 360).toDouble();
-    return HSLColor.fromAHSL(1, hue, 0.45, 0.65).toColor();
-  }
+  Future<void> _onAssign() async {
+    if (!mounted) return;
 
-  String _initialForName(String name) {
-    if (name.isEmpty) return '?';
-    return name.characters.first; // works fine with Sinhala
-  }
-
-  String get _titleSuffix {
-    if (widget.dockets.isEmpty) return '';
-    if (widget.dockets.length == 1) {
-      // Use the docket serial if available, otherwise use ID
-      return widget.dockets.first.docketSerial.isNotEmpty 
-          ? widget.dockets.first.docketSerial 
-          : widget.dockets.first.id;
+    final selectedIndices = <int>[];
+    for (int i = 0; i < status.length; i++) {
+      if (status[i]) selectedIndices.add(i);
     }
-    // For multiple dockets, show count in parentheses
-    return '(${widget.dockets.length})';
-  }
 
-  Future<void> _assignWorkersToSelected() async {
-    if (selectedWorkers.isEmpty) {
+    if (selectedIndices.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please select at least one worker'),
@@ -73,6 +83,8 @@ class _AssignPageState extends State<AssignPage> {
       );
       return;
     }
+
+    final selectedWorkers = selectedIndices.map((i) => filteredWorkers[i]).toList();
 
     // Show loading dialog
     showDialog(
@@ -87,441 +99,291 @@ class _AssignPageState extends State<AssignPage> {
       int failCount = 0;
       List<String> errorMessages = [];
 
-      // Process each selected docket
+      // Loop through dockets
       for (final docket in widget.dockets) {
-        // Check if this docket already has assignments (for reassigned flag)
-        final bool isReassigned = docketAssignments[docket.id]!.isNotEmpty;
-        
-        // Assign each selected worker to this docket
+        final String docketId = docket.id ?? docket['id'];
+        final String docketSerial =
+            docket.docketSerial ?? docket['docketSerial'] ?? docketId;
+
         for (final worker in selectedWorkers) {
           try {
-            print('🔄 Assigning worker $worker to docket ${docket.docketSerial} (${docket.id})');
-            
+            debugPrint("🔄 Assigning ${worker.name} to docket $docketSerial ($docketId)");
+
             final success = await _assignmentService.assignWorkerToDocket(
-              docketId: docket.id,
-              assignedPerson: worker,
+              docketId: docketId,
+              assignedPerson: worker.name,
               assignedTime: currentTime,
-              reassigned: isReassigned,
-              uploadedBy: docket.uploadedBy.isNotEmpty ? docket.uploadedBy : 'CSE001',
-              uploadedTime: docket.uploadedTime.isNotEmpty ? docket.uploadedTime : currentTime,
+              reassigned: false, // adjust if needed
+              uploadedBy: 'CSE001',
+              uploadedTime: currentTime,
             );
 
             if (success) {
               successCount++;
-              // Track the assignment
-              if (!docketAssignments[docket.id]!.contains(worker)) {
-                docketAssignments[docket.id]!.add(worker);
-              }
-              print('✅ Successfully assigned $worker to ${docket.docketSerial}');
+              debugPrint("✅ Assigned ${worker.name} to $docketSerial");
             } else {
               failCount++;
-              final errorMsg = 'Failed to assign $worker to ${docket.docketSerial} (${docket.id})';
-              errorMessages.add(errorMsg);
-              print('❌ $errorMsg');
+              errorMessages.add("❌ Failed: ${worker.name} → $docketSerial");
             }
-          } catch (e, stackTrace) {
+          } catch (e) {
             failCount++;
-            final errorMsg = 'Error assigning $worker to ${docket.docketSerial}: $e';
-            errorMessages.add(errorMsg);
-            print('❌ $errorMsg');
-            print('Stack trace: $stackTrace');
+            errorMessages.add("❌ Error assigning ${worker.name} → $docketSerial: $e");
           }
-          
-          // Small delay between assignments to avoid overwhelming the server
+
           await Future.delayed(const Duration(milliseconds: 200));
         }
       }
 
-      Navigator.of(context).pop(); // Close loading dialog
+      Navigator.of(context).pop(); // close loading
 
       if (successCount > 0) {
-        setState(() {
-          // Move selected workers to assigned workers
-          for (final worker in selectedWorkers) {
-            if (!assignedWorkers.contains(worker)) {
-              assignedWorkers.add(worker);
-            }
-          }
-          // Remove assigned workers from available pool
-          availableWorkers.removeWhere((w) => assignedWorkers.contains(w));
-          // Clear selected workers
-          selectedWorkers.clear();
-        });
-
-        String message = 'Successfully assigned $successCount worker-docket combinations';
-        if (failCount > 0) {
-          message += ', $failCount failed';
-        }
-
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(message),
+            content: Text("✅ $successCount assigned, ❌ $failCount failed"),
             backgroundColor: failCount == 0 ? Colors.green : Colors.orange,
-            duration: const Duration(seconds: 3),
           ),
         );
+      }
 
-        // Show error details if any
-        if (errorMessages.isNotEmpty) {
-          showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: const Text('Assignment Errors'),
-              content: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: errorMessages.map((msg) => 
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Text('• $msg'),
-                    ),
-                  ).toList(),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
+      if (errorMessages.isNotEmpty) {
+        showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text("Assignment Errors"),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: errorMessages.map((m) => Text(m)).toList(),
             ),
-          );
-        }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('All assignments failed. ${errorMessages.join(', ')}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 5),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text("OK")),
+            ],
           ),
         );
       }
     } catch (e) {
-      Navigator.of(context).pop(); // Close loading dialog
+      Navigator.of(context).pop(); // close loading
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to process assignments: $e'),
+          content: Text("❌ Assignment failed: $e"),
           backgroundColor: Colors.red,
         ),
       );
     }
   }
 
+  void _onCancel() {
+    if (!mounted) return;
+    setState(() {
+      for (int i = 0; i < status.length; i++) {
+        status[i] = false;
+      }
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('All selections cancelled'),
+        backgroundColor: Colors.orange,
+      ),
+    );
+  }
+
+  Widget _buildHeaderRow() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF003366).withOpacity(0.1),
+        border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+      ),
+      child: const Row(
+        children: [
+          Expanded(flex: 2, child: Text('Employee No', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
+          Expanded(flex: 3, child: Text('Name', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
+          Expanded(flex: 2, child: Text('Depot', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
+          Expanded(flex: 2, child: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
+          Expanded(flex: 1, child: Center(child: Text('Select', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366))))),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWorkerRow(Worker worker, bool isSelected, int index) {
+    return InkWell(
+      onTap: () {
+        if (mounted) {
+          setState(() {
+            status[index] = !status[index];
+          });
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected ? const Color(0xFF003366).withOpacity(0.05) : Colors.white,
+          border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        ),
+        child: Row(
+          children: [
+            Expanded(flex: 2, child: Text(worker.employeeNo, style: const TextStyle(fontSize: 12))),
+            Expanded(flex: 3, child: Text(worker.name, style: const TextStyle(fontSize: 12))),
+            Expanded(flex: 2, child: Text(worker.depot, style: const TextStyle(fontSize: 12))),
+            Expanded(
+              flex: 2,
+              child: Text(
+                worker.status,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: worker.isAvailable ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Expanded(
+              flex: 1,
+              child: Center(
+                child: Container(
+                  width: 20,
+                  height: 20,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: isSelected ? const Color(0xFF003366) : Colors.grey),
+                    borderRadius: BorderRadius.circular(3),
+                    color: isSelected ? const Color(0xFF003366) : Colors.transparent,
+                  ),
+                  child: isSelected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final titleText = _titleSuffix.isEmpty
-        ? 'Assign Workers'
-        : 'Assign Workers $_titleSuffix';
+    const double rowHeight = 56.0;
+    const double headerHeight = 56.0;
+    const double maxHeight = 400.0;
+
+    double contentHeight = headerHeight + (filteredWorkers.length * rowHeight);
+    double tableHeight = contentHeight > maxHeight ? maxHeight : contentHeight;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(titleText, overflow: TextOverflow.ellipsis),
+        title: Text("Workers (${selectedDepot})"),
         backgroundColor: const Color(0xFF003366),
         foregroundColor: Colors.white,
+        actions: [
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadWorkers),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header + selected dockets list
-            Text(
-              titleText,
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF003366),
-              ),
-            ),
+            Text("Workers", style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF003366))),
             const SizedBox(height: 8),
-            if (widget.dockets.isNotEmpty) ...[
-              const Text(
-                "Selected Dockets:",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 6),
-              ...widget.dockets.map((docket) => 
-                Text("• ${docket.docketSerial.isNotEmpty ? docket.docketSerial : docket.id} (${docket.docketType})")
-              ).toList(),
-              const SizedBox(height: 16),
-            ],
+            Text('Total: ${filteredWorkers.length} workers', style: const TextStyle(fontSize: 16, color: Color(0xFF666666))),
+            const SizedBox(height: 16),
 
-            // Selected Workers (chips with avatar)
-            if (selectedWorkers.isNotEmpty) ...[
-              const Text(
-                'Selected Workers:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: selectedWorkers.map((worker) {
-                  final color = _colorForName(worker);
-                  return InputChip(
-                    key: ValueKey('selected_$worker'),
-                    avatar: CircleAvatar(
-                      backgroundColor: color,
-                      child: Text(
-                        _initialForName(worker),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ),
-                    label: Text(worker),
-                    backgroundColor: Colors.blue[50],
-                    onDeleted: () {
+            // ✅ Depot Filter Dropdown
+            Row(
+              children: [
+                const Text("Filter by Depot: ",
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF003366))),
+                const SizedBox(width: 12),
+                DropdownButton<String>(
+                  value: selectedDepot,
+                  items: depots.map((depot) {
+                    return DropdownMenuItem<String>(
+                      value: depot,
+                      child: Text(depot),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
                       setState(() {
-                        selectedWorkers.remove(worker);
-                        if (!availableWorkers.contains(worker) && !assignedWorkers.contains(worker)) {
-                          availableWorkers.add(worker);
-                          availableWorkers.sort();
-                        }
+                        selectedDepot = value;
                       });
-                    },
-                  );
-                }).toList(),
-              ),
-              const SizedBox(height: 16),
-            ],
-
-            // Available Workers: grid of small cards with dummy avatars
-            const Text(
-              'Available Workers:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      _loadWorkers();
+                    }
+                  },
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  // Responsive columns
-                  int crossAxisCount = 2;
-                  if (constraints.maxWidth > 900) {
-                    crossAxisCount = 4;
-                  } else if (constraints.maxWidth > 600) {
-                    crossAxisCount = 3;
-                  }
+            const SizedBox(height: 16),
 
-                  return GridView.builder(
-                    key: const ValueKey('available_workers_grid'),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 1.4,
-                    ),
-                    itemCount: availableWorkers.length,
-                    itemBuilder: (context, index) {
-                      final worker = availableWorkers[index];
-                      final color = _colorForName(worker);
-
-                      return InkWell(
-                        key: ValueKey('available_$worker'),
-                        onTap: () {
-                          setState(() {
-                            selectedWorkers.add(worker);
-                            availableWorkers.remove(worker);
-                          });
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
-                                blurRadius: 8,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                CircleAvatar(
-                                  radius: 22,
-                                  backgroundColor: color,
-                                  child: Text(
-                                    _initialForName(worker),
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  worker,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.green.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: const Padding(
-                                    padding: EdgeInsets.symmetric(
-                                        vertical: 6, horizontal: 10),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.add_circle_outline,
-                                            size: 18, color: Colors.green),
-                                        SizedBox(width: 6),
-                                        Text(
-                                          'Add',
-                                          style: TextStyle(
-                                              color: Colors.green,
-                                              fontWeight: FontWeight.w600),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-
-            // Assign button for selected workers
-            if (selectedWorkers.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16.0),
-                child: ElevatedButton(
-                  onPressed: _assignWorkersToSelected,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF003366),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  child: Text(
-                    'Assign ${selectedWorkers.length} Worker(s) to ${widget.dockets.length} Docket(s)',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+            if (errorMessage != null)
+              Container(
+                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.orange.shade300),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.warning, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text('API Error: $errorMessage', style: const TextStyle(color: Colors.orange))),
+                  ],
                 ),
               ),
-
-            // Assigned workers (now with delete functionality)
-            if (assignedWorkers.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              const Text(
-                'Assigned Workers:',
-                style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.green),
+            Container(
+              height: tableHeight,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(8),
               ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: assignedWorkers.map((worker) {
-                  final color = _colorForName(worker);
-                  return InputChip(
-                    key: ValueKey('assigned_$worker'),
-                    avatar: CircleAvatar(
-                      backgroundColor: color,
-                      child: Text(
-                        _initialForName(worker),
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ),
-                    label: Text(worker),
-                    backgroundColor: Colors.green[50],
-                    onDeleted: () {
-                      setState(() {
-                        // Remove from assigned workers
-                        assignedWorkers.remove(worker);
-                        // Remove from all docket assignments
-                        for (final docketId in docketAssignments.keys) {
-                          docketAssignments[docketId]!.remove(worker);
-                        }
-                        // Add back to available workers if not already there
-                        if (!availableWorkers.contains(worker)) {
-                          availableWorkers.add(worker);
-                          availableWorkers.sort();
-                        }
-                      });
-                      
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('$worker removed from all assignments'),
-                          backgroundColor: Colors.orange,
-                        ),
-                      );
-                    },
-                  );
-                }).toList(),
+              child: Column(
+                children: [
+                  _buildHeaderRow(),
+                  Expanded(
+                    child: isLoading
+                        ? const Center(child: CircularProgressIndicator())
+                        : filteredWorkers.isEmpty
+                            ? Center(child: Text('No workers available for "$selectedDepot"'))
+                            : ListView.builder(
+                                padding: EdgeInsets.zero,
+                                itemCount: filteredWorkers.length,
+                                itemBuilder: (context, index) {
+                                  final worker = filteredWorkers[index];
+                                  return _buildWorkerRow(
+                                    worker,
+                                    status.length > index ? status[index] : false,
+                                    index,
+                                  );
+                                },
+                              ),
+                  ),
+                ],
               ),
-            ],
-
+            ),
             const SizedBox(height: 20),
-
-            // Bottom buttons
             Row(
               children: [
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(
-                          builder: (_) => const DocketSelectionPage(),
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.grey[600],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
-                    child: const Text(
-                      'Cancel',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: assignedWorkers.isNotEmpty
-                        ? () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => SummaryPage(
-                                  dockets: widget.dockets.map((d) => d.id).toList(),
-                                  assignedWorkers: assignedWorkers,
-                                ),
-                              ),
-                            );
-                          }
-                        : null,
+                    onPressed: isLoading ? null : _onAssign,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF003366),
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: const Text(
-                      'Continue to Summary',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    child: const Text('Assign', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : _onCancel,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey.shade600,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
+                    child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ),
                 ),
               ],

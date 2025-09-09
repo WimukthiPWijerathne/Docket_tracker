@@ -75,7 +75,7 @@ class MyApp extends StatelessWidget {
       ),
       home: const LoginPage(),
       routes: {
-        '/assign': (context) => const AssignPage(dockets: []),
+        '/assign': (context) => const AssignPage(dockets: [], depot: 'All'),
       },
     );
   }
