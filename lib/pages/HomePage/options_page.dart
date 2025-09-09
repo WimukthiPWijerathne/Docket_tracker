@@ -109,7 +109,7 @@ class _OptionsPageState extends State<OptionsPage> {
                         () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => WorkerListPage(),
+                              builder: (_) => WorkerListPage(loggedInRole: widget.role),
                             ),
                           );
                         },
