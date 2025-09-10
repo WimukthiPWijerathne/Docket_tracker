@@ -123,7 +123,7 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
       }
 
       final response = await http.post(
-        Uri.parse('https://powerprox.sltidc.lk/POSTDocketDetails.php'),
+        Uri.parse('https://powerprox.sltidc.lk/POSTDocketDetails2.php'),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: postData.map((key, value) => MapEntry(key, value.toString())),
       ).timeout(const Duration(seconds: 30));

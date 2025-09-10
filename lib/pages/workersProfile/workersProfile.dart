@@ -29,7 +29,7 @@ class _WorkerListPageState extends State<WorkerListPage> {
   Future<void> fetchWorkers() async {
     setState(() => _isLoading = true);
     try {
-      final url = Uri.parse('https://powerprox.sltidc.lk/GETPeople.php'); // replace with your GET API
+      final url = Uri.parse('https://powerprox.sltidc.lk/GETPeople2.php'); // replace with your GET API
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final Map<String, dynamic> result = jsonDecode(response.body);

@@ -10,7 +10,7 @@ class WorkerService {
   
   Future<List<Worker>> fetchWorkers() async {
     try {
-      final url = Uri.parse('$baseUrl/GETPeople.php');
+      final url = Uri.parse('$baseUrl/GETPeople2.php');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

@@ -60,7 +60,7 @@ class DocketService {
   Future<bool> assignDockets(List<String> docketIds, String assignedTo) async {
     try {
       final response = await http.post(
-        Uri.parse(baseUrl.replaceAll('GETDocketDetails.php', 'AssignDockets.php')),
+        Uri.parse(baseUrl.replaceAll('GETDocketDetails2.php', 'AssignDockets2.php')),
         headers: {
           'Content-Type': 'application/json',
         },

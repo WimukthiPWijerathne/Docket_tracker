@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/dockets.dart';
 
 class DocketService {
-  final String baseUrl = "https://powerprox.sltidc.lk/GETDocketDetails.php";
+  final String baseUrl = "https://powerprox.sltidc.lk/GETDocketDetails2.php";
 
   // Fetch a single docket by ID
   Future<Docket?> fetchDocketById(String docketId) async {
