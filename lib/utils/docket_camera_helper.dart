@@ -1,5 +1,7 @@
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:path_provider/path_provider.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
@@ -135,6 +137,49 @@ class _DocketCameraPageState extends State<_DocketCameraPage>
     _controller?.dispose();
     super.dispose();
   }
+  
+  // Helper method to load an image file
+  Future<ui.Image> _loadImage(File file) async {
+    final data = await file.readAsBytes();
+    final codec = await ui.instantiateImageCodec(data);
+    final frame = await codec.getNextFrame();
+    return frame.image;
+  }
+  
+  // Helper method to crop an image
+  Future<File> _cropImage({
+    required File imageFile,
+    required Rect cropRect,
+  }) async {
+    // Get the temporary directory for storing the cropped image
+    final tempDir = await getTemporaryDirectory();
+    final path = '${tempDir.path}/cropped_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    
+    // Load the image
+    final ui.Image originalImage = await _loadImage(imageFile);
+    
+    // Create a recorder to draw the cropped image
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    
+    // Draw only the cropped portion
+    final paint = Paint()..filterQuality = FilterQuality.high;
+    canvas.drawImageRect(
+      originalImage,
+      cropRect,
+      Rect.fromLTWH(0, 0, cropRect.width, cropRect.height),
+      paint,
+    );
+    
+    // Convert to an image and save to file
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(cropRect.width.toInt(), cropRect.height.toInt());
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+    final buffer = byteData!.buffer.asUint8List();
+    
+    // Save the cropped image
+    return await File(path).writeAsBytes(buffer);
+  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -180,13 +225,45 @@ class _DocketCameraPageState extends State<_DocketCameraPage>
     setState(() => _isTakingPicture = true);
     try {
       final XFile rawFile = await _controller!.takePicture();
-
+      
+      // Get the image file
+      final File imageFile = File(rawFile.path);
+      
+      // Get the image dimensions
+      final ui.Image originalImage = await _loadImage(imageFile);
+      final double imageWidth = originalImage.width.toDouble();
+      final double imageHeight = originalImage.height.toDouble();
+      
+      // Calculate the crop area (frame is centered)
+      final double frameWidth = 300.0;
+      final double frameHeight = 400.0;
+      
+      // Calculate the scale between the preview and the actual image
+      final double previewWidth = MediaQuery.of(context).size.width;
+      final double previewHeight = MediaQuery.of(context).size.height - 200; // Approximate preview height
+      
+      final double scaleX = imageWidth / previewWidth;
+      final double scaleY = imageHeight / previewHeight;
+      
+      // Calculate the crop rectangle in the original image coordinates
+      final double left = ((previewWidth - frameWidth) / 2) * scaleX;
+      final double top = ((previewHeight - frameHeight) / 2) * scaleY;
+      final double width = frameWidth * scaleX;
+      final double height = frameHeight * scaleY;
+      
+      // Crop the image
+      final File croppedFile = await _cropImage(
+        imageFile: imageFile,
+        cropRect: Rect.fromLTWH(left, top, width, height),
+      );
+      
       if (!mounted) return;
-      // Navigate to preview page with the captured XFile, without saving yet
+      
+      // Navigate to preview page with the cropped image
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (context) => ImagePreviewPage(
-            capturedFile: rawFile,
+            capturedFile: XFile(croppedFile.path),
             docketType: widget.docketType,
           ),
         ),

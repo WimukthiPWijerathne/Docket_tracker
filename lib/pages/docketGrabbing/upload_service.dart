@@ -43,7 +43,7 @@ class UploadService {
       final XFile? compressedXFile = await FlutterImageCompress.compressAndGetFile(
         originalPath,
         targetPath,
-        quality: 20,
+        quality: 100,
       );
 
       if (compressedXFile == null) {
