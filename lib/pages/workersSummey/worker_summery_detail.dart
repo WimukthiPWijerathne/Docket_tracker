@@ -46,7 +46,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
     setState(() => _isLoading = true);
     try {
       // 🔹 Step 1: Fetch all docket assignments
-      final url = Uri.parse('https://powerprox.sltidc.lk/GETDocketAssignment.php');
+      final url = Uri.parse('https://powerprox.sltidc.lk/GETDocketAssignment2.php');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -85,7 +85,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
   }
 Future<void> fetchDocketDetails() async {
   try {
-    final url = Uri.parse('https://powerprox.sltidc.lk/GETDocketDetails.php');
+    final url = Uri.parse('https://powerprox.sltidc.lk/GETDocketAssignment2.php');
     final response = await http.get(url);
 
     if (response.statusCode == 200) {

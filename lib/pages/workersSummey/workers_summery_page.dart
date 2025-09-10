@@ -27,7 +27,7 @@ class _WorkersSummaryPageState extends State<WorkersSummaryPage> {
   Future<void> fetchWorkers() async {
     setState(() => _isLoading = true);
     try {
-      final url = Uri.parse('https://powerprox.sltidc.lk/GETPeople.php');
+      final url = Uri.parse('https://powerprox.sltidc.lk/GETPeople2.php');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

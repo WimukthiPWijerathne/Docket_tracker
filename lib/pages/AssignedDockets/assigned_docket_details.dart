@@ -26,7 +26,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   String?docketType;
 
   static const String httpImageBase = 'http://124.43.181.243:8000';
-  static const String docketDetailsApiBase = 'https://powerprox.sltidc.lk/GETDocketDetails.php';
+  static const String docketDetailsApiBase = 'https://powerprox.sltidc.lk/GETDocketDetails2.php';
 
  String _imageBaseForPlatform() {
     return  httpImageBase;
@@ -869,7 +869,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
     );
 
     try {
-      final success = await _service.markAsCompleted(widget.docket.assignmentID);
+      final success = await _service.markAsCompleted(widget.docket.docketID);
       
       Navigator.of(context).pop(); // Close loading dialog
       

@@ -51,7 +51,7 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
       };
 
       final response = await http.post(
-        Uri.parse('https://powerprox.sltidc.lk/POSTPeople.php'),
+        Uri.parse('https://powerprox.sltidc.lk/POSTPeople2.php'),
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: body.map((key, value) => MapEntry(key, value.toString())),
       ).timeout(const Duration(seconds: 30));

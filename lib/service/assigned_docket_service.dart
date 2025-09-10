@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import '../models/assigned_docket.dart';
 
 class AssignedDocketService {
-  final String baseUrl = "https://powerprox.sltidc.lk/GETDocketAssignment.php"; // Update with your actual endpoint
-
+  final String baseUrl = "https://powerprox.sltidc.lk/GETDocketAssignment2.php"; // Update with your actual endpoint
+  final String baseUrl2 = "https://powerprox.sltidc.lk/UPDATEDocketAssignment2.php";
   // Fetch all assigned dockets
   Future<List<AssignedDocket>> fetchAssignedDockets() async {
     try {
@@ -128,12 +128,12 @@ class AssignedDocketService {
   Future<bool> markAsCompleted(String assignmentId) async {
     try {
       final response = await http.post(
-        Uri.parse(baseUrl.replaceAll('GETAssignedDockets.php', 'CompleteAssignedDocket.php')),
+        Uri.parse(baseUrl2),
         headers: {
           'Content-Type': 'application/json',
         },
         body: json.encode({
-          'assignmentId': assignmentId,
+          'assignmentID': assignmentId,
           'completedTime': DateTime.now().toIso8601String(),
         }),
       );
