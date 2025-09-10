@@ -25,7 +25,7 @@ class DatabaseService {
 
       // Send JSON as required by backend
       final responseJson = await http.post(
-        Uri.parse('https://powerprox.sltidc.lk/POSTDocketDetails.php'),
+        Uri.parse('https://powerprox.sltidc.lk/POSTDocketDetails2.php'),
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
           'Accept': 'application/json',

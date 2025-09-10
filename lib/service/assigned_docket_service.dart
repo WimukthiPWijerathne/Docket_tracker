@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/assigned_docket.dart';
 
 class AssignedDocketService {
-  final String baseUrl = "https://powerprox.sltidc.lk/GETDocketAssignment.php"; // Update with your actual endpoint
+  final String baseUrl = "https://powerprox.sltidc.lk/GETDocketAssignment2.php"; // Update with your actual endpoint
 
   // Fetch all assigned dockets
   Future<List<AssignedDocket>> fetchAssignedDockets() async {
@@ -125,30 +125,42 @@ class AssignedDocketService {
   }
 
   // Mark assigned docket as completed
-  Future<bool> markAsCompleted(String assignmentId) async {
+  Future<bool> markAsCompleted(
+    String assignmentId, {
+    String? remarks,
+    String? completionImageUrl,
+  }) async {
     try {
       final response = await http.post(
-        Uri.parse(baseUrl.replaceAll('GETAssignedDockets.php', 'CompleteAssignedDocket.php')),
+        Uri.parse(baseUrl.replaceAll('GETDocketAssignment2.php', 'CompleteAssignedDocket.php')),
         headers: {
           'Content-Type': 'application/json',
         },
         body: json.encode({
           'assignmentId': assignmentId,
           'completedTime': DateTime.now().toIso8601String(),
+          if (remarks != null) 'remarks': remarks,
+          if (completionImageUrl != null) 'completionImageUrl': completionImageUrl,
         }),
       );
 
       print('Mark as completed status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-        return responseData['success'] == true;
+        try {
+          final responseData = json.decode(response.body);
+          return responseData['success'] == true;
+        } catch (e) {
+          print('Error parsing response: $e');
+          return false;
+        }
       } else {
         throw Exception('Failed to mark docket as completed. Status code: ${response.statusCode}');
       }
     } catch (e) {
       print('Error in markAsCompleted: $e');
-      return false;
+      rethrow;
     }
   }
 
@@ -156,7 +168,7 @@ class AssignedDocketService {
   Future<bool> reassignDocket(String assignmentId, String newAssignedPersons) async {
     try {
       final response = await http.post(
-        Uri.parse(baseUrl.replaceAll('GETAssignedDockets.php', 'ReassignDocket.php')),
+        Uri.parse(baseUrl.replaceAll('GETDocketAssignment2.php', 'ReassignDocket.php')),
         headers: {
           'Content-Type': 'application/json',
         },

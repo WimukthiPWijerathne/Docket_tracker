@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 
 class DocketAssignmentService {
   static const String baseUrl = 'https://powerprox.sltidc.lk';
-  static const String assignmentEndpoint = '/POSTDocketAssignment.php';
+  static const String assignmentEndpoint = '/POSTDocketAssignment2.php';
 
   /// Assigns a worker to a docket with proper error handling and logging
   Future<bool> assignWorkerToDocket({

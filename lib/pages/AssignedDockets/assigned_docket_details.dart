@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../../models/assigned_docket.dart';
 import '../../service/assigned_docket_service.dart';
+import 'complete_assignment_form.dart';
 
 class AssignedDocketDetailsPage extends StatefulWidget {
   final AssignedDocket docket;
@@ -23,14 +24,15 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   String? docketImageName;
   bool isLoadingImage = true;
   String? imageError;
-  String?docketType;
+  String? docketType;
 
   static const String httpImageBase = 'http://124.43.181.243:8000';
-  static const String docketDetailsApiBase = 'https://powerprox.sltidc.lk/GETDocketDetails.php';
+  static const String docketDetailsApiBase = 'https://powerprox.sltidc.lk/GETDocketDetails2.php';
 
- String _imageBaseForPlatform() {
-    return  httpImageBase;
+  String _imageBaseForPlatform() {
+    return httpImageBase;
   }
+
   @override
   void initState() {
     super.initState();
@@ -82,13 +84,9 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
     }
   }
 
-
-
-
   // Get docket type number for image URL
- String _getDocketTypeNumber(String docketType) {
+  String _getDocketTypeNumber(String docketType) {
     switch (docketType.toLowerCase().trim()) {
-      
       case 'service line maintenance':
         return '1';
       case 'meter testing':
@@ -110,8 +108,6 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   }
 
   // Ensure image name has extension
-
-
   String _safeImageName(String name) {
     return _hasImageExtension(name) ? name : '$name.jpg';
   }
@@ -127,7 +123,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   Widget build(BuildContext context) {
     final isOverdue = widget.docket.isOverdue();
     final isInProgress = widget.docket.isOngoing && !isOverdue;
-    
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -217,19 +213,19 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
             // Image Card (Small and Rounded)
             _buildImageCard(),
             const SizedBox(height: 16),
-            
+
             // Header Card
             _buildHeaderCard(),
             const SizedBox(height: 16),
-            
+
             // Details Section
             _buildDetailsSection(),
             const SizedBox(height: 16),
-            
+
             // Timeline Section
             _buildTimelineSection(),
             const SizedBox(height: 16),
-            
+
             // Action Buttons
             if (widget.docket.isOngoing) _buildActionButtons(),
             const SizedBox(height: 16),
@@ -239,92 +235,192 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
     );
   }
 
-  Widget _buildImageCard() {
-    return Container(
-      height: 120,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: isLoadingImage
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+  void _showFullScreenImage() {
+    if (docketImageName == null || imageError != null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          appBar: AppBar(
+            backgroundColor: Colors.black87,
+            iconTheme: const IconThemeData(color: Colors.white),
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.black,
+          body: Center(
+            child: InteractiveViewer(
+              panEnabled: true,
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.network(
+                _imageUrlFor(docketType ?? "unknown", docketImageName!),
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                              loadingProgress.expectedTotalBytes!
+                          : null,
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Loading image...',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) => const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.white70, size: 48),
+                      SizedBox(height: 16),
+                      Text(
+                        'Failed to load image',
+                        style: TextStyle(color: Colors.white70),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              )
-            : imageError != null || docketImageName == null
-                ? Container(
-                    color: Colors.grey[100],
-                    child: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.image_not_supported,
-                            size: 32,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'No image',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 12,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageCard() {
+    return GestureDetector(
+      onTap: _showFullScreenImage,
+      child: Container(
+        height: 250, // Increased height for better visibility
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: isLoadingImage
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'Loading image...',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+              : imageError != null || docketImageName == null
+                  ? Container(
+                      color: Colors.grey[100],
+                      child: Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.image_not_supported,
+                              size: 48,
+                              color: Colors.grey[400],
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              imageError ?? 'No image available',
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontSize: 14,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Image.network(
+                          _imageUrlFor(docketType ?? "unknown", docketImageName!),
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                        loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) => Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Failed to load image',
+                                  style: TextStyle(
+                                    color: Colors.grey[700],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
-                    ),
-                  )
-                : Image.network(
-                  _imageUrlFor(docketType ?? "unknown", docketImageName!),
-                    fit: BoxFit.cover,
-                    width: double.infinity,
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        color: Colors.grey[100],
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.error_outline,
-                                size: 32,
-                                color: Colors.grey[400],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Failed to load',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 12,
+                        ),
+                        Positioned(
+                          bottom: 8,
+                          right: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.fullscreen, size: 16, color: Colors.white),
+                                SizedBox(width: 4),
+                                Text(
+                                  'View Fullscreen',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      );
-                    },
-                  ),
+                      ],
+                    ),
+        ),
       ),
     );
   }
@@ -367,15 +463,15 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
               color: Colors.black87,
             ),
           ),
-          
+
           // Status badge
           if (isOverdue || isInProgress)
             Container(
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: isOverdue 
-                    ? Colors.red.shade100 
+                color: isOverdue
+                    ? Colors.red.shade100
                     : Colors.green.shade100,
                 borderRadius: BorderRadius.circular(16),
               ),
@@ -386,8 +482,8 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                     width: 8,
                     height: 8,
                     decoration: BoxDecoration(
-                      color: isOverdue 
-                          ? Colors.red.shade800 
+                      color: isOverdue
+                          ? Colors.red.shade800
                           : Colors.green.shade800,
                       shape: BoxShape.circle,
                     ),
@@ -398,8 +494,8 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: isOverdue 
-                          ? Colors.red.shade800 
+                      color: isOverdue
+                          ? Colors.red.shade800
                           : Colors.green.shade800,
                     ),
                   ),
@@ -435,9 +531,9 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  widget.docket.assignedPersons.isNotEmpty 
-                    ? widget.docket.assignedPersons
-                    : "Not assigned",
+                  widget.docket.assignedPersons.isNotEmpty
+                      ? widget.docket.assignedPersons
+                      : "Not assigned",
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -586,7 +682,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
     final isOverdue = title == "Overdue";
     final isInProgress = title == "In Progress";
     final color = isOverdue ? Colors.red : (isCompleted ? Colors.green : Colors.orange);
-    
+
     return Row(
       children: [
         Column(
@@ -673,8 +769,8 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isOverdue 
-              ? Colors.red.shade300 
+          color: isOverdue
+              ? Colors.red.shade300
               : Colors.green.shade300,
           width: 1.5,
         ),
@@ -690,8 +786,8 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: isOverdue 
-                        ? Colors.red.shade800 
+                    color: isOverdue
+                        ? Colors.red.shade800
                         : Colors.green.shade800,
                   ),
                 ),
@@ -699,8 +795,8 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isOverdue 
-                      ? Colors.red.shade100 
+                  color: isOverdue
+                      ? Colors.red.shade100
                       : Colors.green.shade100,
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -709,8 +805,8 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                   style: TextStyle(
                     fontSize: 10,
                     fontWeight: FontWeight.bold,
-                    color: isOverdue 
-                        ? Colors.red.shade800 
+                    color: isOverdue
+                        ? Colors.red.shade800
                         : Colors.green.shade800,
                   ),
                 ),
@@ -773,37 +869,21 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   }
 
   void _markAsCompleted() {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          title: const Text("Mark as Completed"),
-          content: Text(
-            "Are you sure you want to mark this assignment as completed?\n\nAssignment ID: ${widget.docket.assignmentID}\nDocket ID: ${widget.docket.docketID}",
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text("Cancel"),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _performMarkAsCompleted();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-              ),
-              child: const Text("Mark Completed"),
-            ),
-          ],
-        );
-      },
-    );
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CompleteAssignmentForm(
+          assignmentId: widget.docket.assignmentID,
+          docketId: widget.docket.docketID,
+        ),
+      ),
+    ).then((success) {
+      if (success == true) {
+        // Refresh the parent screen if needed
+        if (mounted) {
+          Navigator.of(context).pop(true); // Return success to previous screen
+        }
+      }
+    });
   }
 
   void _reassignDocket() {
