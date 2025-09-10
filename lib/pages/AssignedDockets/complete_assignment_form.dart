@@ -57,38 +57,69 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
   }
 
   Future<void> _submitForm() async {
-    if (_imageFile == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please take a photo of the completed work')),
-      );
-      return;
-    }
-
     setState(() {
       _isSubmitting = true;
     });
 
     try {
-      // First upload the image
-      final imageUrl = await _uploadImage(_imageFile!);
+      // Store image and remarks locally (optional for now)
+      String? localImagePath;
+      String? remarks;
       
-      // Then mark as completed with remarks and image URL
+      // Save image locally if captured
+      if (_imageFile != null) {
+        localImagePath = await _saveImageLocally(_imageFile!);
+        print('Image saved locally at: $localImagePath');
+      }
+      
+      // Get remarks if entered
+      if (_remarksController.text.trim().isNotEmpty) {
+        remarks = _remarksController.text.trim();
+        print('Remarks: $remarks');
+      }
+      
+      // Mark as completed with current timestamp
+      final completedTime = DateTime.now().toIso8601String();
+      
       final success = await _service.markAsCompleted(
         widget.assignmentId,
-        remarks: _remarksController.text.trim(),
-        completionImageUrl: imageUrl,
+        remarks: null, // Not sending to backend for now
+        completionImageUrl: null, // Not sending to backend for now
+        completedTime: completedTime,
       );
 
       if (!mounted) return;
 
       if (success) {
-        Navigator.of(context).pop(true); // Return success
+        // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Assignment marked as completed successfully!'),
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Assignment Completed Successfully!',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      Text('Assignment ID: ${widget.assignmentId}'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
             backgroundColor: Colors.green,
+            duration: const Duration(seconds: 3),
           ),
         );
+        
+        // Return success to previous screen
+        Navigator.of(context).pop(true);
       } else {
         throw Exception('Failed to mark assignment as completed');
       }
@@ -96,8 +127,15 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Row(
+            children: [
+              const Icon(Icons.error, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(child: Text('Error: $e')),
+            ],
+          ),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
         ),
       );
     } finally {
@@ -109,77 +147,27 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
     }
   }
 
-  Future<String> _uploadImage(XFile imageFile) async {
+  Future<String?> _saveImageLocally(XFile imageFile) async {
     try {
-      // First, get the original docket details to get the original image name
-      final response = await http.get(
-        Uri.parse('https://powerprox.sltidc.lk/GETDocketDetails2.php'),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception('Failed to fetch docket details');
-      }
-
-      final List<dynamic> data = json.decode(response.body);
-      final record = data.firstWhere(
-        (item) => item['ID'] == widget.docketId,
-        orElse: () => null,
-      );
-
-      if (record == null || record['ImageName'] == null) {
-        throw Exception('Original docket image not found');
-      }
-
-      // Get the original image name and remove the extension
-      String originalName = record['ImageName'].toString();
-      String baseName = originalName.replaceAll(RegExp(r'\.jpg$'), '');
-      
-      // Create new filename with _a suffix
-      String newFileName = '${baseName}_a.jpg';
-      
       // Get app storage directory
       final folderPath = await getAppStoragePath();
-      final targetPath = "$folderPath/$newFileName";
+      final fileName = 'completion_${widget.assignmentId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final targetPath = "$folderPath/$fileName";
 
-      // Compress and save the image with the new name
+      // Compress and save the image
       final XFile? compressedXFile = await FlutterImageCompress.compressAndGetFile(
         imageFile.path,
         targetPath,
         quality: 100,
       );
 
-      if (compressedXFile == null) {
-        throw Exception('Failed to compress image');
+      if (compressedXFile != null) {
+        return compressedXFile.path;
       }
-
-      // Now upload the file
-      final uri = Uri.parse('https://powerprox.sltidc.lk/upload-completion-image.php');
-      final request = http.MultipartRequest('POST', uri);
-      
-      final file = await http.MultipartFile.fromPath(
-        'image',
-        compressedXFile.path,
-        contentType: MediaType('image', 'jpeg'),
-      );
-      
-      request.files.add(file);
-      request.fields['assignment_id'] = widget.assignmentId;
-      request.fields['docket_id'] = widget.docketId;
-      request.fields['original_image_name'] = originalName;
-      request.fields['new_image_name'] = newFileName;
-      
-      final uploadResponse = await request.send();
-      final responseData = await uploadResponse.stream.bytesToString();
-      
-      if (uploadResponse.statusCode == 200) {
-        final jsonResponse = json.decode(responseData);
-        if (jsonResponse['success'] == true) {
-          return jsonResponse['imageUrl'] ?? newFileName; // Return the new filename if no URL is provided
-        }
-      }
-      throw Exception('Failed to upload image');
+      return null;
     } catch (e) {
-      throw Exception('Image upload failed: $e');
+      print('Error saving image locally: $e');
+      return null;
     }
   }
 
@@ -195,6 +183,8 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
       appBar: AppBar(
         title: const Text('Complete Assignment'),
         elevation: 0,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -203,69 +193,215 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Assignment Completion',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+              // Header Card
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade200),
                 ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Please provide details of the completed work',
-                style: TextStyle(color: Colors.grey),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Assignment Completion',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Assignment ID: ${widget.assignmentId}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      'Docket ID: ${widget.docketId}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[700],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Please provide details of the completed work',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 24),
               
               // Photo Section
-              const Text(
-                'Photo of Completed Work',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              GestureDetector(
-                onTap: _pickImage,
-                child: Container(
-                  height: 200,
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.grey[300]!),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: _imageFile == null
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Icon(Icons.camera_alt, size: 40, color: Colors.grey),
-                            SizedBox(height: 8),
-                            Text('Tap to take photo'),
-                          ],
-                        )
-                      : ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.file(
-                            File(_imageFile!.path),
-                            fit: BoxFit.cover,
-                            width: double.infinity,
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.camera_alt, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Photo of Completed Work',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'Optional',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.orange.shade800,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    GestureDetector(
+                      onTap: _pickImage,
+                      child: Container(
+                        height: 200,
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey[300]!),
+                          borderRadius: BorderRadius.circular(8),
+                          color: Colors.grey[50],
+                        ),
+                        child: _imageFile == null
+                            ? Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.camera_alt, size: 40, color: Colors.grey[400]),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    'Tap to take photo',
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '(Will be saved locally)',
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.file(
+                                      File(_imageFile!.path),
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.black54,
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: const Icon(
+                                        Icons.edit,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 24),
               
               // Remarks Section
-              const Text(
-                'Remarks',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _remarksController,
-                maxLines: 4,
-                decoration: InputDecoration(
-                  hintText: 'Enter any remarks about the completed work (optional)...',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.notes, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Remarks',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.shade100,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            'Optional',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: Colors.orange.shade800,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _remarksController,
+                      maxLines: 4,
+                      decoration: InputDecoration(
+                        hintText: 'Enter any remarks about the completed work...',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        filled: true,
+                        fillColor: Colors.grey[50],
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 32),
@@ -278,20 +414,68 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
                 ),
                 child: _isSubmitting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
+                    ? Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'SUBMITTING...',
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ],
                       )
-                    : const Text(
-                        'SUBMIT COMPLETION',
-                        style: TextStyle(fontSize: 16),
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.check_circle, size: 20),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'SUBMIT COMPLETION',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Info text
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Images and remarks are stored locally for now and will be synced later.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.blue.shade700,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
