@@ -708,7 +708,10 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AssignedDocketDetailsPage(docket: docket),
+        builder: (context) => AssignedDocketDetailsPage(
+          docket: docket,
+          userRole: 'user', // Default role, adjust as needed based on your auth system
+        ),
       ),
     );
 

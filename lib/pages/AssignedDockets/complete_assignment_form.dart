@@ -401,15 +401,15 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                         filled: true,
                         fillColor: Colors.grey[50],
                       ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter remarks';
+                        }
+                        return null;
+                      },
                     ),
                   ],
                 ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter remarks';
-                  }
-                  return null;
-                },
               ),
               const SizedBox(height: 32),
               
