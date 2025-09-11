@@ -4,7 +4,12 @@ import '../../models/assigned_docket.dart';
 import '../AssignedDockets/assigned_docket_details.dart';
 
 class AssignedDocketsPage extends StatefulWidget {
-  const AssignedDocketsPage({super.key});
+  final String userRole;
+  
+  const AssignedDocketsPage({
+    super.key,
+    required this.userRole,
+  });
 
   @override
   State<AssignedDocketsPage> createState() => _AssignedDocketsPageState();
@@ -703,7 +708,10 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AssignedDocketDetailsPage(docket: docket),
+        builder: (context) => AssignedDocketDetailsPage(
+          docket: docket,
+          userRole: 'user', // Default role, adjust as needed based on your auth system
+        ),
       ),
     );
 

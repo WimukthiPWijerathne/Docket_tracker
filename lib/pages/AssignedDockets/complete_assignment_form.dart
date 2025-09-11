@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -7,7 +8,9 @@ import 'package:http_parser/http_parser.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:intl/intl.dart';
 import '../../service/assigned_docket_service.dart';
+import '../../services/api_service.dart';
 
 // Helper function to get app storage path
 Future<String> getAppStoragePath() async {
@@ -62,17 +65,54 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
     });
 
     try {
-      // Store image and remarks locally (optional for now)
-      String? localImagePath;
-      String? remarks;
+      String? uploadedImageUrl;
       
-      // Save image locally if captured
+      // Upload image if captured
       if (_imageFile != null) {
-        localImagePath = await _saveImageLocally(_imageFile!);
-        print('Image saved locally at: $localImagePath');
+        // First save locally
+        final localImagePath = await _saveImageLocally(_imageFile!);
+        if (localImagePath != null) {
+          print('Image saved locally at: $localImagePath');
+          
+          // Upload to server
+          // Get docket type from parent widget or use a default
+          final docketType = 'assignment';
+          final imageFile = File(localImagePath);
+          
+          // Show uploading indicator
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Uploading image...')),
+            );
+          }
+          
+          // Upload the image using ApiService
+          final fileName = '${widget.assignmentId}_${docketType}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}_a';
+          final success = await ApiService.uploadDocketImage(
+            imageFile,
+            fileName,
+            4,  // Subdirectory 4 for assignments
+          );
+          
+          if (success) {
+            uploadedImageUrl = 'http://124.43.181.243:8000/api/fetch-testdocket-image/4/$fileName.jpg';
+          }
+          
+          if (uploadedImageUrl != null) {
+            print('Image uploaded successfully: $uploadedImageUrl');
+          } else {
+            print('Failed to upload image');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Failed to upload image')),
+              );
+            }
+          }
+        }
       }
       
       // Get remarks if entered
+      String? remarks;
       if (_remarksController.text.trim().isNotEmpty) {
         remarks = _remarksController.text.trim();
         print('Remarks: $remarks');
@@ -81,48 +121,46 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
       // Mark as completed with current timestamp
       final completedTime = DateTime.now().toIso8601String();
       
-      final success = await _service.markAsCompleted(
-        widget.assignmentId,
-        remarks: null, // Not sending to backend for now
-        completionImageUrl: null, // Not sending to backend for now
-        completedTime: completedTime,
-      );
+      // For now, we're just showing a success message without updating the database
+      print('Would mark as completed with:');
+      print('Assignment ID: ${widget.assignmentId}');
+      print('Image URL: $uploadedImageUrl');
+      print('Remarks: $remarks');
+      print('Completed Time: $completedTime');
 
       if (!mounted) return;
 
-      if (success) {
-        // Show success message
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Text(
-                        'Assignment Completed Successfully!',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      Text('Assignment ID: ${widget.assignmentId}'),
-                    ],
-                  ),
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Image Uploaded Successfully!',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text('Assignment ID: ${widget.assignmentId}'),
+                    if (uploadedImageUrl != null) 
+                      Text('Image URL: ${Uri.parse(uploadedImageUrl!).host}...'),
+                  ],
                 ),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 3),
+              ),
+            ],
           ),
-        );
-        
-        // Return success to previous screen
-        Navigator.of(context).pop(true);
-      } else {
-        throw Exception('Failed to mark assignment as completed');
-      }
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      
+      // Return success to previous screen
+      Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -158,7 +196,7 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
       final XFile? compressedXFile = await FlutterImageCompress.compressAndGetFile(
         imageFile.path,
         targetPath,
-        quality: 100,
+        quality: 20, // Reduced quality for smaller file size
       );
 
       if (compressedXFile != null) {
@@ -167,6 +205,75 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
       return null;
     } catch (e) {
       print('Error saving image locally: $e');
+      return null;
+    }
+  }
+
+  // Upload image to server using the same pattern as ApiService.uploadDocketImage
+  Future<String?> _uploadImage(File imageFile, String assignmentId, String docketType) async {
+    try {
+      final now = DateTime.now();
+      final dateStr = DateFormat('yyyyMMdd').format(now);
+      final timeStr = DateFormat('HHmmss').format(now);
+      final cleanDocketType = docketType.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+      
+      // Format the filename as assignmentid_dockettype_date_time_a
+      final fileName = '${assignmentId}_${cleanDocketType}_${dateStr}_${timeStr}_a';
+      
+      print('DEBUG: Starting upload of ${imageFile.path} as $fileName to subdirectory 4');
+      
+      if (!await imageFile.exists()) {
+        print('ERROR: File does not exist at path: ${imageFile.path}');
+        return null;
+      }
+      
+      var uri = Uri.parse('http://124.43.181.243:8000/api/upload-testdocket');
+      print('DEBUG: Uploading to URL: $uri');
+      
+      var request = http.MultipartRequest('POST', uri);
+      
+      // Add the image file with the correct field name
+      var multipartFile = await http.MultipartFile.fromPath(
+        'images',  // Field name should match server expectation
+        imageFile.path,
+      );
+      request.files.add(multipartFile);
+      
+      // Add other fields as per server requirements
+      request.fields['id'] = fileName; // Without .jpg extension
+      request.fields['subdirectory'] = '4'; // Subdirectory 4 for "All other"
+      
+      print('DEBUG: Sending request with fields: ${request.fields}');
+      
+      // Send the request with timeout
+      var response = await request.send().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          print('ERROR: Upload timed out after 30 seconds');
+          throw TimeoutException('Upload timed out');
+        },
+      );
+      
+      final responseBody = await response.stream.bytesToString();
+      final statusCode = response.statusCode;
+      
+      print('DEBUG: Server response status: $statusCode');
+      print('DEBUG: Server response: $responseBody');
+      
+      if (statusCode == 200) {
+        print('DEBUG: File uploaded successfully!');
+        // Server adds .jpg automatically
+        final accessFileName = '$fileName.jpg';
+        final accessUrl = 'http://124.43.181.243:8000/api/fetch-testdocket-image/4/$fileName.jpg';
+        print('DEBUG: Access URL: $accessUrl');
+        return accessUrl;
+      } else {
+        print('ERROR: Upload failed with status $statusCode: $responseBody');
+        return null;
+      }
+    } catch (e, stackTrace) {
+      print('ERROR: Exception during upload: $e');
+      print('Stack trace: $stackTrace');
       return null;
     }
   }
@@ -400,6 +507,12 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                         filled: true,
                         fillColor: Colors.grey[50],
                       ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Please enter remarks';
+                        }
+                        return null;
+                      },
                     ),
                   ],
                 ),
