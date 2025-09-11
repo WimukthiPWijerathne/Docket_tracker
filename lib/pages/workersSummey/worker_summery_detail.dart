@@ -25,10 +25,15 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
   Map<String, dynamic> docketDetailsMap = {}; // store docket details by ID
   double totalSalary = 0.0;
   
-  // Month/Year selection
+  // Date selection and view type
   DateTime selectedDate = DateTime.now();
   String selectedMonth = '';
   String selectedYear = '';
+  String selectedViewType = 'Monthly'; // Daily, Weekly, Monthly
+  
+  // For weekly view
+  DateTime? weekStartDate;
+  DateTime? weekEndDate;
 
   // 🔹 Salary rates by docket type
   final Map<String, double> salaryRates = {
@@ -48,7 +53,15 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
     super.initState();
     selectedMonth = DateFormat('MM').format(selectedDate);
     selectedYear = DateFormat('yyyy').format(selectedDate);
+    _calculateWeekRange();
     fetchAssignments();
+  }
+
+  // 🔹 Calculate week start and end dates
+  void _calculateWeekRange() {
+    int weekday = selectedDate.weekday;
+    weekStartDate = selectedDate.subtract(Duration(days: weekday - 1)); // Monday
+    weekEndDate = weekStartDate!.add(const Duration(days: 6)); // Sunday
   }
 
   // 🔹 Date parsing helper function
@@ -79,17 +92,28 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
     return null;
   }
 
-  // 🔹 Check if a date falls within the selected month/year
-  bool isInSelectedMonth(String? dateStr) {
+  // 🔹 Check if a date falls within the selected period
+  bool isInSelectedPeriod(String? dateStr) {
     if (dateStr == null) return false;
     
     DateTime? date = parseDate(dateStr);
     if (date == null) return false;
     
-    String dateMonth = DateFormat('MM').format(date);
-    String dateYear = DateFormat('yyyy').format(date);
-    
-    return dateMonth == selectedMonth && dateYear == selectedYear;
+    switch (selectedViewType) {
+      case 'Daily':
+        return DateFormat('yyyy-MM-dd').format(date) == 
+               DateFormat('yyyy-MM-dd').format(selectedDate);
+      
+      case 'Weekly':
+        return date.isAfter(weekStartDate!.subtract(const Duration(days: 1))) &&
+               date.isBefore(weekEndDate!.add(const Duration(days: 1)));
+      
+      case 'Monthly':
+      default:
+        String dateMonth = DateFormat('MM').format(date);
+        String dateYear = DateFormat('yyyy').format(date);
+        return dateMonth == selectedMonth && dateYear == selectedYear;
+    }
   }
 
   Future<void> fetchAssignments() async {
@@ -126,8 +150,8 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
           // 🔹 Step 2: Fetch docket details & calculate salaries
           await fetchDocketDetails();
           
-          // 🔹 Step 3: Filter by selected month
-          filterByMonth();
+          // 🔹 Step 3: Filter by selected period
+          filterByPeriod();
         }
       }
     } catch (e) {
@@ -175,23 +199,78 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
     }
   }
 
-  // 🔹 Filter dockets by selected month and calculate monthly salary
-  void filterByMonth() {
+  // 🔹 Filter dockets by selected period and calculate total salary
+  void filterByPeriod() {
     filteredDockets = assignedDockets.where((docket) {
-      // Check both assignedTime and completedTime to include work done in the month
-      bool assignedInMonth = isInSelectedMonth(docket["assignedTime"]);
-      bool completedInMonth = isInSelectedMonth(docket["completedTime"]);
+      // Check both assignedTime and completedTime to include work done in the period
+      bool assignedInPeriod = isInSelectedPeriod(docket["assignedTime"]);
+      bool completedInPeriod = isInSelectedPeriod(docket["completedTime"]);
       
-      // Include if either assigned or completed in the selected month
-      return assignedInMonth || completedInMonth;
+      // Include if either assigned or completed in the selected period
+      return assignedInPeriod || completedInPeriod;
     }).toList();
 
-    // Calculate monthly total salary
-    double monthlySum = 0.0;
+    // Calculate total salary for the period
+    double periodSum = 0.0;
     for (var docket in filteredDockets) {
-      monthlySum += (docket["salary"] as double? ?? 0.0);
+      periodSum += (docket["salary"] as double? ?? 0.0);
     }
-    totalSalary = monthlySum;
+    totalSalary = periodSum;
+  }
+
+  // 🔹 Get period display text
+  String getPeriodDisplayText() {
+    switch (selectedViewType) {
+      case 'Daily':
+        return DateFormat('EEEE, MMMM d, yyyy').format(selectedDate);
+      case 'Weekly':
+        return '${DateFormat('MMM d').format(weekStartDate!)} - ${DateFormat('MMM d, yyyy').format(weekEndDate!)}';
+      case 'Monthly':
+      default:
+        return DateFormat('MMMM yyyy').format(selectedDate);
+    }
+  }
+
+  // 🔹 Show date picker based on view type
+  Future<void> _selectDate() async {
+    switch (selectedViewType) {
+      case 'Daily':
+        final DateTime? picked = await showDatePicker(
+          context: context,
+          initialDate: selectedDate,
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2030),
+        );
+        if (picked != null) {
+          setState(() {
+            selectedDate = picked;
+            filterByPeriod();
+          });
+        }
+        break;
+        
+      case 'Weekly':
+        final DateTime? picked = await showDatePicker(
+          context: context,
+          initialDate: selectedDate,
+          firstDate: DateTime(2020),
+          lastDate: DateTime(2030),
+          helpText: 'Select any day in the week',
+        );
+        if (picked != null) {
+          setState(() {
+            selectedDate = picked;
+            _calculateWeekRange();
+            filterByPeriod();
+          });
+        }
+        break;
+        
+      case 'Monthly':
+      default:
+        _selectMonthYear();
+        break;
+    }
   }
 
   // 🔹 Show month/year picker
@@ -201,84 +280,92 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
       builder: (BuildContext context) {
         DateTime tempDate = DateTime(int.parse(selectedYear), int.parse(selectedMonth));
         
-        return AlertDialog(
-          title: const Text('Select Month & Year'),
-          content: SizedBox(
-            height: 300,
-            width: 300,
-            child: Column(
-              children: [
-                // Year picker
-                Text('Year: ${tempDate.year}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                SizedBox(
-                  height: 100,
-                  child: YearPicker(
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2030),
-                    selectedDate: tempDate,
-                    onChanged: (DateTime date) {
-                      tempDate = DateTime(date.year, tempDate.month);
-                    },
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // Month picker
-                Text('Month: ${DateFormat('MMMM').format(tempDate)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                Expanded(
-                  child: GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      childAspectRatio: 2,
-                    ),
-                    itemCount: 12,
-                    itemBuilder: (context, index) {
-                      int month = index + 1;
-                      bool isSelected = month == tempDate.month;
-                      return GestureDetector(
-                        onTap: () {
-                          tempDate = DateTime(tempDate.year, month);
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Select Month & Year'),
+              content: SizedBox(
+                height: 300,
+                width: 300,
+                child: Column(
+                  children: [
+                    // Year picker
+                    Text('Year: ${tempDate.year}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    SizedBox(
+                      height: 100,
+                      child: YearPicker(
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2030),
+                        selectedDate: tempDate,
+                        onChanged: (DateTime date) {
+                          setDialogState(() {
+                            tempDate = DateTime(date.year, tempDate.month);
+                          });
                         },
-                        child: Container(
-                          margin: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: isSelected ? Colors.blue : Colors.grey[200],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Center(
-                            child: Text(
-                              DateFormat('MMM').format(DateTime(2023, month)),
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.black,
-                                fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Month picker
+                    Text('Month: ${DateFormat('MMMM').format(tempDate)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Expanded(
+                      child: GridView.builder(
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 3,
+                          childAspectRatio: 2,
+                        ),
+                        itemCount: 12,
+                        itemBuilder: (context, index) {
+                          int month = index + 1;
+                          bool isSelected = month == tempDate.month;
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(() {
+                                tempDate = DateTime(tempDate.year, month);
+                              });
+                            },
+                            child: Container(
+                              margin: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: isSelected ? Colors.blue : Colors.grey[200],
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  DateFormat('MMM').format(DateTime(2023, month)),
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.white : Colors.black,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    setState(() {
+                      selectedDate = tempDate;
+                      selectedMonth = DateFormat('MM').format(tempDate);
+                      selectedYear = DateFormat('yyyy').format(tempDate);
+                      filterByPeriod();
+                    });
+                    Navigator.of(context).pop();
+                  },
+                  child: const Text('OK'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  selectedDate = tempDate;
-                  selectedMonth = DateFormat('MM').format(tempDate);
-                  selectedYear = DateFormat('yyyy').format(tempDate);
-                  filterByMonth(); // Re-filter with new date
-                });
-                Navigator.of(context).pop();
-              },
-              child: const Text('OK'),
-            ),
-          ],
+            );
+          },
         );
       },
     );
@@ -288,14 +375,14 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("${widget.workerName} - Monthly Salary"),
+        title: Text("${widget.workerName} - ${selectedViewType} Salary"),
         backgroundColor: const Color(0xFF003366),
         foregroundColor: Colors.white,
         actions: [
           IconButton(
-            icon: const Icon(Icons.calendar_month),
-            onPressed: _selectMonthYear,
-            tooltip: 'Select Month/Year',
+            icon: const Icon(Icons.calendar_today),
+            onPressed: _selectDate,
+            tooltip: 'Select Date/Period',
           ),
         ],
       ),
@@ -303,15 +390,60 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // 🔹 Month/Year selector and worker info header
+                // 🔹 View type selector and period display header
                 Container(
                   padding: const EdgeInsets.all(16),
                   color: Colors.blue.shade50,
                   child: Column(
                     children: [
-                      // Month/Year display
+                      // View type dropdown
+                      Row(
+                        children: [
+                          const Text(
+                            'View: ',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF003366),
+                            ),
+                          ),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              value: selectedViewType,
+                              decoration: InputDecoration(
+                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                fillColor: Colors.white,
+                                filled: true,
+                              ),
+                              items: ['Daily', 'Weekly', 'Monthly'].map((String value) {
+                                return DropdownMenuItem<String>(
+                                  value: value,
+                                  child: Text(value),
+                                );
+                              }).toList(),
+                              onChanged: (String? newValue) {
+                                if (newValue != null) {
+                                  setState(() {
+                                    selectedViewType = newValue;
+                                    if (selectedViewType == 'Weekly') {
+                                      _calculateWeekRange();
+                                    }
+                                    filterByPeriod();
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      // Period display
                       GestureDetector(
-                        onTap: _selectMonthYear,
+                        onTap: _selectDate,
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                           decoration: BoxDecoration(
@@ -329,14 +461,24 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.calendar_month, color: Colors.white),
+                              Icon(
+                                selectedViewType == 'Daily' 
+                                    ? Icons.today
+                                    : selectedViewType == 'Weekly'
+                                        ? Icons.view_week
+                                        : Icons.calendar_month,
+                                color: Colors.white
+                              ),
                               const SizedBox(width: 8),
-                              Text(
-                                DateFormat('MMMM yyyy').format(selectedDate),
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
+                              Expanded(
+                                child: Text(
+                                  getPeriodDisplayText(),
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -346,6 +488,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                         ),
                       ),
                       const SizedBox(height: 16),
+                      
                       // Worker info
                       Row(
                         children: [
@@ -370,7 +513,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                                 ),
                               ),
                               Text(
-                                "${filteredDockets.length} Dockets in ${DateFormat('MMM yyyy').format(selectedDate)}",
+                                "${filteredDockets.length} Dockets in ${getPeriodDisplayText()}",
                                 style: const TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey,
@@ -396,7 +539,8 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                                    color: Colors.grey.shade400),
                               const SizedBox(height: 16),
                               Text(
-                                "No dockets found for ${DateFormat('MMMM yyyy').format(selectedDate)}",
+                                "No dockets found for ${getPeriodDisplayText()}",
+                                textAlign: TextAlign.center,
                                 style: TextStyle(
                                   fontSize: 16,
                                   color: Colors.grey.shade600,
@@ -485,7 +629,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                         ),
                 ),
                 
-                // 🔹 Monthly Total Salary at the bottom
+                // 🔹 Period Total Salary at the bottom
                 Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
@@ -506,16 +650,16 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text(
-                            "Monthly Salary:",
-                            style: TextStyle(
+                          Text(
+                            "${selectedViewType} Salary:",
+                            style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                               color: Colors.white,
                             ),
                           ),
                           Text(
-                            DateFormat('MMMM yyyy').format(selectedDate),
+                            getPeriodDisplayText(),
                             style: const TextStyle(
                               fontSize: 14,
                               color: Colors.white70,
