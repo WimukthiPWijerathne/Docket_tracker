@@ -874,22 +874,22 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   }
 
   void _markAsCompleted() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => CompleteAssignmentForm(
-          assignmentId: widget.docket.assignmentID,
-          docketId: widget.docket.docketID,
-        ),
+  Navigator.of(context).push(
+    MaterialPageRoute(
+      builder: (context) => CompleteAssignmentForm(
+        assignmentId: widget.docket.assignmentID,
+        docketId: widget.docket.docketID,
       ),
-    ).then((success) {
-      if (success == true) {
-        // Refresh the parent screen if needed
-        if (mounted) {
-          Navigator.of(context).pop(true); // Return success to previous screen
-        }
+    ),
+  ).then((success) {
+    if (success == true) {
+      // Refresh the parent screen if needed
+      if (mounted) {
+        Navigator.of(context).pop(true); // Return success to previous screen
       }
-    });
-  }
+    }
+  });
+}
 
   void _reassignDocket() {
     final TextEditingController personController = TextEditingController();

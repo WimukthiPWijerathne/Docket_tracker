@@ -9,6 +9,7 @@ class AssignedDocket {
   final String? completedTime;
   final String? userRole;
 
+
   AssignedDocket({
     required this.assignmentID,
     required this.docketID,
@@ -223,6 +224,8 @@ class AssignedDocket {
 
   @override
   int get hashCode => assignmentID.hashCode;
+
+  get docketType => null;
 
   // Copy method for creating modified instances
   AssignedDocket copyWith({
