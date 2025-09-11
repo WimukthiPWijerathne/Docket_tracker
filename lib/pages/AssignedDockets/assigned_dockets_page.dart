@@ -210,6 +210,11 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
             );
           }
 
+          // 👇 Only ongoing dockets will show in cards (unless "Completed" filter is chosen)
+          final ongoingDockets = _selectedFilter == "Completed"
+              ? filteredDockets
+              : filteredDockets.where((d) => !d.isCompleted).toList();
+
           return RefreshIndicator(
             onRefresh: () async {
               _refreshData();
@@ -222,7 +227,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                   margin: const EdgeInsets.all(16),
                   child: _buildSummarySection(allDockets),
                 ),
-                
+
                 // Filter Chips
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -246,8 +251,12 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                           selectedColor: Colors.indigo[100],
                           checkmarkColor: Colors.indigo[700],
                           labelStyle: TextStyle(
-                            color: isSelected ? Colors.indigo[700] : Colors.grey[700],
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected
+                                ? Colors.indigo[700]
+                                : Colors.grey[700],
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                       );
@@ -259,7 +268,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
 
                 // Dockets List
                 Expanded(
-                  child: filteredDockets.isEmpty
+                  child: ongoingDockets.isEmpty
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.all(32.0),
@@ -273,7 +282,9 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  "No $_selectedFilter dockets",
+                                  _selectedFilter == "Completed"
+                                      ? "No completed dockets"
+                                      : "No ongoing dockets",
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w500,
@@ -288,15 +299,14 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                           animation: _animationController,
                           builder: (context, child) {
                             return ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              itemCount: filteredDockets.length,
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: ongoingDockets.length,
                               itemBuilder: (context, index) {
-                                final docket = filteredDockets[index];
+                                final docket = ongoingDockets[index];
                                 final animationDelay = index * 0.1;
-                                final animation = Tween<double>(
-                                  begin: 0,
-                                  end: 1,
-                                ).animate(
+                                final animation =
+                                    Tween<double>(begin: 0, end: 1).animate(
                                   CurvedAnimation(
                                     parent: _animationController,
                                     curve: Interval(
@@ -417,7 +427,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
   Widget _buildDocketCard(AssignedDocket docket, int index) {
     final isCompleted = docket.isCompleted;
     final isOverdue = docket.isOverdue();
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -433,21 +443,21 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
               gradient: LinearGradient(
                 colors: [
                   Colors.white,
-                  isCompleted 
-                    ? Colors.green.withOpacity(0.05)
-                    : isOverdue 
-                      ? Colors.red.withOpacity(0.05)
-                      : Colors.blue.withOpacity(0.05),
+                  isCompleted
+                      ? Colors.green.withOpacity(0.05)
+                      : isOverdue
+                          ? Colors.red.withOpacity(0.05)
+                          : Colors.blue.withOpacity(0.05),
                 ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               border: Border.all(
-                color: isCompleted 
-                  ? Colors.green.withOpacity(0.3)
-                  : isOverdue 
-                    ? Colors.red.withOpacity(0.3)
-                    : Colors.blue.withOpacity(0.2),
+                color: isCompleted
+                    ? Colors.green.withOpacity(0.3)
+                    : isOverdue
+                        ? Colors.red.withOpacity(0.3)
+                        : Colors.blue.withOpacity(0.2),
                 width: 1,
               ),
             ),
@@ -505,18 +515,18 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: isCompleted 
-                            ? Colors.green.withOpacity(0.2)
-                            : isOverdue 
-                              ? Colors.red.withOpacity(0.2)
-                              : Colors.orange.withOpacity(0.2),
+                          color: isCompleted
+                              ? Colors.green.withOpacity(0.2)
+                              : isOverdue
+                                  ? Colors.red.withOpacity(0.2)
+                                  : Colors.orange.withOpacity(0.2),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: isCompleted 
-                              ? Colors.green
-                              : isOverdue 
-                                ? Colors.red
-                                : Colors.orange,
+                            color: isCompleted
+                                ? Colors.green
+                                : isOverdue
+                                    ? Colors.red
+                                    : Colors.orange,
                             width: 1,
                           ),
                         ),
@@ -524,31 +534,31 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              isCompleted 
-                                ? Icons.check_circle
-                                : isOverdue 
-                                  ? Icons.warning
-                                  : Icons.schedule,
+                              isCompleted
+                                  ? Icons.check_circle
+                                  : isOverdue
+                                      ? Icons.warning
+                                      : Icons.schedule,
                               size: 12,
-                              color: isCompleted 
-                                ? Colors.green[700]
-                                : isOverdue 
-                                  ? Colors.red[700]
-                                  : Colors.orange[700],
+                              color: isCompleted
+                                  ? Colors.green[700]
+                                  : isOverdue
+                                      ? Colors.red[700]
+                                      : Colors.orange[700],
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              isOverdue 
-                                ? "OVERDUE"
-                                : docket.displayStatus.toUpperCase(),
+                              isOverdue
+                                  ? "OVERDUE"
+                                  : docket.displayStatus.toUpperCase(),
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.bold,
-                                color: isCompleted 
-                                  ? Colors.green[700]
-                                  : isOverdue 
-                                    ? Colors.red[700]
-                                    : Colors.orange[700],
+                                color: isCompleted
+                                    ? Colors.green[700]
+                                    : isOverdue
+                                        ? Colors.red[700]
+                                        : Colors.orange[700],
                               ),
                             ),
                           ],
@@ -557,7 +567,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                     ],
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Assigned Persons
                   Row(
                     children: [
@@ -578,7 +588,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                     ],
                   ),
                   const SizedBox(height: 6),
-                  
+
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
@@ -588,9 +598,9 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                       border: Border.all(color: Colors.grey[200]!),
                     ),
                     child: Text(
-                      docket.assignedPersons.isNotEmpty 
-                        ? docket.assignedPersons
-                        : "Not assigned",
+                      docket.assignedPersons.isNotEmpty
+                          ? docket.assignedPersons
+                          : "Not assigned",
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -598,9 +608,9 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   // Time Information
                   Row(
                     children: [
@@ -628,7 +638,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                           ],
                         ),
                       ),
-                      if (docket.isCompleted) 
+                      if (docket.isCompleted)
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
@@ -653,7 +663,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                             ],
                           ),
                         )
-                      else 
+                      else
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.end,
@@ -672,48 +682,12 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: isOverdue ? Colors.red[700] : Colors.orange[700],
+                                  color: Colors.orange[700],
                                 ),
                               ),
                             ],
                           ),
                         ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 12),
-                  
-                  // Action Row
-                  Row(
-                    children: [
-                      if (docket.hasBeenReassigned)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.purple.withOpacity(0.3),
-                            ),
-                          ),
-                          child: Text(
-                            "Reassigned ${docket.reassignmentCount}x",
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.purple[700],
-                            ),
-                          ),
-                        ),
-                      const Spacer(),
-                      Icon(
-                        Icons.arrow_forward_ios,
-                        size: 12,
-                        color: Colors.grey[400],
-                      ),
                     ],
                   ),
                 ],
@@ -725,92 +699,49 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
     );
   }
 
-  void _navigateToDetails(AssignedDocket docket) {
-    Navigator.push(
+  void _navigateToDetails(AssignedDocket docket) async {
+    final result = await Navigator.push(
       context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            AssignedDocketDetailsPage(docket: docket),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0);
-          const end = Offset.zero;
-          const curve = Curves.easeInOutCubic;
-
-          var tween = Tween(begin: begin, end: end).chain(
-            CurveTween(curve: curve),
-          );
-
-          return SlideTransition(
-            position: animation.drive(tween),
-            child: child,
-          );
-        },
-        transitionDuration: const Duration(milliseconds: 300),
+      MaterialPageRoute(
+        builder: (context) => AssignedDocketDetailsPage(docket: docket),
       ),
-    ).then((_) {
-      // Refresh data when returning from details page
+    );
+
+    if (result == true) {
       _refreshData();
-    });
+    }
   }
 
   void _showFilterDialog() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-          ),
+      builder: (context) {
+        return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                height: 4,
-                width: 40,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text(
+                  "Filter Dockets",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
               ),
-              const SizedBox(height: 20),
-              Text(
-                "Filter Dockets",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.grey[800],
-                ),
-              ),
-              const SizedBox(height: 20),
               ..._filterOptions.map((filter) {
-                return ListTile(
-                  leading: Radio<String>(
-                    value: filter,
-                    groupValue: _selectedFilter,
-                    onChanged: (String? value) {
+                return RadioListTile<String>(
+                  title: Text(filter),
+                  value: filter,
+                  groupValue: _selectedFilter,
+                  onChanged: (value) {
+                    if (value != null) {
                       setState(() {
-                        _selectedFilter = value!;
+                        _selectedFilter = value;
                       });
                       Navigator.pop(context);
-                    },
-                    activeColor: Colors.indigo,
-                  ),
-                  title: Text(filter),
-                  onTap: () {
-                    setState(() {
-                      _selectedFilter = filter;
-                    });
-                    Navigator.pop(context);
+                    }
                   },
                 );
-              }).toList(),
-              const SizedBox(height: 20),
+              }),
             ],
           ),
         );
