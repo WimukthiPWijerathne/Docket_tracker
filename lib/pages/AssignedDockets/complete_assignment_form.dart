@@ -8,6 +8,7 @@ import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import '../../service/assigned_docket_service.dart';
+import '../../services/api_service.dart';
 
 // Helper function to get app storage path
 Future<String> getAppStoragePath() async {
@@ -57,6 +58,7 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
   }
 
   Future<void> _submitForm() async {
+    if (!_formKey.currentState!.validate()) return;
     if (_imageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please take a photo of the completed work')),
@@ -69,34 +71,28 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
     });
 
     try {
-      // First upload the image
+      // Upload the image
       final imageUrl = await _uploadImage(_imageFile!);
       
-      // Then mark as completed with remarks and image URL
-      final success = await _service.markAsCompleted(
-        widget.assignmentId,
-        remarks: _remarksController.text.trim(),
-        completionImageUrl: imageUrl,
-      );
-
       if (!mounted) return;
 
-      if (success) {
-        Navigator.of(context).pop(true); // Return success
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Assignment marked as completed successfully!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        throw Exception('Failed to mark assignment as completed');
-      }
+      // Show success message with the image URL
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Image uploaded successfully!\nURL: $imageUrl'),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+      
+      // Close the form after successful upload
+      Navigator.of(context).pop(true);
+      
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error: $e'),
+          content: Text('Error uploading image: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -111,31 +107,14 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
 
   Future<String> _uploadImage(XFile imageFile) async {
     try {
-      // First, get the original docket details to get the original image name
-      final response = await http.get(
-        Uri.parse('https://powerprox.sltidc.lk/GETDocketDetails2.php'),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception('Failed to fetch docket details');
-      }
-
-      final List<dynamic> data = json.decode(response.body);
-      final record = data.firstWhere(
-        (item) => item['ID'] == widget.docketId,
-        orElse: () => null,
-      );
-
-      if (record == null || record['ImageName'] == null) {
-        throw Exception('Original docket image not found');
-      }
-
-      // Get the original image name and remove the extension
-      String originalName = record['ImageName'].toString();
-      String baseName = originalName.replaceAll(RegExp(r'\.jpg$'), '');
+      // Generate timestamp for the filename
+      final now = DateTime.now();
+      final timestamp =
+          '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}_'
+          '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}${now.second.toString().padLeft(2, '0')}';
       
-      // Create new filename with _a suffix
-      String newFileName = '${baseName}_a.jpg';
+      // Create the new filename: {assignmentId}_{docketType}_{timestamp}_a.jpg
+      final newFileName = '${widget.assignmentId}_${widget.docketId}_${timestamp}_a.jpg';
       
       // Get app storage directory
       final folderPath = await getAppStoragePath();
@@ -145,39 +124,30 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
       final XFile? compressedXFile = await FlutterImageCompress.compressAndGetFile(
         imageFile.path,
         targetPath,
-        quality: 100,
+        quality: 20, // Reduced quality for smaller file size
       );
 
       if (compressedXFile == null) {
         throw Exception('Failed to compress image');
       }
 
-      // Now upload the file
-      final uri = Uri.parse('https://powerprox.sltidc.lk/upload-completion-image.php');
-      final request = http.MultipartRequest('POST', uri);
-      
-      final file = await http.MultipartFile.fromPath(
-        'image',
-        compressedXFile.path,
-        contentType: MediaType('image', 'jpeg'),
+      // Upload to the 4th subdirectory (4 is for 'All other')
+      final uploadSuccess = await ApiService.uploadDocketImage(
+        File(compressedXFile.path),
+        newFileName,
+        4, // 4th subdirectory for completed work images
       );
-      
-      request.files.add(file);
-      request.fields['assignment_id'] = widget.assignmentId;
-      request.fields['docket_id'] = widget.docketId;
-      request.fields['original_image_name'] = originalName;
-      request.fields['new_image_name'] = newFileName;
-      
-      final uploadResponse = await request.send();
-      final responseData = await uploadResponse.stream.bytesToString();
-      
-      if (uploadResponse.statusCode == 200) {
-        final jsonResponse = json.decode(responseData);
-        if (jsonResponse['success'] == true) {
-          return jsonResponse['imageUrl'] ?? newFileName; // Return the new filename if no URL is provided
-        }
+
+      if (!uploadSuccess) {
+        throw Exception('Failed to upload image to server');
       }
-      throw Exception('Failed to upload image');
+      
+      // Return the access URL for the uploaded image
+      // The server returns the path as upload/TestDocket/4/filename.jpg
+      // But we need to construct the full URL
+      final baseUrl = 'http://124.43.136.185:8000';
+      final imagePath = 'upload/TestDocket/4/$newFileName';
+      return '$baseUrl/$imagePath';
     } catch (e) {
       throw Exception('Image upload failed: $e');
     }
@@ -262,11 +232,17 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                 controller: _remarksController,
                 maxLines: 4,
                 decoration: InputDecoration(
-                  hintText: 'Enter any remarks about the completed work (optional)...',
+                  hintText: 'Enter any remarks about the completed work...',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter remarks';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 32),
               

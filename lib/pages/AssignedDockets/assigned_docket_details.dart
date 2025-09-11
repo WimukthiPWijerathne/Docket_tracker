@@ -7,10 +7,12 @@ import 'complete_assignment_form.dart';
 
 class AssignedDocketDetailsPage extends StatefulWidget {
   final AssignedDocket docket;
+  final String userRole;
 
   const AssignedDocketDetailsPage({
     super.key,
     required this.docket,
+    required this.userRole,
   });
 
   @override
@@ -761,6 +763,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   Widget _buildActionButtons() {
     final isOverdue = widget.docket.isOverdue();
     final isInProgress = widget.docket.isOngoing && !isOverdue;
+    final isWorker = widget.userRole == 'worker';
 
     return Container(
       width: double.infinity,
@@ -824,15 +827,17 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                   () => _markAsCompleted(),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildActionButton(
-                  "Reassign",
-                  Icons.repeat,
-                  Colors.grey[700]!,
-                  () => _reassignDocket(),
+              if (!isWorker) ...[ // Only show reassign button if user is not a worker
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildActionButton(
+                    "Reassign",
+                    Icons.repeat,
+                    Colors.grey[700]!,
+                    () => _reassignDocket(),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ],

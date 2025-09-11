@@ -4,7 +4,12 @@ import '../../models/assigned_docket.dart';
 import '../AssignedDockets/assigned_docket_details.dart';
 
 class AssignedDocketsPage extends StatefulWidget {
-  const AssignedDocketsPage({super.key});
+  final String userRole;
+  
+  const AssignedDocketsPage({
+    super.key,
+    required this.userRole,
+  });
 
   @override
   State<AssignedDocketsPage> createState() => _AssignedDocketsPageState();
@@ -730,7 +735,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
       context,
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) =>
-            AssignedDocketDetailsPage(docket: docket),
+            AssignedDocketDetailsPage(docket: docket, userRole: widget.userRole),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           const begin = Offset(1.0, 0.0);
           const end = Offset.zero;

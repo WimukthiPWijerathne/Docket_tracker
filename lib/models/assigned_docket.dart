@@ -7,6 +7,7 @@ class AssignedDocket {
   final String uploadedBy;
   final String uploadedTime;
   final String? completedTime;
+  final String? userRole;
 
   AssignedDocket({
     required this.assignmentID,
@@ -17,6 +18,7 @@ class AssignedDocket {
     required this.uploadedBy,
     required this.uploadedTime,
     this.completedTime,
+    this.userRole,
   });
 
   factory AssignedDocket.fromJson(Map<String, dynamic> json) {
@@ -45,6 +47,9 @@ class AssignedDocket {
       completedTime: json['completedTime']?.toString() ?? 
                     json['CompletedTime']?.toString() ?? 
                     json['completed_time']?.toString(),
+      userRole: json['userRole']?.toString() ?? 
+               json['UserRole']?.toString() ?? 
+               json['user_role']?.toString(),
     );
   }
 
@@ -58,6 +63,7 @@ class AssignedDocket {
       'uploadedBy': uploadedBy,
       'uploadedTime': uploadedTime,
       'completedTime': completedTime,
+      'userRole': userRole,
     };
   }
 
@@ -228,6 +234,7 @@ class AssignedDocket {
     String? uploadedBy,
     String? uploadedTime,
     String? completedTime,
+    String? userRole,
   }) {
     return AssignedDocket(
       assignmentID: assignmentID ?? this.assignmentID,
@@ -238,6 +245,7 @@ class AssignedDocket {
       uploadedBy: uploadedBy ?? this.uploadedBy,
       uploadedTime: uploadedTime ?? this.uploadedTime,
       completedTime: completedTime ?? this.completedTime,
+      userRole: userRole ?? this.userRole,
     );
   }
 }
