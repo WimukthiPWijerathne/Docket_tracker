@@ -30,21 +30,26 @@ class AssignedDocketService {
         dynamic jsonData = json.decode(responseBody);
         
         // Handle both array and object responses
-        if (jsonData is List) {
-          return jsonData.map((json) => AssignedDocket.fromJson(json as Map<String, dynamic>)).toList();
-        } else if (jsonData is Map<String, dynamic>) {
-          // If the API returns an object with a data field containing the array
-          if (jsonData.containsKey('data') && jsonData['data'] is List) {
-            List dataList = jsonData['data'];
-            return dataList.map((json) => AssignedDocket.fromJson(json as Map<String, dynamic>)).toList();
-          } else if (jsonData.containsKey('assignedDockets') && jsonData['assignedDockets'] is List) {
-            List assignedDocketsList = jsonData['assignedDockets'];
-            return assignedDocketsList.map((json) => AssignedDocket.fromJson(json as Map<String, dynamic>)).toList();
-          } else {
-            // Single assigned docket object
-            return [AssignedDocket.fromJson(jsonData)];
-          }
-        } else {
+       if (jsonData is List) {
+  return jsonData
+      .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
+      .toList();
+} else if (jsonData is Map<String, dynamic>) {
+  if (jsonData.containsKey('data') && jsonData['data'] is List) {
+    List dataList = jsonData['data'];
+    return dataList
+        .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
+        .toList();
+  } else if (jsonData.containsKey('assignedDockets') && jsonData['assignedDockets'] is List) {
+    List assignedDocketsList = jsonData['assignedDockets'];
+    return assignedDocketsList
+        .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
+        .toList();
+  } else {
+    return [AssignedDocket.fromJson(jsonData)];
+  }
+}
+ else {
           throw Exception('Unexpected response format for assigned dockets');
         }
       } else {
