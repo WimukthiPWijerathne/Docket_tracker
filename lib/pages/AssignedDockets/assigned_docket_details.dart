@@ -28,6 +28,11 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   String? imageError;
   String? docketType;
 
+  // Location details
+  String? locationDetails;
+  bool isLoadingDetails = true;
+  String? detailsError;
+
   static const String httpImageBase = 'http://124.43.181.243:8000';
   static const String docketDetailsApiBase = 'https://powerprox.sltidc.lk/GETDocketDetails2.php';
 
@@ -39,51 +44,96 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   void initState() {
     super.initState();
     _fetchDocketImageName();
+    _fetchDocketDetails();
   }
 
-  // Fetch image name from docket details API
-  Future<void> _fetchDocketImageName() async {
+  // Fetch docket details including image name and location details
+  Future<void> _fetchDocketDetails() async {
     try {
+      print('🔍 Fetching docket details from: $docketDetailsApiBase');
       final response = await http.get(
         Uri.parse(docketDetailsApiBase),
       );
 
+      print('📡 Response status: ${response.statusCode}');
+      print('📦 Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
+        print('🔢 Found ${data.length} docket records');
 
         // Find the matching docket
+        print('🔍 Looking for docket ID: ${widget.docket.docketID}');
         final record = data.firstWhere(
-          (item) => item['ID'].toString() == widget.docket.docketID,
-          orElse: () => null,
+          (item) {
+            final id = item['ID']?.toString();
+            print('  - Checking record ID: $id');
+            return id == widget.docket.docketID;
+          },
+          orElse: () {
+            print('❌ No matching record found for docket ID: ${widget.docket.docketID}');
+            return null;
+          },
         );
 
-        if (record != null && record['ImageName'] != null && record['DocketType'] != null) {
+        if (record != null) {
+          print('✅ Found matching record: $record');
           setState(() {
+            // Set image details
             docketImageName = record['ImageName'];
             docketType = record['DocketType'];
+
+            // Parse and set location details
+            // First check if we have a combined locationDetails string
+            final combinedDetails = record['locationDetails']?.toString();
+            if (combinedDetails != null && combinedDetails.isNotEmpty) {
+              locationDetails = combinedDetails;
+            } else {
+              // Fallback to individual fields if locationDetails is not available
+              final transformer = record['Transformer']?.toString() ?? '';
+              final pole = record['Pole']?.toString() ?? '';
+              final meterShift = record['MeterShift']?.toString() ?? '';
+
+              final details = <String>[];
+              if (transformer.isNotEmpty) details.add('Transformer: $transformer');
+              if (pole.isNotEmpty) details.add('Pole: $pole');
+              if (meterShift.isNotEmpty) details.add('Meter Shift: $meterShift');
+
+              locationDetails = details.join(' • ');
+            }
+
             isLoadingImage = false;
+            isLoadingDetails = false;
           });
 
-          debugPrint(
-              "📷 Image for docket ${widget.docket.docketID}: $docketType, $docketImageName");
+          debugPrint("📋 Details for docket ${widget.docket.docketID}: $docketType, $docketImageName");
+          debugPrint("📍 Location details: $locationDetails");
         } else {
           setState(() {
-            imageError = 'No image found for this docket';
+            imageError = 'No details found for this docket';
             isLoadingImage = false;
+            isLoadingDetails = false;
           });
         }
       } else {
         setState(() {
-          imageError = 'Failed to fetch docket details';
+          detailsError = 'Failed to fetch docket details';
           isLoadingImage = false;
+          isLoadingDetails = false;
         });
       }
     } catch (e) {
       setState(() {
-        imageError = 'Error fetching image: $e';
+        detailsError = 'Error fetching docket details: $e';
         isLoadingImage = false;
+        isLoadingDetails = false;
       });
     }
+  }
+
+  // Kept for backward compatibility
+  Future<void> _fetchDocketImageName() async {
+    await _fetchDocketDetails();
   }
 
   // Get docket type number for image URL
@@ -218,6 +268,60 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
 
             // Header Card
             _buildHeaderCard(),
+            // Location details section
+            if (locationDetails != null && locationDetails!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 10,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Location Details',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF003366),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        locationDetails!,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (isLoadingDetails)
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (detailsError != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'Failed to load location details: $detailsError',
+                  style: const TextStyle(color: Colors.red),
+                ),
+              ),
             const SizedBox(height: 16),
 
             // Details Section
