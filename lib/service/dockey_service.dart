@@ -3,17 +3,25 @@ import 'package:http/http.dart' as http;
 import '../models/dockets.dart';
 
 class DocketService {
-  final String baseUrl = "https://powerprox.sltidc.lk/GETDocketDetails2.php";
+  // Docket details endpoint - Updated to use new Express.js backend
+  final String baseUrl = "http://13.61.22.169:3000/dockets";
+  
+  // Keep old PHP endpoint for assignment operations
+  final String _legacyBaseUrl = "https://powerprox.sltidc.lk/GETDocketDetails2.php";
 
-  // Fetch a single docket by ID
+  // Fetch a single docket by ID from the new Express.js backend
   Future<Docket?> fetchDocketById(String docketId) async {
     try {
       final response = await http.get(
-        Uri.parse('$baseUrl?id=$docketId'),
-        headers: {'Accept': 'application/json'},
+        Uri.parse('$baseUrl/$docketId'),
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        },
       );
 
       print('Fetch docket by ID status: ${response.statusCode}');
+      print('Response body: ${response.body}');
       
       if (response.statusCode == 200) {
         final responseBody = response.body;
@@ -88,11 +96,11 @@ class DocketService {
     }
   }
 
-  // Method to assign dockets
+  // Method to assign dockets - Uses new Express.js backend
   Future<bool> assignDockets(List<String> docketIds, String assignedTo) async {
     try {
       final response = await http.post(
-        Uri.parse(baseUrl.replaceAll('GETDocketDetails.php', 'AssignDockets.php')),
+        Uri.parse('http://13.61.22.169:3000/docket_assignment'),
         headers: {
           'Content-Type': 'application/json',
         },

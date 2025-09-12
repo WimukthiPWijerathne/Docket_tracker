@@ -123,9 +123,12 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
       }
 
       final response = await http.post(
-        Uri.parse('https://powerprox.sltidc.lk/POSTDocketDetails2.php'),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: postData.map((key, value) => MapEntry(key, value.toString())),
+        Uri.parse('http://13.61.22.169:3000/dockets'),
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(postData),
       ).timeout(const Duration(seconds: 30));
 
       debugPrint('DB INSERT - Response ${response.statusCode}');
@@ -136,14 +139,14 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
         return false;
       }
 
-      // Parse JSON response from your PHP script
+      // Parse JSON response from Express.js backend
       try {
         final decoded = jsonDecode(response.body);
-        if (decoded is Map && decoded['status'] == 'success') {
-          debugPrint('DB INSERT - Success! ID: ${decoded['id']}');
+        if (response.statusCode == 200 || response.statusCode == 201) {
+          debugPrint('DB INSERT - Success! Response: $decoded');
           return true;
         } else {
-          debugPrint('DB INSERT - Database error: ${decoded['message']}');
+          debugPrint('DB INSERT - Server error: ${decoded['message'] ?? response.body}');
           return false;
         }
       } catch (jsonError) {

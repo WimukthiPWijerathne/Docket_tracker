@@ -3,8 +3,8 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
 class DocketAssignmentService {
-  static const String baseUrl = 'https://powerprox.sltidc.lk';
-  static const String assignmentEndpoint = '/POSTDocketAssignment2.php';
+  static const String baseUrl = 'http://13.61.22.169:3000';
+  static const String assignmentEndpoint = '/docket_assignment';
 
   /// Assigns a worker to a docket with proper error handling and logging
   Future<bool> assignWorkerToDocket({

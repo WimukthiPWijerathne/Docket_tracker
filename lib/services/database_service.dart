@@ -25,7 +25,7 @@ class DatabaseService {
 
       // Send JSON as required by backend
       final responseJson = await http.post(
-        Uri.parse('https://powerprox.sltidc.lk/POSTDocketDetails2.php'),
+        Uri.parse('http://13.61.22.169:3000/dockets'),
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
           'Accept': 'application/json',

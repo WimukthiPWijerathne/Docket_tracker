@@ -119,87 +119,185 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
   Future<void> fetchAssignments() async {
     setState(() => _isLoading = true);
     try {
-      // 🔹 Step 1: Fetch all docket assignments
-      final url = Uri.parse('https://powerprox.sltidc.lk/GETDocketAssignment2.php');
-      final response = await http.get(url);
+      print('Fetching assignments for worker: ${widget.workerId} (${widget.workerName})');
+      
+      // Step 1: Fetch all docket assignments
+      final url = Uri.parse('http://13.61.22.169:3000/docket_assignment');
+      print('API Request: $url');
+      
+      final response = await http.get(
+        url,
+        headers: {'Accept': 'application/json'},
+      );
+
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> result = jsonDecode(response.body);
-
-        if (result['status'] == 'success') {
-          final List data = result['data'];
-
-          assignedDockets = data.where((assignment) {
-            // Check if this assignment belongs to the current worker
-            final assignedPersons = (assignment['assignedPersons'] ?? "").toString();
-            
-            return assignedPersons.contains(widget.workerId) || 
-                   assignedPersons.contains(widget.workerName);
-          }).map<Map<String, dynamic>>((a) {
-            return {
-              "assignmentID": a["assignmentID"],
-              "docketID": a["docketID"],
-              "assignedPersons": a["assignedPersons"],
-              "assignedTime": a["assignedTime"],
-              "uploadedBy": a["uploadedBy"],
-              "uploadedTime": a["uploadedTime"],
-              "completedTime": a["completedTime"],
-            };
-          }).toList();
-
-          // 🔹 Step 2: Fetch docket details & calculate salaries
-          await fetchDocketDetails();
-          
-          // 🔹 Step 3: Filter by selected period
-          filterByPeriod();
+        dynamic responseData = jsonDecode(response.body);
+        List<dynamic> assignments = [];
+        
+        // Handle different response formats
+        if (responseData is List) {
+          assignments = responseData;
+        } else if (responseData is Map) {
+          if (responseData['data'] is List) {
+            assignments = responseData['data'];
+          } else if (responseData['assignments'] is List) {
+            assignments = responseData['assignments'];
+          } else if (responseData['status'] == 'success') {
+            assignments = responseData['data'] is List ? responseData['data'] : [];
+          }
         }
+        
+        print('Found ${assignments.length} total assignments');
+
+        // Filter assignments for this worker
+        assignedDockets = assignments.where((assignment) {
+          try {
+            final assignedPersons = (assignment['assignedPersons']?.toString() ?? "").toLowerCase();
+            final workerId = widget.workerId.toLowerCase();
+            final workerName = widget.workerName.toLowerCase();
+            
+            // Check if this assignment belongs to the current worker
+            return assignedPersons.contains(workerId) || 
+                   assignedPersons.contains(workerName) ||
+                   (assignment['assignedTo']?.toString().toLowerCase() == workerId) ||
+                   (assignment['assignedTo']?.toString().toLowerCase() == workerName);
+          } catch (e) {
+            print('Error processing assignment: $e');
+            return false;
+          }
+        }).map<Map<String, dynamic>>((a) {
+          return {
+            'assignmentID': a['assignmentID']?.toString() ?? a['id']?.toString() ?? '',
+            'docketID': a['docketID']?.toString() ?? a['docketId']?.toString() ?? '',
+            'assignedPersons': a['assignedPersons']?.toString() ?? '',
+            'assignedTime': a['assignedTime']?.toString() ?? a['assignedDate']?.toString() ?? '',
+            'uploadedBy': a['uploadedBy']?.toString() ?? '',
+            'uploadedTime': a['uploadedTime']?.toString() ?? a['createdAt']?.toString() ?? '',
+            'completedTime': a['completedTime']?.toString() ?? a['completedAt']?.toString() ?? '',
+          };
+        }).toList();
+
+        print('Found ${assignedDockets.length} assignments for this worker');
+        
+        // Step 2: Fetch docket details & calculate salaries
+        if (assignedDockets.isNotEmpty) {
+          await fetchDocketDetails();
+        } else {
+          // No assignments found for this worker
+          setState(() {
+            filteredDockets = [];
+            totalSalary = 0.0;
+          });
+        }
+        
+        // Step 3: Filter by selected period
+        filterByPeriod();
+      } else {
+        throw Exception('Failed to load assignments: ${response.statusCode}');
       }
     } catch (e) {
+      print('Error in fetchAssignments: $e');
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
+        SnackBar(content: Text('Error loading assignments: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 
   Future<void> fetchDocketDetails() async {
     try {
-      final url = Uri.parse('https://powerprox.sltidc.lk/GETDocketDetails2.php');
-      final response = await http.get(url);
+      print('Fetching docket details...');
+      final url = Uri.parse('http://13.61.22.169:3000/dockets');
+      final response = await http.get(
+        url,
+        headers: {'Accept': 'application/json'},
+      );
 
       if (response.statusCode == 200) {
-        final List data = jsonDecode(response.body);
-
-        // Store details mapped by ID for quick lookup
-        for (var d in data) {
-          docketDetailsMap[d["ID"].toString()] = d;
+        dynamic responseData = jsonDecode(response.body);
+        List<dynamic> dockets = [];
+        
+        // Handle different response formats
+        if (responseData is List) {
+          dockets = responseData;
+        } else if (responseData is Map) {
+          if (responseData['data'] is List) {
+            dockets = responseData['data'];
+          } else if (responseData['dockets'] is List) {
+            dockets = responseData['dockets'];
+          } else if (responseData['status'] == 'success') {
+            dockets = responseData['data'] is List ? responseData['data'] : [];
+          }
         }
+        
+        print('Found ${dockets.length} dockets');
+        
+        // Clear previous details
+        docketDetailsMap.clear();
+        
+        // Store details mapped by ID for quick lookup
+        for (var d in dockets) {
+          try {
+            final id = d['ID']?.toString() ?? d['id']?.toString();
+            if (id != null) {
+              docketDetailsMap[id] = d;
+            }
+          } catch (e) {
+            print('Error processing docket: $e');
+          }
+        }
+        
+        print('Stored ${docketDetailsMap.length} docket details');
 
         // Add docket details and salary info to each assignment
         for (var docket in assignedDockets) {
-          final docketId = docket["docketID"].toString();
-          final details = docketDetailsMap[docketId];
-          
-          if (details != null) {
-            final type = details["DocketType"] ?? "Unknown";
-            final salary = salaryRates[type] ?? 50.0;
-            docket["docketType"] = type;
-            docket["salary"] = salary;
-          } else {
-            docket["docketType"] = "Unknown";
-            docket["salary"] = 50.0;
+          try {
+            final docketId = docket['docketID']?.toString() ?? '';
+            final details = docketDetailsMap[docketId];
+            
+            if (details != null) {
+              final type = (details['DocketType'] ?? details['docketType'] ?? 'Unknown').toString();
+              final salary = salaryRates[type] ?? 50.0;
+              
+              // Update docket with all available details
+              docket.addAll({
+                'docketType': type,
+                'salary': salary.toDouble(),
+                'depot': details['depot']?.toString() ?? 'Unknown',
+                'status': details['status']?.toString() ?? 'Unknown',
+                'createdAt': details['createdAt']?.toString() ?? '',
+                'updatedAt': details['updatedAt']?.toString() ?? '',
+              });
+              
+              print('Processed docket $docketId: $type (${salary}LKR)');
+            } else {
+              docket['docketType'] = 'Unknown';
+              docket['salary'] = 50.0;
+              print('No details found for docket ID: $docketId');
+            }
+          } catch (e) {
+            print('Error processing docket assignment: $e');
+            docket['docketType'] = 'Error';
+            docket['salary'] = 0.0;
           }
         }
       } else {
-        debugPrint("Server error: ${response.statusCode}");
+        print('Server error: ${response.statusCode} - ${response.body}');
+        throw Exception('Failed to load docket details: ${response.statusCode}');
       }
     } catch (e) {
-      debugPrint("Error fetching docket details: $e");
+      print('Error in fetchDocketDetails: $e');
+      rethrow; // Re-throw to be caught by the parent method
     }
   }
 
-  // 🔹 Filter dockets by selected period and calculate total salary
+  // Filter dockets by selected period and calculate total salary
   void filterByPeriod() {
     filteredDockets = assignedDockets.where((docket) {
       // Check both assignedTime and completedTime to include work done in the period

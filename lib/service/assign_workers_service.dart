@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import '../models/assign_workers_models.dart';
 
 class AssignWorkersService {
-  static const String postAssignmentUrl = 'https://powerprox.sltidc.lk/POSTDocketAssignment2.php';
+  static const String postAssignmentUrl = 'http://13.61.22.169:3000/docket_assignment';
   final String uploadedBy; // Store the user who is making the assignment
 
   AssignWorkersService({required this.uploadedBy});

@@ -34,7 +34,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   String? detailsError;
 
   static const String httpImageBase = 'http://124.43.181.243:8000';
-  static const String docketDetailsApiBase = 'https://powerprox.sltidc.lk/GETDocketDetails2.php';
+  static const String docketDetailsApiBase = 'http://13.61.22.169:3000/dockets';
 
   String _imageBaseForPlatform() {
     return httpImageBase;
@@ -52,65 +52,65 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
     try {
       print('🔍 Fetching docket details from: $docketDetailsApiBase');
       final response = await http.get(
-        Uri.parse(docketDetailsApiBase),
+        Uri.parse('$docketDetailsApiBase/${widget.docket.docketID}'),
+        headers: {
+          'Accept': 'application/json',
+        },
       );
 
       print('📡 Response status: ${response.statusCode}');
       print('📦 Response body: ${response.body}');
 
       if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        print('🔢 Found ${data.length} docket records');
+        final dynamic responseData = json.decode(response.body);
+        
+        // The new endpoint returns a single docket directly
+        if (responseData is Map) {
+          print('✅ Found docket details');
+          final record = responseData;
 
-        // Find the matching docket
-        print('🔍 Looking for docket ID: ${widget.docket.docketID}');
-        final record = data.firstWhere(
-          (item) {
-            final id = item['ID']?.toString();
-            print('  - Checking record ID: $id');
-            return id == widget.docket.docketID;
-          },
-          orElse: () {
-            print('❌ No matching record found for docket ID: ${widget.docket.docketID}');
-            return null;
-          },
-        );
+          if (record.isNotEmpty) {
+            print('✅ Found matching record: $record');
+            setState(() {
+              // Set image details
+              docketImageName = record['ImageName'];
+              docketType = record['DocketType'];
 
-        if (record != null) {
-          print('✅ Found matching record: $record');
-          setState(() {
-            // Set image details
-            docketImageName = record['ImageName'];
-            docketType = record['DocketType'];
+              // Parse and set location details
+              // First check if we have a combined locationDetails string
+              final combinedDetails = record['locationDetails']?.toString();
+              if (combinedDetails != null && combinedDetails.isNotEmpty) {
+                locationDetails = combinedDetails;
+              } else {
+                // Fallback to individual fields if locationDetails is not available
+                final transformer = record['Transformer']?.toString() ?? '';
+                final pole = record['Pole']?.toString() ?? '';
+                final meterShift = record['MeterShift']?.toString() ?? '';
 
-            // Parse and set location details
-            // First check if we have a combined locationDetails string
-            final combinedDetails = record['locationDetails']?.toString();
-            if (combinedDetails != null && combinedDetails.isNotEmpty) {
-              locationDetails = combinedDetails;
-            } else {
-              // Fallback to individual fields if locationDetails is not available
-              final transformer = record['Transformer']?.toString() ?? '';
-              final pole = record['Pole']?.toString() ?? '';
-              final meterShift = record['MeterShift']?.toString() ?? '';
+                final details = <String>[];
+                if (transformer.isNotEmpty) details.add('Transformer: $transformer');
+                if (pole.isNotEmpty) details.add('Pole: $pole');
+                if (meterShift.isNotEmpty) details.add('Meter Shift: $meterShift');
 
-              final details = <String>[];
-              if (transformer.isNotEmpty) details.add('Transformer: $transformer');
-              if (pole.isNotEmpty) details.add('Pole: $pole');
-              if (meterShift.isNotEmpty) details.add('Meter Shift: $meterShift');
+                locationDetails = details.join(' • ');
+              }
 
-              locationDetails = details.join(' • ');
-            }
+              isLoadingImage = false;
+              isLoadingDetails = false;
+            });
 
-            isLoadingImage = false;
-            isLoadingDetails = false;
-          });
-
-          debugPrint("📋 Details for docket ${widget.docket.docketID}: $docketType, $docketImageName");
-          debugPrint("📍 Location details: $locationDetails");
+            debugPrint("📋 Details for docket ${widget.docket.docketID}: $docketType, $docketImageName");
+            debugPrint("📍 Location details: $locationDetails");
+          } else {
+            setState(() {
+              imageError = 'No details found for this docket';
+              isLoadingImage = false;
+              isLoadingDetails = false;
+            });
+          }
         } else {
           setState(() {
-            imageError = 'No details found for this docket';
+            detailsError = 'Invalid response format';
             isLoadingImage = false;
             isLoadingDetails = false;
           });
@@ -928,7 +928,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                   "Mark Completed",
                   Icons.check_circle,
                   isOverdue ? Colors.red : Colors.green,
-                  () => _markAsCompleted(),
+                  _performMarkAsCompleted,
                 ),
               ),
               if (!isWorker) ...[ // Only show reassign button if user is not a worker
@@ -972,28 +972,9 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
-        elevation: 1,
       ),
     );
   }
-
-  void _markAsCompleted() {
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (context) => CompleteAssignmentForm(
-        assignmentId: widget.docket.assignmentID,
-        docketId: widget.docket.docketID,
-      ),
-    ),
-  ).then((success) {
-    if (success == true) {
-      // Refresh the parent screen if needed
-      if (mounted) {
-        Navigator.of(context).pop(true); // Return success to previous screen
-      }
-    }
-  });
-}
 
   void _reassignDocket() {
     final TextEditingController personController = TextEditingController();
@@ -1046,44 +1027,23 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
     );
   }
 
-  void _performMarkAsCompleted() async {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const Center(
-          child: CircularProgressIndicator(),
-        );
-      },
-    );
-
-    try {
-      final success = await _service.markAsCompleted(widget.docket.assignmentID);
-      
-      Navigator.of(context).pop(); // Close loading dialog
-      
-      if (success) {
-        _showSnackBar(
-          "Assignment marked as completed successfully!",
-          Colors.green,
-          Icons.check_circle,
-        );
-        Navigator.of(context).pop();
-      } else {
-        _showSnackBar(
-          "Failed to mark assignment as completed.",
-          Colors.red,
-          Icons.error,
-        );
+  void _performMarkAsCompleted() {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CompleteAssignmentForm(
+          assignmentId: widget.docket.assignmentID,
+          docketId: widget.docket.docketID,
+          locationDetails: locationDetails,
+        ),
+      ),
+    ).then((success) {
+      if (success == true) {
+        // Refresh the parent screen if needed
+        if (mounted) {
+          Navigator.of(context).pop(true); // Return success to previous screen
+        }
       }
-    } catch (e) {
-      Navigator.of(context).pop();
-      _showSnackBar(
-        "Error: $e",
-        Colors.red,
-        Icons.error,
-      );
-    }
+    });
   }
 
   void _performReassignment(String newAssignedPersons) async {

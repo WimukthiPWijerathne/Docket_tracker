@@ -39,6 +39,8 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
   }
 
   Future<void> submitWorker() async {
+    if (!_formKey.currentState!.validate()) return;
+    
     setState(() => _isLoading = true);
 
     try {
@@ -51,29 +53,52 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
       };
 
       final response = await http.post(
-        Uri.parse('https://powerprox.sltidc.lk/POSTPeople2.php'),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: body.map((key, value) => MapEntry(key, value.toString())),
+        Uri.parse('http://13.61.22.169:3000/workers'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(body),
       ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
-        if (data['success'] == true || data['status'] == 'success') {
-          Navigator.pop(context, {
-            "name": "${body['firstName']} ${body['lastName']}".trim(),
-            "depot": selectedDepot,
-            "employeeNo": body['employeeNo'],
-            "designation": body['role'],
-          });
+        // Log the full response for debugging
+        print('Add worker response: $data');
+        
+        // Check for success in different response formats
+        if (data['success'] == true || 
+            data['status'] == 'success' ||
+            (data['message']?.toString().toLowerCase().contains('added') ?? false)) {
+          // Show success message
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Worker ${body['firstName']} ${body['lastName']} added successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          
+          // Close the dialog after a short delay
+          await Future.delayed(const Duration(seconds: 1));
+          
+          // Return to previous screen with the new worker data
+          if (mounted) {
+            Navigator.pop(context, {
+              "name": "${body['firstName']} ${body['lastName']}".trim(),
+              "depot": selectedDepot,
+              "employeeNo": body['employeeNo'],
+              "designation": body['role'],
+            });
+          }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(data['message'] ?? "Failed to add worker")),
+            SnackBar(content: Text('Failed to add worker: ${data['message'] ?? 'Unknown error'}')),
           );
+          print('Failed to add worker. Response: $data');
         }
       } else {
+        final errorBody = response.body.isNotEmpty ? jsonDecode(response.body) : 'No response body';
+        print('Server error ${response.statusCode}: $errorBody');
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Server error: ${response.statusCode}")),
+          SnackBar(content: Text("Server error ${response.statusCode}: ${errorBody.toString().substring(0, 100)}...")),
         );
       }
     } on TimeoutException {
@@ -84,8 +109,14 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),
       );
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
     }
   }
 

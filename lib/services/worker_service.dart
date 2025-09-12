@@ -6,21 +6,29 @@ import '../models/worker_model.dart';
 
 
 class WorkerService {
-  static const String baseUrl = 'https://powerprox.sltidc.lk';
+  static const String baseUrl = 'http://13.61.22.169:3000';
   
   Future<List<Worker>> fetchWorkers() async {
     try {
-      final url = Uri.parse('$baseUrl/GETPeople2.php');
-      final response = await http.get(url);
+      final url = Uri.parse('$baseUrl/workers');
+      final response = await http.get(
+        url,
+        headers: {'Accept': 'application/json'},
+      );
+
+      print('Fetch workers response: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200) {
-        final Map<String, dynamic> result = jsonDecode(response.body);
-
-        if (result['status'] == 'success') {
-          final List data = result['data'];
+        final responseData = jsonDecode(response.body);
+        
+        // Handle different response formats
+        if (responseData is List) {
+          return responseData.map<Worker>((w) => Worker.fromJson(w)).toList();
+        } else if (responseData is Map && responseData.containsKey('data')) {
+          final List data = responseData['data'];
           return data.map<Worker>((w) => Worker.fromJson(w)).toList();
         } else {
-          throw Exception(result['message'] ?? 'Failed to load workers');
+          throw Exception('Unexpected response format');
         }
       } else {
         throw Exception('Server error: ${response.statusCode}');

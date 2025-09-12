@@ -21,11 +21,13 @@ Future<String> getAppStoragePath() async {
 class CompleteAssignmentForm extends StatefulWidget {
   final String assignmentId;
   final String docketId;
+  final String? locationDetails;
 
   const CompleteAssignmentForm({
     Key? key,
     required this.assignmentId,
     required this.docketId,
+    this.locationDetails,
   }) : super(key: key);
 
   @override
@@ -336,6 +338,39 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                    if (widget.locationDetails != null && widget.locationDetails!.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Location Details',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.blue[700],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              widget.locationDetails!,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Text(
                       'Please provide details of the completed work',

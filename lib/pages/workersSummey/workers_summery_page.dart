@@ -27,36 +27,79 @@ class _WorkersSummaryPageState extends State<WorkersSummaryPage> {
   Future<void> fetchWorkers() async {
     setState(() => _isLoading = true);
     try {
-      final url = Uri.parse('https://powerprox.sltidc.lk/GETPeople2.php');
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> result = jsonDecode(response.body);
-
-        if (result['status'] == 'success') {
-          final List data = result['data'];
-
-          allWorkers = data.map<Map<String, String>>((w) {
-            return {
-              "id": w['employeeNo']?.toString() ?? "", // employee ID
-              "personID": w['personID']?.toString() ?? "", // personID for assignments
-              "name": "${w['firstName'] ?? ""} ${w['lastName'] ?? ""}".trim(),
-              "depot": w['depot']?.toString() ?? "Unknown",
-              "role": w['designation']?.toString() ?? "Worker",
-            };
-          }).toList();
-
-          filterWorkers(selectedDepot);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(result['message'] ?? "Failed to load workers")),
-          );
+      final url = Uri.parse('http://13.61.22.169:3000/workers');
+      print('Fetching workers from: $url');
+      
+      final response = await http.get(
+        url,
+        headers: {'Accept': 'application/json'},
+      );
+      
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+      
+      if (response.statusCode != 200) {
+        // Handle non-200 status codes
+        dynamic errorResponse;
+        try {
+          errorResponse = jsonDecode(response.body);
+        } catch (e) {
+          errorResponse = response.body;
         }
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Server error: ${response.statusCode}")),
-        );
+        
+        final errorMessage = errorResponse is Map 
+            ? errorResponse['message']?.toString() ?? 'Failed to load workers'
+            : 'Server error: ${response.statusCode}';
+            
+        throw Exception(errorMessage);
       }
+      
+      // Process successful response
+      final responseData = jsonDecode(response.body);
+      List<dynamic> workersData = [];
+      
+      // Handle different response formats
+      if (responseData is List) {
+        workersData = responseData;
+      } else if (responseData is Map) {
+        if (responseData.containsKey('data')) {
+          workersData = responseData['data'] is List ? responseData['data'] : [];
+        } else if (responseData.containsKey('workers')) {
+          workersData = responseData['workers'] is List ? responseData['workers'] : [];
+        } else if (responseData.containsKey('status') && responseData['status'] == 'success') {
+          workersData = responseData['data'] is List ? responseData['data'] : [];
+        }
+      }
+      
+      print('Found ${workersData.length} workers');
+      
+      allWorkers = workersData.map<Map<String, String>>((w) {
+        try {
+          final firstName = w['firstName']?.toString() ?? '';
+          final lastName = w['lastName']?.toString() ?? '';
+          
+          print('Processing worker: $firstName $lastName | Depot: ${w['depot']}');
+          
+          return {
+            'id': w['employeeNo']?.toString() ?? w['employeeId']?.toString() ?? '',
+            'personID': w['personID']?.toString() ?? w['id']?.toString() ?? '',
+            'name': '$firstName $lastName'.trim(),
+            'depot': w['depot']?.toString() ?? 'Unknown',
+            'role': w['role']?.toString() ?? w['designation']?.toString() ?? 'Worker',
+          };
+        } catch (e) {
+          print('Error processing worker data: $e');
+          return {
+            'id': '',
+            'personID': '',
+            'name': 'Invalid Worker Data',
+            'depot': 'Unknown',
+            'role': 'Worker',
+          };
+        }
+      }).where((worker) => worker['name'] != 'Invalid Worker Data').toList();
+      
+      filterWorkers(selectedDepot);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("Error: $e")),

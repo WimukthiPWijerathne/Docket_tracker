@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import '../models/assigned_docket.dart';
 
 class AssignedDocketService {
-  final String baseUrl = "https://powerprox.sltidc.lk/GETDocketAssignment2.php"; // Update with your actual endpoint
+  final String baseUrl = "http://13.61.22.169:3000/docket_assignment";
    
 
   // Fetch all assigned dockets
