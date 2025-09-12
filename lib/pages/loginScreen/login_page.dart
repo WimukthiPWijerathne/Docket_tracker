@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../service/user_service.dart';
 import '../HomePage/options_page.dart'; // import OptionsPage
 
 class LoginPage extends StatefulWidget {
@@ -22,59 +23,75 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  void _handleLogin() {
+  Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
-      Future.delayed(const Duration(seconds: 2), () {
-        setState(() => _isLoading = false);
+      try {
+        final email = _emailController.text.trim();
+        final password = _passwordController.text.trim();
+
+        print('🔄 Attempting login for: $email');
+        
+        // Use UserService.login which handles both hardcoded and database users
+        final result = await UserService.login(
+          username: email,
+          password: password,
+        );
+
+        print('🔑 Login result: $result');
+
         if (!mounted) return;
+        
+        if (result['success'] == true) {
+          final role = result['role'] as String?;
+          
+          if (role != null) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Login successful! Redirecting...'),
+                backgroundColor: Color(0xFF2E7D32),
+                duration: Duration(seconds: 1),
+              ),
+            );
 
-        String email = _emailController.text.trim();
-        String password = _passwordController.text.trim();
-
-        // Dummy role assignment (replace with backend login logic)
-        String? role;
-        if (email == "ce" && password == "1") {
-          role = "ce"; // Chief Engineer
-        } else if (email == "cs" && password == "2") {
-          role = "cs";
-        } else if (email == "cr" && password == "3") {
-          role = "cro";
-        } else if (email == "w" && password == "4") {
-          role = "worker";
-        }
-
-        if (role != null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Login successful! Redirecting...'),
-              backgroundColor: const Color(0xFF2E7D32),
-              duration: const Duration(seconds: 1),
-            ),
-          );
-
-          // Navigate to OptionsPage and pass the role
-          Future.delayed(const Duration(seconds: 1), () {
+            // Navigate to OptionsPage with the role
             if (!mounted) return;
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (context) => OptionsPage(role: role!), // pass role here
+                builder: (context) => OptionsPage(role: role),
               ),
             );
-          });
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Invalid credentials!'),
-              backgroundColor: Colors.red,
-              duration: Duration(seconds: 2),
-            ),
-          );
+            return;
+          }
         }
-      });
+        
+        // If we get here, login failed
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result['message'] ?? 'Invalid username or password'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } catch (e) {
+        print('❌ Login error: $e');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error during login: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

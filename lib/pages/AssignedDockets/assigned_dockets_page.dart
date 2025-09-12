@@ -59,6 +59,20 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
     }
   }
 
+  Map<String, List<AssignedDocket>> _groupDocketsByID(List<AssignedDocket> dockets) {
+    final Map<String, List<AssignedDocket>> groupedDockets = {};
+    
+    for (var docket in dockets) {
+      final docketID = docket.docketID;
+      if (!groupedDockets.containsKey(docketID)) {
+        groupedDockets[docketID] = [];
+      }
+      groupedDockets[docketID]!.add(docket);
+    }
+    
+    return groupedDockets;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -215,10 +229,15 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
             );
           }
 
-          // 👇 Only ongoing dockets will show in cards (unless "Completed" filter is chosen)
-          final ongoingDockets = _selectedFilter == "Completed"
-              ? filteredDockets
-              : filteredDockets.where((d) => !d.isCompleted).toList();
+          // Group dockets by ID before displaying
+          final groupedDockets = _groupDocketsByID(
+            _selectedFilter == "Completed"
+                ? filteredDockets
+                : filteredDockets.where((d) => !d.isCompleted).toList(),
+          );
+          
+          // Get a list of docket groups (each group has the same docketID)
+          final docketGroups = groupedDockets.entries.toList();
 
           return RefreshIndicator(
             onRefresh: () async {
@@ -273,7 +292,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
 
                 // Dockets List
                 Expanded(
-                  child: ongoingDockets.isEmpty
+                  child: docketGroups.isEmpty
                       ? Center(
                           child: Padding(
                             padding: const EdgeInsets.all(32.0),
@@ -304,14 +323,19 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                           animation: _animationController,
                           builder: (context, child) {
                             return ListView.builder(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 16),
-                              itemCount: ongoingDockets.length,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: docketGroups.length,
                               itemBuilder: (context, index) {
-                                final docket = ongoingDockets[index];
+                                final docketGroup = docketGroups[index];
+                                final docket = docketGroup.value.first; // Get first docket for card details
+                                // Get all unique assigned persons from all dockets in the group
+                                final assignedPersons = docketGroup.value
+                                    .expand((d) => d.assignedPersonsList)
+                                    .toSet()
+                                    .toList();
+                                
                                 final animationDelay = index * 0.1;
-                                final animation =
-                                    Tween<double>(begin: 0, end: 1).animate(
+                                final animation = Tween<double>(begin: 0, end: 1).animate(
                                   CurvedAnimation(
                                     parent: _animationController,
                                     curve: Interval(
@@ -329,7 +353,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                                       begin: const Offset(0, 0.3),
                                       end: Offset.zero,
                                     ).animate(animation),
-                                    child: _buildDocketCard(docket, index),
+                                    child: _buildDocketCard(docket, index, assignedPersons: assignedPersons),
                                   ),
                                 );
                               },
@@ -346,12 +370,16 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
   }
 
   Widget _buildSummarySection(List<AssignedDocket> dockets) {
+    // Group dockets by ID to count unique dockets
+    final groupedDockets = _groupDocketsByID(dockets);
+    final uniqueDockets = groupedDockets.values.map((list) => list.first).toList();
+    
     return Row(
       children: [
         Expanded(
           child: _buildSummaryCard(
-            title: "Total",
-            count: dockets.length,
+            title: "Total Dockets",
+            count: uniqueDockets.length,
             icon: Icons.assignment,
             color: Colors.blue,
           ),
@@ -360,7 +388,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
         Expanded(
           child: _buildSummaryCard(
             title: "In Progress",
-            count: dockets.where((d) => d.isOngoing).length,
+            count: uniqueDockets.where((d) => d.isOngoing).length,
             icon: Icons.hourglass_empty,
             color: Colors.orange,
           ),
@@ -369,7 +397,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
         Expanded(
           child: _buildSummaryCard(
             title: "Completed",
-            count: dockets.where((d) => d.isCompleted).length,
+            count: uniqueDockets.where((d) => d.isCompleted).length,
             icon: Icons.check_circle,
             color: Colors.green,
           ),
@@ -429,7 +457,9 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
     );
   }
 
-  Widget _buildDocketCard(AssignedDocket docket, int index) {
+  Widget _buildDocketCard(AssignedDocket docket, int index, {List<String> assignedPersons = const []}) {
+    // Use the assignedPersons parameter if provided, otherwise use the docket's assignedPersonsList
+    final personsToShow = assignedPersons.isNotEmpty ? assignedPersons : docket.assignedPersonsList;
     final isCompleted = docket.isCompleted;
     final isOverdue = docket.isOverdue();
 
@@ -583,7 +613,7 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        "Assigned to:",
+                        "Assigned to (${personsToShow.length}):",
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.grey[600],
@@ -602,15 +632,31 @@ class _AssignedDocketsPageState extends State<AssignedDocketsPage>
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.grey[200]!),
                     ),
-                    child: Text(
-                      docket.assignedPersons.isNotEmpty
-                          ? docket.assignedPersons
-                          : "Not assigned",
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.grey[800],
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: personsToShow.map((person) => 
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.person_outline,
+                                size: 16,
+                                color: Colors.indigo[400],
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                person,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[800],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      ).toList(),
                     ),
                   ),
 

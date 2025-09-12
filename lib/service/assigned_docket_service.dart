@@ -6,9 +6,44 @@ class AssignedDocketService {
   final String baseUrl = "http://13.61.22.169:3000/docket_assignment";
    
 
+  // Helper method to combine dockets with the same ID
+  List<AssignedDocket> _combineDuplicateDockets(List<AssignedDocket> dockets) {
+    print('Combining ${dockets.length} dockets to remove duplicates');
+    final Map<String, AssignedDocket> docketMap = {};
+    
+    for (var docket in dockets) {
+      print('Processing docket ID: ${docket.docketID}, Assignment ID: ${docket.assignmentID}');
+      print('Current assigned persons: ${docket.assignedPersons}');
+      
+      if (docketMap.containsKey(docket.docketID)) {
+        // If docket already exists, combine assigned persons
+        final existing = docketMap[docket.docketID]!;
+        print('Found duplicate docket. Existing persons: ${existing.assignedPersons}');
+        
+        // Only add the person if they're not already in the list
+        final existingPersons = existing.assignedPersonsList.toSet();
+        final newPersons = docket.assignedPersonsList.toSet();
+        final combinedPersons = {...existingPersons, ...newPersons}.join(', ');
+        
+        print('Combined persons: $combinedPersons');
+        docketMap[docket.docketID] = existing.copyWith(assignedPersons: combinedPersons);
+      } else {
+        // Add new docket to map
+        print('Adding new docket to map');
+        docketMap[docket.docketID] = docket;
+      }
+      print('---');
+    }
+    
+    final combinedDockets = docketMap.values.toList();
+    print('Combined to ${combinedDockets.length} unique dockets');
+    return combinedDockets;
+  }
+
   // Fetch all assigned dockets
   Future<List<AssignedDocket>> fetchAssignedDockets() async {
     try {
+      print('Fetching assigned dockets from: $baseUrl');
       final response = await http.get(
         Uri.parse(baseUrl),
         headers: {
@@ -18,6 +53,25 @@ class AssignedDocketService {
 
       print('Assigned Dockets Response status: ${response.statusCode}');
       print('Assigned Dockets Response body: ${response.body}');
+      
+      // Log the first few items to understand the structure
+      try {
+        final jsonData = json.decode(response.body);
+        print('Parsed JSON type: ${jsonData.runtimeType}');
+        if (jsonData is List) {
+          print('Found ${jsonData.length} dockets in response');
+          for (int i = 0; i < (jsonData.length > 5 ? 5 : jsonData.length); i++) {
+            print('Docket $i: ${jsonData[i]}');
+          }
+        } else if (jsonData is Map) {
+          print('Response is a map with keys: ${jsonData.keys}');
+          if (jsonData.containsKey('data') && jsonData['data'] is List) {
+            print('Found ${jsonData['data'].length} dockets in data field');
+          }
+        }
+      } catch (e) {
+        print('Error parsing response JSON: $e');
+      }
 
       if (response.statusCode == 200) {
         final String responseBody = response.body;
@@ -30,28 +84,30 @@ class AssignedDocketService {
         dynamic jsonData = json.decode(responseBody);
         
         // Handle both array and object responses
-       if (jsonData is List) {
-  return jsonData
-      .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
-      .toList();
-} else if (jsonData is Map<String, dynamic>) {
-  if (jsonData.containsKey('data') && jsonData['data'] is List) {
-    List dataList = jsonData['data'];
-    return dataList
-        .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
-        .toList();
-  } else if (jsonData.containsKey('assignedDockets') && jsonData['assignedDockets'] is List) {
-    List assignedDocketsList = jsonData['assignedDockets'];
-    return assignedDocketsList
-        .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
-        .toList();
-  } else {
-    return [AssignedDocket.fromJson(jsonData)];
-  }
-}
- else {
-          throw Exception('Unexpected response format for assigned dockets');
+        List<AssignedDocket> dockets = [];
+        
+        if (jsonData is List) {
+          dockets = jsonData
+              .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
+              .toList();
+        } else if (jsonData is Map<String, dynamic>) {
+          if (jsonData.containsKey('data') && jsonData['data'] is List) {
+            List dataList = jsonData['data'];
+            dockets = dataList
+                .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
+                .toList();
+          } else if (jsonData.containsKey('assignedDockets') && jsonData['assignedDockets'] is List) {
+            List assignedDocketsList = jsonData['assignedDockets'];
+            dockets = assignedDocketsList
+                .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
+                .toList();
+          } else {
+            dockets = [AssignedDocket.fromJson(jsonData)];
+          }
         }
+        
+        // Combine dockets with the same ID
+        return _combineDuplicateDockets(dockets);
       } else {
         throw Exception('Failed to load assigned dockets. Status code: ${response.statusCode}');
       }

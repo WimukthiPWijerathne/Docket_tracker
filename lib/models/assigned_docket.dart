@@ -98,6 +98,31 @@ class AssignedDocket {
     return assignedPersons.split(',').map((e) => e.trim()).toList();
   }
 
+  // Create a copy of this docket with updated fields
+  AssignedDocket copyWith({
+    String? assignmentID,
+    String? docketID,
+    String? assignedPersons,
+    String? assignedTime,
+    String? reassigned,
+    String? uploadedBy,
+    String? uploadedTime,
+    String? completedTime,
+    String? userRole,
+  }) {
+    return AssignedDocket(
+      assignmentID: assignmentID ?? this.assignmentID,
+      docketID: docketID ?? this.docketID,
+      assignedPersons: assignedPersons ?? this.assignedPersons,
+      assignedTime: assignedTime ?? this.assignedTime,
+      reassigned: reassigned ?? this.reassigned,
+      uploadedBy: uploadedBy ?? this.uploadedBy,
+      uploadedTime: uploadedTime ?? this.uploadedTime,
+      completedTime: completedTime ?? this.completedTime,
+      userRole: userRole ?? this.userRole,
+    );
+  }
+
   // Helper method to parse assigned time as DateTime
   DateTime? get assignedDateTime {
     try {
@@ -226,29 +251,4 @@ class AssignedDocket {
   int get hashCode => assignmentID.hashCode;
 
   get docketType => null;
-
-  // Copy method for creating modified instances
-  AssignedDocket copyWith({
-    String? assignmentID,
-    String? docketID,
-    String? assignedPersons,
-    String? assignedTime,
-    String? reassigned,
-    String? uploadedBy,
-    String? uploadedTime,
-    String? completedTime,
-    String? userRole,
-  }) {
-    return AssignedDocket(
-      assignmentID: assignmentID ?? this.assignmentID,
-      docketID: docketID ?? this.docketID,
-      assignedPersons: assignedPersons ?? this.assignedPersons,
-      assignedTime: assignedTime ?? this.assignedTime,
-      reassigned: reassigned ?? this.reassigned,
-      uploadedBy: uploadedBy ?? this.uploadedBy,
-      uploadedTime: uploadedTime ?? this.uploadedTime,
-      completedTime: completedTime ?? this.completedTime,
-      userRole: userRole ?? this.userRole,
-    );
-  }
 }

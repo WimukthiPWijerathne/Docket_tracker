@@ -8,6 +8,7 @@ import '../workersProfile/workersProfile.dart';
 import '../AssignedDockets/assigned_dockets_page.dart'; 
 // 🔹 Import Workers Summary page (you can create this later)
 import '../../pages/workersSummey/workers_summery_page.dart';
+import '../../pages/addAppUser/newUserDetailForm.dart';
 
 class OptionsPage extends StatefulWidget {
   final String role; // role parameter
@@ -146,6 +147,22 @@ class _OptionsPageState extends State<OptionsPage> {
                         );
                       },
                     ),
+
+                    // ---- Add App User (CE, CS only) ----
+                    if (widget.role == "ce" || widget.role == "cs")
+                      _buildOptionCard(
+                        context,
+                        'Add App User',
+                        Icons.person_add,
+                        const Color(0xFFFFD700),
+                        () {
+                         Navigator.of(context).push(
+  MaterialPageRoute(
+    builder: (_) => NewUserDetailForm(),
+  ),
+);
+                        },
+                      ),
                   ],
                 ),
               ),

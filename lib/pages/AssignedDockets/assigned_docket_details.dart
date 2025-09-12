@@ -64,67 +64,84 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
       if (response.statusCode == 200) {
         final dynamic responseData = json.decode(response.body);
         
-        // The new endpoint returns a single docket directly
+        // Log all keys in the response for debugging
         if (responseData is Map) {
-          print('✅ Found docket details');
-          final record = responseData;
-
-          if (record.isNotEmpty) {
-            print('✅ Found matching record: $record');
-            setState(() {
-              // Set image details
-              docketImageName = record['ImageName'];
-              docketType = record['DocketType'];
-
-              // Parse and set location details
-              // First check if we have a combined locationDetails string
-              final combinedDetails = record['locationDetails']?.toString();
-              if (combinedDetails != null && combinedDetails.isNotEmpty) {
-                locationDetails = combinedDetails;
-              } else {
-                // Fallback to individual fields if locationDetails is not available
-                final transformer = record['Transformer']?.toString() ?? '';
-                final pole = record['Pole']?.toString() ?? '';
-                final meterShift = record['MeterShift']?.toString() ?? '';
-
-                final details = <String>[];
-                if (transformer.isNotEmpty) details.add('Transformer: $transformer');
-                if (pole.isNotEmpty) details.add('Pole: $pole');
-                if (meterShift.isNotEmpty) details.add('Meter Shift: $meterShift');
-
-                locationDetails = details.join(' • ');
-              }
-
-              isLoadingImage = false;
-              isLoadingDetails = false;
-            });
-
-            debugPrint("📋 Details for docket ${widget.docket.docketID}: $docketType, $docketImageName");
-            debugPrint("📍 Location details: $locationDetails");
+          print('🔑 Response keys: ${responseData.keys.join(', ')}');
+        }
+        
+        // Handle different response formats
+        Map<String, dynamic> record;
+        
+        if (responseData is Map) {
+          // Check if the response has a 'data' field
+          if (responseData.containsKey('data') && responseData['data'] is Map) {
+            record = Map<String, dynamic>.from(responseData['data']);
+          } else if (responseData.isNotEmpty) {
+            // If no 'data' field, use the entire response as the record
+            record = Map<String, dynamic>.from(responseData);
           } else {
-            setState(() {
-              imageError = 'No details found for this docket';
-              isLoadingImage = false;
-              isLoadingDetails = false;
-            });
+            throw Exception('Empty response data');
           }
-        } else {
+          
+          print('✅ Found docket details: ${record.toString()}');
+
+          // Set image details - try different possible field names
+          final imageName = record['ImageName'] ?? record['imageName'] ?? record['image_name'];
+          final docType = record['DocketType'] ?? record['docketType'] ?? record['docket_type'] ?? 'Unknown';
+          
+          // Parse and set location details - try different possible field names and formats
+          String? locationInfo;
+          
+          // 1. Try combined location details first - check exact case first
+          locationInfo = record['LocationDetails'] ?? 
+                       record['locationDetails'] ?? 
+                       record['location_details'] ?? 
+                       record['location'];
+          
+          // 2. If not found, try to build from individual fields
+          if (locationInfo == null || locationInfo.isEmpty) {
+            final transformer = record['Transformer'] ?? record['transformer'] ?? '';
+            final pole = record['Pole'] ?? record['pole'] ?? '';
+            final meterShift = record['MeterShift'] ?? 
+                             record['meterShift'] ?? 
+                             record['meter_shift'] ??
+                             record['meterShifting'] ??
+                             record['meter_shifting'] ?? '';
+
+            final details = <String>[];
+            if (transformer.toString().isNotEmpty) details.add('Transformer: $transformer');
+            if (pole.toString().isNotEmpty) details.add('Pole: $pole');
+            if (meterShift.toString().isNotEmpty) details.add('Meter Shift: $meterShift');
+
+            locationInfo = details.join(' • ');
+          }
+          
           setState(() {
-            detailsError = 'Invalid response format';
+            docketImageName = imageName?.toString();
+            docketType = docType.toString();
+            locationDetails = locationInfo?.isNotEmpty == true ? locationInfo : 'No location details available';
+            
             isLoadingImage = false;
             isLoadingDetails = false;
           });
+
+          debugPrint("📋 Details for docket ${widget.docket.docketID}:");
+          debugPrint("  - Type: $docketType");
+          debugPrint("  - Image: $docketImageName");
+          debugPrint("  - Location: $locationDetails");
+          
+        } else {
+          throw Exception('Unexpected response format');
         }
       } else {
-        setState(() {
-          detailsError = 'Failed to fetch docket details';
-          isLoadingImage = false;
-          isLoadingDetails = false;
-        });
+        throw Exception('Failed to load docket details. Status code: ${response.statusCode}');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error in _fetchDocketDetails: $e');
+      debugPrint('Stack trace: $stackTrace');
+      
       setState(() {
-        detailsError = 'Error fetching docket details: $e';
+        detailsError = 'Error loading docket details: ${e.toString().split(':').first}';
         isLoadingImage = false;
         isLoadingDetails = false;
       });
@@ -626,7 +643,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                     const Icon(Icons.people, size: 16, color: Colors.grey),
                     const SizedBox(width: 6),
                     Text(
-                      "Assigned Persons",
+                      "Assigned Persons (${widget.docket.assignedPersonsList.length})",
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.grey[600],
@@ -635,17 +652,40 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  widget.docket.assignedPersons.isNotEmpty
-                      ? widget.docket.assignedPersons
-                      : "Not assigned",
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black87,
-                  ),
-                ),
+                const SizedBox(height: 8),
+                if (widget.docket.assignedPersonsList.isEmpty)
+                  const Text(
+                    "No one assigned yet",
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  )
+                else
+                  ...widget.docket.assignedPersonsList.map((person) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.person_outline,
+                          size: 16,
+                          color: Colors.blue[600],
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            person.trim(),
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )).toList(),
               ],
             ),
           ),
