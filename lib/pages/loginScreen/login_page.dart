@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../service/user_service.dart';
 import '../HomePage/options_page.dart'; // import OptionsPage
 
@@ -23,6 +25,26 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
+  // Map database roles to match hardcoded role types
+  String? _mapDbRole(String? dbRole) {
+    if (dbRole == null) return null;
+    
+    final role = dbRole.toLowerCase().trim();
+    
+    // Map various role names to standard role types
+    if (role.contains('admin') || role.contains('chief') || role == 'ce') {
+      return 'ce';
+    } else if (role.contains('service') || role == 'cs' || role == 'css') {
+      return 'cs';
+    } else if (role.contains('clerk') || role == 'cr' || role == 'cro') {
+      return 'cro';
+    } else if (role == 'worker' || role == 'w') {
+      return 'worker';
+    }
+    
+    return null; // No matching role found
+  }
+
   Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
@@ -33,23 +55,61 @@ class _LoginPageState extends State<LoginPage> {
 
         print('🔄 Attempting login for: $email');
         
-        // Only proceed if both fields are filled
         if (email.isEmpty || password.isEmpty) {
           throw Exception('Please enter both username and password');
         }
         
-        // Check against hardcoded users
+        // First check hardcoded users
         String? role;
         if (email == "ce" && password == "1") {
           role = 'ce';
         } else if (email == "admin" && password == "0") {
-          role = 'ce';  // admin has same access as ce
+          role = 'ce';
         } else if (email == "cs" && password == "2") {
           role = 'cs';
         } else if (email == "cro" && password == "3") {
           role = 'cro';
         } else if (email == "w" && password == "4") {
           role = 'worker';
+        } 
+        // If not a hardcoded user, check database
+        else {
+          print('🔍 Checking database for user: $email');
+          try {
+            // Fetch all users and filter by username
+            final response = await http.get(
+              Uri.parse('http://13.61.22.169:3000/users'),
+              headers: {'Accept': 'application/json'},
+            );
+
+            if (response.statusCode == 200) {
+              final List<dynamic> allUsers = jsonDecode(response.body);
+              print('🔍 Found ${allUsers.length} users in database');
+              
+              // Find user by username (case-insensitive)
+              final user = allUsers.firstWhere(
+                (u) => u['username']?.toString().toLowerCase() == email.toLowerCase(),
+                orElse: () => null,
+              );
+
+              if (user != null) {
+                print('👤 Found user in database');
+                // Verify password (in a real app, use proper password hashing)
+                if (user['password']?.toString() == password) {
+                  role = _mapDbRole(user['role']?.toString());
+                  print('✅ Database login successful. Role: ${user['role']} -> $role');
+                } else {
+                  print('❌ Incorrect password for user: $email');
+                }
+              } else {
+                print('❌ User not found in database: $email');
+              }
+            } else {
+              print('⚠️ Database error: ${response.statusCode}');
+            }
+          } catch (e) {
+            print('⚠️ Error during database login: $e');
+          }
         }
         
         if (role != null) {
@@ -62,7 +122,6 @@ class _LoginPageState extends State<LoginPage> {
             ),
           );
           
-          // Navigate to OptionsPage with the role
           if (!mounted) return;
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(
@@ -70,7 +129,6 @@ class _LoginPageState extends State<LoginPage> {
             ),
           );
         } else {
-          // Invalid credentials
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
