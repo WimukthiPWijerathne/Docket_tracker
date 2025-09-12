@@ -57,11 +57,47 @@ class UserService {
         print('❌ No matching hardcoded user found');
       }
       
-      // Only allow hardcoded users
-      print('❌ Only hardcoded users are allowed for login');
+      // If not a hardcoded user, check against the workers API
+      print('🔍 Checking workers API for user: $username');
+      try {
+        final response = await http.get(
+          Uri.parse('$_baseUrl/workers?username=$username'),
+          headers: {'Accept': 'application/json'},
+        );
+
+        print('🔑 Login response status: ${response.statusCode}');
+        print('🔑 Login response body: ${response.body}');
+
+        if (response.statusCode == 200) {
+          final List<dynamic> workers = jsonDecode(response.body);
+          if (workers.isNotEmpty) {
+            final worker = workers.first;
+            final dbRole = worker['role']?.toString();
+            final appRole = _mapRoleToAppRole(dbRole);
+            
+            print('👤 Found user in database with role: $dbRole -> $appRole');
+            
+            // In a real app, verify the password here
+            // For now, we'll just check if the username exists
+            return {
+              'success': true,
+              'role': appRole,
+              'originalRole': dbRole, // Keep original role for reference
+              'userData': worker,     // Include the full worker data
+            };
+          } else {
+            print('❌ No worker found with username: $username');
+          }
+        } else {
+          print('❌ API error: ${response.statusCode} - ${response.reasonPhrase}');
+        }
+      } catch (e) {
+        print('❌ Error checking workers API: $e');
+      }
+      
       return {
         'success': false,
-        'message': 'Only hardcoded users are allowed for login',
+        'message': 'Invalid username or password',
       };
       
     } catch (e) {

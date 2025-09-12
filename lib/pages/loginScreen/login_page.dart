@@ -33,47 +33,53 @@ class _LoginPageState extends State<LoginPage> {
 
         print('🔄 Attempting login for: $email');
         
-        // Use UserService.login which handles both hardcoded and database users
-        final result = await UserService.login(
-          username: email,
-          password: password,
-        );
-
-        print('🔑 Login result: $result');
-
-        if (!mounted) return;
-        
-        if (result['success'] == true) {
-          final role = result['role'] as String?;
-          
-          if (role != null) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Login successful! Redirecting...'),
-                backgroundColor: Color(0xFF2E7D32),
-                duration: Duration(seconds: 1),
-              ),
-            );
-
-            // Navigate to OptionsPage with the role
-            if (!mounted) return;
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => OptionsPage(role: role),
-              ),
-            );
-            return;
-          }
+        // Only proceed if both fields are filled
+        if (email.isEmpty || password.isEmpty) {
+          throw Exception('Please enter both username and password');
         }
         
-        // If we get here, login failed
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message'] ?? 'Invalid username or password'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+        // Check against hardcoded users
+        String? role;
+        if (email == "ce" && password == "1") {
+          role = 'ce';
+        } else if (email == "admin" && password == "0") {
+          role = 'ce';  // admin has same access as ce
+        } else if (email == "cs" && password == "2") {
+          role = 'cs';
+        } else if (email == "cro" && password == "3") {
+          role = 'cro';
+        } else if (email == "w" && password == "4") {
+          role = 'worker';
+        }
+        
+        if (role != null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Login successful! Redirecting...'),
+              backgroundColor: Color(0xFF2E7D32),
+              duration: Duration(seconds: 1),
+            ),
+          );
+          
+          // Navigate to OptionsPage with the role
+          if (!mounted) return;
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => OptionsPage(role: role!),
+            ),
+          );
+        } else {
+          // Invalid credentials
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid username or password'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
       } catch (e) {
         print('❌ Login error: $e');
         if (!mounted) return;
