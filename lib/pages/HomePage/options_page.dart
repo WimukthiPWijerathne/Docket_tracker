@@ -8,6 +8,8 @@ import '../workersProfile/workersProfile.dart';
 import '../AssignedDockets/assigned_dockets_page.dart'; 
 // 🔹 Import Workers Summary page (you can create this later)
 import '../../pages/workersSummey/workers_summery_page.dart';
+// 🔹 Import Staff page (you can create this later)
+import '../staffManagement/staffHomePage.dart';
 
 class OptionsPage extends StatefulWidget {
   final String role; // role parameter
@@ -130,6 +132,23 @@ class _OptionsPageState extends State<OptionsPage> {
                           );
                         },
                       ),
+
+                    // ---- 🔹 Staff (CE only) ----
+                    if (widget.role == "ce")
+                      _buildOptionCard(
+                        context,
+                        'Staff',
+                        Icons.admin_panel_settings,
+                        const Color(0xFFFFD700),
+                        () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const StaffHomePage(),
+                            ),
+                          );
+                        },
+                      ),
+                    
 
                     // ---- Assigned Dockets (All Roles) ----
                     _buildOptionCard(
