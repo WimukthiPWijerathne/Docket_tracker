@@ -45,54 +45,32 @@ class PeopleService {
     String available = 'Yes',
     String uuid = '',
   }) async {
+    final payload = {
+      'firstName': firstName,
+      'lastName': lastName,
+      'depot': depot,
+      'employeeNo': employeeNo,
+      'designation': designation,
+      'accessLevel': accessLevel,
+      'available': available,
+      'uuid': uuid,
+    };
+
+    final resp = await http.post(
+      Uri.parse(_createPerson),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode(payload),
+    ).timeout(const Duration(seconds: 30));
+
+    if (resp.statusCode != 200) return false;
+
     try {
-      final payload = {
-        'firstName': firstName,
-        'lastName': lastName,
-        'depot': depot,
-        'employeeNo': employeeNo,
-        'designation': designation,
-        'accessLevel': accessLevel,
-        'available': available,
-        'uuid': uuid,
-      };
-
-      print('Sending to $_createPerson with payload: $payload');
-      
-      final resp = await http.post(
-        Uri.parse(_createPerson),
-        headers: const {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 30));
-
-      print('Response status: ${resp.statusCode}');
-      print('Response body: ${resp.body}');
-
-      if (resp.statusCode != 200) {
-        print('Error: Server returned status code ${resp.statusCode}');
-        return false;
-      }
-
-      try {
-        final m = jsonDecode(resp.body);
-        print('Parsed response: $m');
-        
-        final status = (m['status'] ?? '').toString().toLowerCase();
-        final success = status == 'success' || status == 'ok' || m['success'] == true;
-        
-        if (!success) {
-          print('Error from server: ${m['message'] ?? 'No error message provided'}');
-        }
-        
-        return success;
-      } catch (e) {
-        print('Error parsing response: $e');
-        // If backend returns plain text, accept HTTP 200 as success
-        return true;
-      }
-    } catch (e) {
-      print('Error in createPerson: $e');
-      return false;
+      final m = jsonDecode(resp.body);
+      final status = (m['status'] ?? '').toString().toLowerCase();
+      return status == 'success' || status == 'ok' || m['success'] == true;
+    } catch (_) {
+      // If backend returns plain text, accept HTTP 200 as success
+      return true;
     }
   }
 

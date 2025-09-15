@@ -20,12 +20,11 @@ class _AddPersonPageState extends State<AddPersonPage> {
   final _first = TextEditingController();
   final _last = TextEditingController();
   final _depot = TextEditingController();
-  final _branch = TextEditingController();
   final _empNo = TextEditingController();
   final _uuid = TextEditingController();
-  final _accessLevelController = TextEditingController(text: '7');
 
   String _designation = 'Technician';
+  String _accessLevel = '7';
   bool _active = true;
   bool _saving = false;
 
@@ -34,10 +33,8 @@ class _AddPersonPageState extends State<AddPersonPage> {
     _first.dispose();
     _last.dispose();
     _depot.dispose();
-    _branch.dispose();
     _empNo.dispose();
     _uuid.dispose();
-    _accessLevelController.dispose();
     super.dispose();
   }
 
@@ -45,30 +42,15 @@ class _AddPersonPageState extends State<AddPersonPage> {
     if (!_form.currentState!.validate()) return;
 
     setState(() => _saving = true);
-    
-    // Debug log the data being sent
-    final data = {
-      'firstName': _first.text.trim(),
-      'lastName': _last.text.trim(),
-      'depot': _depot.text.trim(),
-      'employeeNo': _empNo.text.trim(),
-      'designation': _designation.trim(),
-      'accessLevel': _accessLevelController.text.trim(),
-      'available': _active ? 'Yes' : 'No',
-      'uuid': _uuid.text.trim(),
-    };
-    
-    print('Sending data to server: $data');
-    
     final ok = await _svc.createPerson(
-      firstName: data['firstName']!,
-      lastName: data['lastName']!,
-      depot: data['depot']!,
-      employeeNo: data['employeeNo']!,
-      designation: data['designation']!,
-      accessLevel: data['accessLevel']!,
-      available: data['available']!,
-      uuid: data['uuid']!,
+      firstName: _first.text.trim(),
+      lastName: _last.text.trim(),
+      depot: _depot.text.trim(),
+      employeeNo: _empNo.text.trim(),
+      designation: _designation.trim(),
+      accessLevel: _accessLevel.trim(),
+      available: _active ? 'Yes' : 'No',
+      uuid: _uuid.text.trim(),
     );
     setState(() => _saving = false);
 
@@ -119,32 +101,25 @@ class _AddPersonPageState extends State<AddPersonPage> {
                 ],
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _branch,
-                decoration: const InputDecoration(
-                  labelText: 'Branch',
-                  prefixIcon: Icon(Icons.business),
-                  hintText: 'Enter branch name',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _depot,
-                decoration: const InputDecoration(
-                  labelText: 'Region / Depot',
-                  prefixIcon: Icon(Icons.location_city),
-                ),
-                validator: (v) => v!.trim().isEmpty ? 'Required' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: _empNo,
-                decoration: const InputDecoration(
-                  labelText: 'Employee No',
-                  prefixIcon: Icon(Icons.badge),
-                ),
-                keyboardType: TextInputType.number,
-                validator: (v) => v!.trim().isEmpty ? 'Required' : null,
+              Row(
+                children: [
+                  Expanded(
+                    child: TextFormField(
+                      controller: _depot,
+                      decoration: const InputDecoration(labelText: 'Region / Depot'),
+                      validator: (v) => v!.trim().isEmpty ? 'Required' : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: TextFormField(
+                      controller: _empNo,
+                      decoration: const InputDecoration(labelText: 'Employee No'),
+                      keyboardType: TextInputType.number,
+                      validator: (v) => v!.trim().isEmpty ? 'Required' : null,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Row(
@@ -162,12 +137,10 @@ class _AddPersonPageState extends State<AddPersonPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextFormField(
-                      controller: _accessLevelController,
-                      decoration: const InputDecoration(
-                        labelText: 'Access level',
-                        prefixIcon: Icon(Icons.security),
-                      ),
+                      initialValue: _accessLevel,
+                      decoration: const InputDecoration(labelText: 'Access level'),
                       keyboardType: TextInputType.number,
+                      onChanged: (v) => _accessLevel = v,
                       validator: (v) => v!.trim().isEmpty ? 'Required' : null,
                     ),
                   ),

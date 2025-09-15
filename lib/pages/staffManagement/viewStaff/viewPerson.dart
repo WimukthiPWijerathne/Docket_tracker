@@ -2,11 +2,20 @@ import 'package:flutter/material.dart';
 
 import '../model/httpServicePeople.dart';
 import '../model/person.dart';
+import 'personDetail.dart'; // Add this import
 
 
 const List<String> kDesignations = [
   'All',
   'Admin', 'CE', 'SEE', 'EE', 'TO', 'CSS', 'RO', 'Technician',
+];
+
+const List<String> kDepots = [
+  'All',
+  'Kadana',
+  'Wattala',
+  'Mahara',
+  'Paliyagoda',
 ];
 
 class ViewPeoplePage extends StatefulWidget {
@@ -25,6 +34,7 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
   List<Person> _all = [];
 
   String _category = 'All';
+  String _selectedDepot = 'All';
 
   @override
   void initState() {
@@ -59,121 +69,136 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
     }
   }
 
+  // Helper function to check if a person matches the search query
+  bool _matchesSearchQuery(Person p, String query) {
+    if (query.isEmpty) return true;
+    
+    final searchableFields = [
+      p.firstName,
+      p.lastName,
+      p.fullName,
+      p.employeeNo,
+      p.depot,
+      p.designation,
+      p.accessLevel,
+      p.uuid,
+      p.available,
+    ];
+    
+    // Check if any field contains the query (case insensitive)
+    return searchableFields.any((field) => 
+      field.toLowerCase().contains(query)
+    );
+  }
+
   List<Person> _applyFilters(bool activeTab) {
     Iterable<Person> list = _all.where((p) => p.isActive == activeTab);
+    
+    // Apply category filter
     if (_category != 'All') {
       list = list.where(
-            (p) => p.designation.toLowerCase() == _category.toLowerCase(),
+        (p) => p.designation.toLowerCase() == _category.toLowerCase(),
       );
     }
-    final q = _search.text.trim().toLowerCase();
-    if (q.isNotEmpty) {
-      list = list.where((p) =>
-      p.fullName.toLowerCase().contains(q) ||
-          p.employeeNo.toLowerCase().contains(q) ||
-          p.depot.toLowerCase().contains(q));
+    
+    // Apply depot filter
+    if (_selectedDepot != 'All') {
+      list = list.where(
+        (p) => p.depot.toLowerCase() == _selectedDepot.toLowerCase(),
+      );
     }
+    
+    // Apply search filter
+    final searchQuery = _search.text.trim().toLowerCase();
+    if (searchQuery.isNotEmpty) {
+      list = list.where((p) => _matchesSearchQuery(p, searchQuery));
+    }
+    
     return list.toList()..sort((a, b) => a.fullName.compareTo(b.fullName));
+  }
+
+  // Navigate to person detail page
+  void _navigateToPersonDetail(Person person) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => PersonDetailPage(person: person),
+      ),
+    ).then((_) {
+      // Refresh the list when coming back from detail page
+      _load();
+    });
   }
 
   // ---------- UI helpers ----------
 
-Widget _summaryPanel() {
-  final total = _all.length;
-  final active = _all.where((p) => p.isActive).length;
-  final inactive = total - active;
+  Widget _summaryPanel() {
+    final total = _all.length;
+    final active = _all.where((p) => p.isActive).length;
+    final inactive = total - active;
 
-  // Minimal stat chip
-  Widget buildStatChip(String title, int count, Color color) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 2),
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.15)),
-        ),
-        child: Column(
-          children: [
-            Text(
-              '$count',
+    final chip = (String title, int count, Color color) => Container(
+      margin: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(title,
               style: TextStyle(
-                color: color,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+                  color: color, fontWeight: FontWeight.w600, fontSize: 13)),
+          const SizedBox(width: 8),
+          Container(
+            padding:
+            const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(999),
             ),
-            const SizedBox(height: 2),
-            Text(
-              title,
-              style: TextStyle(
-                color: color.withOpacity(0.8),
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
+            child: Text(
+              '$count',
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(left: 4, bottom: 6),
+              child: Text('Summary',
+                  style: TextStyle(
+                      fontSize: 12, color: Colors.black54, letterSpacing: 0.2)),
+            ),
+            IgnorePointer(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    chip('Total', total, Colors.blueGrey),
+                    chip('Active', active, Colors.green.shade700),
+                    chip('Inactive', inactive, Colors.red.shade700),
+                  ],
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
       ),
     );
   }
-
-  return Container(
-    margin: const EdgeInsets.symmetric(horizontal: 2),
-    child: Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            // Minimal header
-            Row(
-              children: [
-                Icon(
-                  Icons.analytics_outlined,
-                  color: const Color(0xFF003366),
-                  size: 14,
-                ),
-                const SizedBox(width: 6),
-                const Text(
-                  'Summary',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
-                const Spacer(),
-                if (total > 0)
-                  Text(
-                    '${((active / total) * 100).toStringAsFixed(0)}% active',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.green.shade700,
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            // Compact stats row
-            Row(
-              children: [
-                buildStatChip('Total', total, Colors.blueGrey.shade700),
-                buildStatChip('Active', active, Colors.green.shade700),
-                buildStatChip('Inactive', inactive, Colors.red.shade700),
-              ],
-            ),
-          ],
-        ),
-      ),
-    ),
-  );
-}
 
   Future<void> _toggleActive(Person p) async {
     final ok =
@@ -348,6 +373,8 @@ Widget _summaryPanel() {
       final b = ln.isNotEmpty ? ln[0] : '';
       return (a + b).toUpperCase();
     }
+    
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     final meta1 = '${p.designation}  •  ${p.employeeNo}';
     final meta2 = 'Region: ${p.depot}  •  Access: ${p.accessLevel}';
@@ -359,141 +386,197 @@ Widget _summaryPanel() {
 
     return Card(
       elevation: 1.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        child: LayoutBuilder(
-          builder: (ctx, c) {
-            final narrow = c.maxWidth < 460;      // wrap long label
-            final veryNarrow = c.maxWidth < 360;  // icon-only fallback
-            final fullLabel = p.isActive ? 'Make inactive' : 'Make active';
-            final shortLabel = p.isActive ? 'Inactive' : 'Active';
+      margin: EdgeInsets.symmetric(
+        horizontal: isMobile ? 8 : 16,
+        vertical: 4,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () => _navigateToPersonDetail(p),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 8 : 12, 
+            vertical: isMobile ? 8 : 10
+          ),
+          child: LayoutBuilder(
+            builder: (ctx, c) {
+              final isVeryNarrow = c.maxWidth < 400;
+              final isExtraNarrow = c.maxWidth < 320;
+              final fullLabel = p.isActive ? 'Make inactive' : 'Make active';
+              final shortLabel = p.isActive ? 'Inactive' : 'Active';
+              final showIconOnly = isExtraNarrow;
 
-            // Action button that adapts to width
-            final Widget actionButton = veryNarrow
-                ? IconButton(
-              tooltip: fullLabel,
-              onPressed: () => _toggleActive(p),
-              icon: Icon(
-                p.isActive ? Icons.visibility_off : Icons.visibility,
-                size: 20,
-                color: const Color(0xFF003366),
-              ),
-            )
-                : ConstrainedBox(
-              constraints: BoxConstraints(
-                // keep actions from eating half the card
-                maxWidth: narrow ? 120 : 200,
-              ),
-              child: TextButton.icon(
-                onPressed: () => _toggleActive(p),
-                icon: Icon(
-                  p.isActive ? Icons.visibility_off : Icons.visibility,
-                  size: 18,
-                ),
-                label: Text(
-                  narrow ? shortLabel : fullLabel,
-                  softWrap: true,            // ✅ allow wrapping
-                ),
-                style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFF003366),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 8),
-                ),
-              ),
-            );
-
-            final actions = Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              alignment: WrapAlignment.end,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                IconButton(
-                  tooltip: 'Edit',
-                  onPressed: () => _edit(p),
-                  icon: const Icon(Icons.edit, size: 20),
-                ),
-                actionButton,
-              ],
-            );
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                // avatar + status
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    CircleAvatar(
-                      radius: 22,
-                      backgroundColor: const Color(0xFFE8EEF6),
-                      child: Text(initials(),
-                          style: const TextStyle(
-                              color: Color(0xFF003366),
-                              fontWeight: FontWeight.bold)),
-                    ),
-                    Positioned(
-                      bottom: -2,
-                      right: -2,
-                      child: CircleAvatar(
-                        radius: 11,
-                        backgroundColor: activeBg,
-                        child: Icon(
-                          p.isActive ? Icons.check : Icons.close,
-                          size: 14,
-                          color: activeColor,
+              // Action button that adapts to width
+              final Widget actionButton = showIconOnly
+                  ? IconButton(
+                      tooltip: fullLabel,
+                      onPressed: () => _toggleActive(p),
+                      icon: Icon(
+                        p.isActive ? Icons.visibility_off : Icons.visibility,
+                        size: 20,
+                        color: const Color(0xFF003366),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
+                    )
+                  : TextButton.icon(
+                      onPressed: () => _toggleActive(p),
+                      icon: Icon(
+                        p.isActive ? Icons.visibility_off : Icons.visibility,
+                        size: isVeryNarrow ? 16 : 18,
+                      ),
+                      label: Text(
+                        isVeryNarrow ? shortLabel : fullLabel,
+                        style: TextStyle(
+                          fontSize: isVeryNarrow ? 12 : 14,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(width: 12),
-
-                // text
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        p.fullName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w700, fontSize: 16),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF003366),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 6),
                       ),
-                      const SizedBox(height: 3),
-                      Text(meta1,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(color: Colors.black87)),
-                      const SizedBox(height: 2),
-                      Text(meta2,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              color: Colors.black54, fontSize: 12)),
+                    );
+
+              final editButton = IconButton(
+                tooltip: 'Edit',
+                onPressed: () => _edit(p),
+                icon: Icon(Icons.edit, size: showIconOnly ? 18 : 20),
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+                visualDensity: VisualDensity.compact,
+              );
+
+              final actions = isExtraNarrow 
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          editButton,
+                          actionButton,
+                        ],
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      editButton,
+                      const SizedBox(width: 4),
+                      actionButton,
+                    ],
+                  );
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // avatar + status
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      CircleAvatar(
+                        radius: isMobile ? 20 : 22,
+                        backgroundColor: const Color(0xFFE8EEF6),
+                        child: Text(
+                          initials(),
+                          style: TextStyle(
+                            color: const Color(0xFF003366),
+                            fontWeight: FontWeight.bold,
+                            fontSize: isMobile ? 12 : 14,
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: -2,
+                        right: -2,
+                        child: CircleAvatar(
+                          radius: 11,
+                          backgroundColor: activeBg,
+                          child: Icon(
+                            p.isActive ? Icons.check : Icons.close,
+                            size: 14,
+                            color: activeColor,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
+                  const SizedBox(width: 12),
 
-                // actions (width-limited & wrapping)
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: narrow ? 150 : 240,
+                  // text
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          p.fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700, 
+                            fontSize: isMobile ? 14 : 16,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          meta1,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: isMobile ? 12 : 14,
+                          ),
+                        ),
+                        if (!isMobile || !isPortrait) ...[  
+                          const SizedBox(height: 1),
+                          Text(
+                            meta2,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.black54, 
+                              fontSize: 12
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
-                  child: actions,
-                ),
-              ],
-            );
-          },
+                  const SizedBox(width: 8),
+
+                  // actions (width-limited & wrapping)
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isMobile ? 150 : 240,
+                    ),
+                    child: actions,
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
   }
+
+  // Helper method to determine screen orientation
+  bool get isPortrait => MediaQuery.of(context).orientation == Orientation.portrait;
+  
+  // Helper method to determine if the screen is in mobile layout
+  bool get isMobile => MediaQuery.of(context).size.width < 600;
+  
+  // Helper method to determine if the screen is in tablet layout
+  bool get isTablet => 
+      MediaQuery.of(context).size.width >= 600 && 
+      MediaQuery.of(context).size.width < 1200;
 
   @override
   Widget build(BuildContext context) {
@@ -564,44 +647,144 @@ Widget _summaryPanel() {
               ),
               // Filters
               Padding(
-                padding:
-                const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: width >= 700 ? 260 : 180,
-                      child: DropdownButtonFormField<String>(
-                        value: _category,
-                        items: kDesignations
-                            .map((d) => DropdownMenuItem(
-                            value: d, child: Text(d)))
-                            .toList(),
-                        onChanged: (v) =>
-                            setState(() => _category = v ?? 'All'),
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _search,
-                        decoration: const InputDecoration(
-                          hintText:
-                          'Search name / employee no / region',
-                          prefixIcon: Icon(Icons.search),
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ),
-                  ],
+                padding: EdgeInsets.fromLTRB(
+                  16, 
+                  0, 
+                  16, 
+                  isMobile ? 8 : 10
                 ),
+                child: isMobile && isPortrait
+                    ? Column(
+                        children: [
+                          // First row: Category and Depot dropdowns
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _category,
+                                  items: kDesignations
+                                      .map((d) => DropdownMenuItem(
+                                          value: d, 
+                                          child: Text(d, overflow: TextOverflow.ellipsis)
+                                      ))
+                                      .toList(),
+                                  onChanged: (v) => setState(() => _category = v ?? 'All'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Category',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                  ),
+                                  isExpanded: true,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _selectedDepot,
+                                  items: kDepots
+                                      .map((d) => DropdownMenuItem(
+                                          value: d, 
+                                          child: Text(d, overflow: TextOverflow.ellipsis)
+                                      ))
+                                      .toList(),
+                                  onChanged: (v) => setState(() => _selectedDepot = v ?? 'All'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Depot',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                  ),
+                                  isExpanded: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Second row: Search field
+                          TextField(
+                            controller: _search,
+                            decoration: const InputDecoration(
+                              hintText: 'Search any field',
+                              prefixIcon: Icon(Icons.search),
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Category Dropdown
+                          if (!isMobile || !isPortrait) ...[
+                            SizedBox(
+                              width: isTablet ? 200 : 260,
+                              child: DropdownButtonFormField<String>(
+                                value: _category,
+                                items: kDesignations
+                                    .map((d) => DropdownMenuItem(
+                                        value: d, 
+                                        child: Text(d, overflow: TextOverflow.ellipsis)
+                                    ))
+                                    .toList(),
+                                onChanged: (v) => setState(() => _category = v ?? 'All'),
+                                decoration: const InputDecoration(
+                                  labelText: 'Category',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                ),
+                                isExpanded: true,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          
+                          // Depot Dropdown
+                          if (!isMobile || !isPortrait) ...[
+                            SizedBox(
+                              width: isTablet ? 180 : 220,
+                              child: DropdownButtonFormField<String>(
+                                value: _selectedDepot,
+                                items: kDepots
+                                    .map((d) => DropdownMenuItem(
+                                        value: d, 
+                                        child: Text(d, overflow: TextOverflow.ellipsis)
+                                    ))
+                                    .toList(),
+                                onChanged: (v) => setState(() => _selectedDepot = v ?? 'All'),
+                                decoration: const InputDecoration(
+                                  labelText: 'Depot',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                ),
+                                isExpanded: true,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          
+                          // Search Field
+                          Expanded(
+                            child: TextField(
+                              controller: _search,
+                              decoration: InputDecoration(
+                                hintText: isMobile && !isPortrait 
+                                    ? 'Search...' 
+                                    : 'Search any field (name, ID, depot, etc.)',
+                                prefixIcon: const Icon(Icons.search),
+                                border: const OutlineInputBorder(),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                isDense: isMobile && !isPortrait,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
               ),
               // Lists
               Expanded(
