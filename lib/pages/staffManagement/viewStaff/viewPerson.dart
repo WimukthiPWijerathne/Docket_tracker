@@ -373,6 +373,8 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
       final b = ln.isNotEmpty ? ln[0] : '';
       return (a + b).toUpperCase();
     }
+    
+    final isMobile = MediaQuery.of(context).size.width < 600;
 
     final meta1 = '${p.designation}  •  ${p.employeeNo}';
     final meta2 = 'Region: ${p.depot}  •  Access: ${p.accessLevel}';
@@ -384,69 +386,93 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
 
     return Card(
       elevation: 1.5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      margin: EdgeInsets.symmetric(
+        horizontal: isMobile ? 8 : 16,
+        vertical: 4,
+      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: () => _navigateToPersonDetail(p), // Added navigation on tap
-        borderRadius: BorderRadius.circular(16),
+        onTap: () => _navigateToPersonDetail(p),
+        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: EdgeInsets.symmetric(
+            horizontal: isMobile ? 8 : 12, 
+            vertical: isMobile ? 8 : 10
+          ),
           child: LayoutBuilder(
             builder: (ctx, c) {
-              final narrow = c.maxWidth < 460;      // wrap long label
-              final veryNarrow = c.maxWidth < 360;  // icon-only fallback
+              final isVeryNarrow = c.maxWidth < 400;
+              final isExtraNarrow = c.maxWidth < 320;
               final fullLabel = p.isActive ? 'Make inactive' : 'Make active';
               final shortLabel = p.isActive ? 'Inactive' : 'Active';
+              final showIconOnly = isExtraNarrow;
 
               // Action button that adapts to width
-              final Widget actionButton = veryNarrow
+              final Widget actionButton = showIconOnly
                   ? IconButton(
-                tooltip: fullLabel,
-                onPressed: () => _toggleActive(p),
-                icon: Icon(
-                  p.isActive ? Icons.visibility_off : Icons.visibility,
-                  size: 20,
-                  color: const Color(0xFF003366),
-                ),
-              )
-                  : ConstrainedBox(
-                constraints: BoxConstraints(
-                  // keep actions from eating half the card
-                  maxWidth: narrow ? 120 : 200,
-                ),
-                child: TextButton.icon(
-                  onPressed: () => _toggleActive(p),
-                  icon: Icon(
-                    p.isActive ? Icons.visibility_off : Icons.visibility,
-                    size: 18,
-                  ),
-                  label: Text(
-                    narrow ? shortLabel : fullLabel,
-                    softWrap: true,            // ✅ allow wrapping
-                  ),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF003366),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    visualDensity: VisualDensity.compact,
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 8),
-                  ),
-                ),
+                      tooltip: fullLabel,
+                      onPressed: () => _toggleActive(p),
+                      icon: Icon(
+                        p.isActive ? Icons.visibility_off : Icons.visibility,
+                        size: 20,
+                        color: const Color(0xFF003366),
+                      ),
+                      padding: const EdgeInsets.all(8),
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
+                    )
+                  : TextButton.icon(
+                      onPressed: () => _toggleActive(p),
+                      icon: Icon(
+                        p.isActive ? Icons.visibility_off : Icons.visibility,
+                        size: isVeryNarrow ? 16 : 18,
+                      ),
+                      label: Text(
+                        isVeryNarrow ? shortLabel : fullLabel,
+                        style: TextStyle(
+                          fontSize: isVeryNarrow ? 12 : 14,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        foregroundColor: const Color(0xFF003366),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 6),
+                      ),
+                    );
+
+              final editButton = IconButton(
+                tooltip: 'Edit',
+                onPressed: () => _edit(p),
+                icon: Icon(Icons.edit, size: showIconOnly ? 18 : 20),
+                padding: const EdgeInsets.all(8),
+                constraints: const BoxConstraints(),
+                visualDensity: VisualDensity.compact,
               );
 
-              final actions = Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                alignment: WrapAlignment.end,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  IconButton(
-                    tooltip: 'Edit',
-                    onPressed: () => _edit(p),
-                    icon: const Icon(Icons.edit, size: 20),
-                  ),
-                  actionButton,
-                ],
-              );
+              final actions = isExtraNarrow 
+                ? Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          editButton,
+                          actionButton,
+                        ],
+                      ),
+                    ],
+                  )
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      editButton,
+                      const SizedBox(width: 4),
+                      actionButton,
+                    ],
+                  );
 
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -456,12 +482,16 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
                     clipBehavior: Clip.none,
                     children: [
                       CircleAvatar(
-                        radius: 22,
+                        radius: isMobile ? 20 : 22,
                         backgroundColor: const Color(0xFFE8EEF6),
-                        child: Text(initials(),
-                            style: const TextStyle(
-                                color: Color(0xFF003366),
-                                fontWeight: FontWeight.bold)),
+                        child: Text(
+                          initials(),
+                          style: TextStyle(
+                            color: const Color(0xFF003366),
+                            fontWeight: FontWeight.bold,
+                            fontSize: isMobile ? 12 : 14,
+                          ),
+                        ),
                       ),
                       Positioned(
                         bottom: -2,
@@ -489,20 +519,33 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
                           p.fullName,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w700, fontSize: 16),
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700, 
+                            fontSize: isMobile ? 14 : 16,
+                          ),
                         ),
-                        const SizedBox(height: 3),
-                        Text(meta1,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.black87)),
                         const SizedBox(height: 2),
-                        Text(meta2,
+                        Text(
+                          meta1,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontSize: isMobile ? 12 : 14,
+                          ),
+                        ),
+                        if (!isMobile || !isPortrait) ...[  
+                          const SizedBox(height: 1),
+                          Text(
+                            meta2,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                                color: Colors.black54, fontSize: 12)),
+                              color: Colors.black54, 
+                              fontSize: 12
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -511,7 +554,7 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
                   // actions (width-limited & wrapping)
                   ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxWidth: narrow ? 150 : 240,
+                      maxWidth: isMobile ? 150 : 240,
                     ),
                     child: actions,
                   ),
@@ -523,6 +566,17 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
       ),
     );
   }
+
+  // Helper method to determine screen orientation
+  bool get isPortrait => MediaQuery.of(context).orientation == Orientation.portrait;
+  
+  // Helper method to determine if the screen is in mobile layout
+  bool get isMobile => MediaQuery.of(context).size.width < 600;
+  
+  // Helper method to determine if the screen is in tablet layout
+  bool get isTablet => 
+      MediaQuery.of(context).size.width >= 600 && 
+      MediaQuery.of(context).size.width < 1200;
 
   @override
   Widget build(BuildContext context) {
@@ -593,63 +647,144 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
               ),
               // Filters
               Padding(
-                padding:
-                const EdgeInsets.fromLTRB(16, 0, 16, 10),
-                child: Row(
-                  children: [
-                    SizedBox(
-                      width: width >= 700 ? 260 : 180,
-                      child: DropdownButtonFormField<String>(
-                        value: _category,
-                        items: kDesignations
-                            .map((d) => DropdownMenuItem(
-                            value: d, child: Text(d)))
-                            .toList(),
-                        onChanged: (v) =>
-                            setState(() => _category = v ?? 'All'),
-                        decoration: const InputDecoration(
-                          labelText: 'Category',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    SizedBox(
-                      width: width >= 700 ? 220 : 180,
-                      child: DropdownButtonFormField<String>(
-                        value: _selectedDepot,
-                        items: kDepots
-                            .map((d) => DropdownMenuItem(
-                            value: d, child: Text(d)))
-                            .toList(),
-                        onChanged: (v) =>
-                            setState(() => _selectedDepot = v ?? 'All'),
-                        decoration: const InputDecoration(
-                          labelText: 'Depot',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextField(
-                        controller: _search,
-                        decoration: const InputDecoration(
-                          hintText:
-                          'Search any field (name, ID, depot, etc.)',
-                          prefixIcon: Icon(Icons.search),
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 10),
-                        ),
-                      ),
-                    ),
-                  ],
+                padding: EdgeInsets.fromLTRB(
+                  16, 
+                  0, 
+                  16, 
+                  isMobile ? 8 : 10
                 ),
+                child: isMobile && isPortrait
+                    ? Column(
+                        children: [
+                          // First row: Category and Depot dropdowns
+                          Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _category,
+                                  items: kDesignations
+                                      .map((d) => DropdownMenuItem(
+                                          value: d, 
+                                          child: Text(d, overflow: TextOverflow.ellipsis)
+                                      ))
+                                      .toList(),
+                                  onChanged: (v) => setState(() => _category = v ?? 'All'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Category',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                  ),
+                                  isExpanded: true,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: DropdownButtonFormField<String>(
+                                  value: _selectedDepot,
+                                  items: kDepots
+                                      .map((d) => DropdownMenuItem(
+                                          value: d, 
+                                          child: Text(d, overflow: TextOverflow.ellipsis)
+                                      ))
+                                      .toList(),
+                                  onChanged: (v) => setState(() => _selectedDepot = v ?? 'All'),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Depot',
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 10),
+                                  ),
+                                  isExpanded: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          // Second row: Search field
+                          TextField(
+                            controller: _search,
+                            decoration: const InputDecoration(
+                              hintText: 'Search any field',
+                              prefixIcon: Icon(Icons.search),
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Category Dropdown
+                          if (!isMobile || !isPortrait) ...[
+                            SizedBox(
+                              width: isTablet ? 200 : 260,
+                              child: DropdownButtonFormField<String>(
+                                value: _category,
+                                items: kDesignations
+                                    .map((d) => DropdownMenuItem(
+                                        value: d, 
+                                        child: Text(d, overflow: TextOverflow.ellipsis)
+                                    ))
+                                    .toList(),
+                                onChanged: (v) => setState(() => _category = v ?? 'All'),
+                                decoration: const InputDecoration(
+                                  labelText: 'Category',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                ),
+                                isExpanded: true,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          
+                          // Depot Dropdown
+                          if (!isMobile || !isPortrait) ...[
+                            SizedBox(
+                              width: isTablet ? 180 : 220,
+                              child: DropdownButtonFormField<String>(
+                                value: _selectedDepot,
+                                items: kDepots
+                                    .map((d) => DropdownMenuItem(
+                                        value: d, 
+                                        child: Text(d, overflow: TextOverflow.ellipsis)
+                                    ))
+                                    .toList(),
+                                onChanged: (v) => setState(() => _selectedDepot = v ?? 'All'),
+                                decoration: const InputDecoration(
+                                  labelText: 'Depot',
+                                  border: OutlineInputBorder(),
+                                  contentPadding: EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 10),
+                                ),
+                                isExpanded: true,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                          ],
+                          
+                          // Search Field
+                          Expanded(
+                            child: TextField(
+                              controller: _search,
+                              decoration: InputDecoration(
+                                hintText: isMobile && !isPortrait 
+                                    ? 'Search...' 
+                                    : 'Search any field (name, ID, depot, etc.)',
+                                prefixIcon: const Icon(Icons.search),
+                                border: const OutlineInputBorder(),
+                                contentPadding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 10),
+                                isDense: isMobile && !isPortrait,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
               ),
               // Lists
               Expanded(
