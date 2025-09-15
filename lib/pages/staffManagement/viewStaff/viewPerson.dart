@@ -131,68 +131,42 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
 
   // ---------- UI helpers ----------
 
-  Widget _summaryPanel() {
-    final total = _all.length;
-    final active = _all.where((p) => p.isActive).length;
-    final inactive = total - active;
+Widget _summaryPanel() {
+  final total = _all.length;
+  final active = _all.where((p) => p.isActive).length;
+  final inactive = total - active;
 
-    final chip = (String title, int count, Color color) => Container(
-      margin: const EdgeInsets.only(right: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.18)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(title,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.w600, fontSize: 13)),
-          const SizedBox(width: 8),
-          Container(
-            padding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: Text(
-              '$count',
-              style: const TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    );
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+  // Minimal stat chip
+  Widget buildStatChip(String title, int count, Color color) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.15)),
+        ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.only(left: 4, bottom: 6),
-              child: Text('Summary',
-                  style: TextStyle(
-                      fontSize: 12, color: Colors.black54, letterSpacing: 0.2)),
-            ),
-            IgnorePointer(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    chip('Total', total, Colors.blueGrey),
-                    chip('Active', active, Colors.green.shade700),
-                    chip('Inactive', inactive, Colors.red.shade700),
-                  ],
-                ),
+            Text(
+              '$count',
+              style: TextStyle(
+                color: color,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
               ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              title,
+              style: TextStyle(
+                color: color.withOpacity(0.8),
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),
@@ -200,6 +174,59 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
     );
   }
 
+  return Container(
+    margin: const EdgeInsets.symmetric(horizontal: 2),
+    child: Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            // Minimal header
+            Row(
+              children: [
+                Icon(
+                  Icons.analytics_outlined,
+                  color: const Color(0xFF003366),
+                  size: 14,
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Summary',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                ),
+                const Spacer(),
+                if (total > 0)
+                  Text(
+                    '${((active / total) * 100).toStringAsFixed(0)}% active',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.green.shade700,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            // Compact stats row
+            Row(
+              children: [
+                buildStatChip('Total', total, Colors.blueGrey.shade700),
+                buildStatChip('Active', active, Colors.green.shade700),
+                buildStatChip('Inactive', inactive, Colors.red.shade700),
+              ],
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
   Future<void> _toggleActive(Person p) async {
     final ok =
     await _svc.setAvailability(personID: p.personID, active: !p.isActive);
@@ -376,8 +403,14 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
     
     final isMobile = MediaQuery.of(context).size.width < 600;
 
-    final meta1 = '${p.designation}  •  ${p.employeeNo}';
-    final meta2 = 'Region: ${p.depot}  •  Access: ${p.accessLevel}';
+    // Format meta information
+    final meta1 = '${p.designation.isNotEmpty ? p.designation : 'No Designation'}';
+    final meta2 = 'ID: ${p.employeeNo.isNotEmpty ? p.employeeNo : 'N/A'}';
+    final meta3 = 'Region: ${p.depot.isNotEmpty ? p.depot : 'Not Assigned'}';
+    final meta4 = 'Access: ${p.accessLevel.isNotEmpty ? p.accessLevel : 'No Access'}';
+    
+    // Determine if we need to show compact layout
+    final showCompactLayout = MediaQuery.of(context).size.width < 400;
 
     final activeColor =
     p.isActive ? Colors.green.shade700 : Colors.red.shade700;
@@ -403,44 +436,7 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
             builder: (ctx, c) {
               final isVeryNarrow = c.maxWidth < 400;
               final isExtraNarrow = c.maxWidth < 320;
-              final fullLabel = p.isActive ? 'Make inactive' : 'Make active';
-              final shortLabel = p.isActive ? 'Inactive' : 'Active';
               final showIconOnly = isExtraNarrow;
-
-              // Action button that adapts to width
-              final Widget actionButton = showIconOnly
-                  ? IconButton(
-                      tooltip: fullLabel,
-                      onPressed: () => _toggleActive(p),
-                      icon: Icon(
-                        p.isActive ? Icons.visibility_off : Icons.visibility,
-                        size: 20,
-                        color: const Color(0xFF003366),
-                      ),
-                      padding: const EdgeInsets.all(8),
-                      constraints: const BoxConstraints(),
-                      visualDensity: VisualDensity.compact,
-                    )
-                  : TextButton.icon(
-                      onPressed: () => _toggleActive(p),
-                      icon: Icon(
-                        p.isActive ? Icons.visibility_off : Icons.visibility,
-                        size: isVeryNarrow ? 16 : 18,
-                      ),
-                      label: Text(
-                        isVeryNarrow ? shortLabel : fullLabel,
-                        style: TextStyle(
-                          fontSize: isVeryNarrow ? 12 : 14,
-                        ),
-                      ),
-                      style: TextButton.styleFrom(
-                        foregroundColor: const Color(0xFF003366),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 6),
-                      ),
-                    );
 
               final editButton = IconButton(
                 tooltip: 'Edit',
@@ -451,28 +447,8 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
                 visualDensity: VisualDensity.compact,
               );
 
-              final actions = isExtraNarrow 
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          editButton,
-                          actionButton,
-                        ],
-                      ),
-                    ],
-                  )
-                : Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      editButton,
-                      const SizedBox(width: 4),
-                      actionButton,
-                    ],
-                  );
+              // Only show edit button, no more toggle active button
+              final actions = editButton;
 
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -525,27 +501,71 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
                           ),
                         ),
                         const SizedBox(height: 2),
-                        Text(
-                          meta1,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontSize: isMobile ? 12 : 14,
-                          ),
-                        ),
-                        if (!isMobile || !isPortrait) ...[  
-                          const SizedBox(height: 1),
-                          Text(
-                            meta2,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.black54, 
-                              fontSize: 12
+                        // First row: Designation and ID
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                meta1,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: const Color(0xFF003366),
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: isMobile ? 13 : 14,
+                                ),
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                meta2,
+                                style: TextStyle(
+                                  color: Colors.grey[800],
+                                  fontSize: isMobile ? 11 : 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        // Second row: Region and Access Level
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                meta3,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.grey[700],
+                                  fontSize: isMobile ? 11.5 : 12.5,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.grey[200],
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                meta4,
+                                style: TextStyle(
+                                  color: Colors.grey[800],
+                                  fontSize: isMobile ? 11 : 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),

@@ -20,6 +20,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
   final _first = TextEditingController();
   final _last = TextEditingController();
   final _depot = TextEditingController();
+  final _branch = TextEditingController();
   final _empNo = TextEditingController();
   final _uuid = TextEditingController();
 
@@ -33,6 +34,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
     _first.dispose();
     _last.dispose();
     _depot.dispose();
+    _branch.dispose();
     _empNo.dispose();
     _uuid.dispose();
     super.dispose();
@@ -42,15 +44,29 @@ class _AddPersonPageState extends State<AddPersonPage> {
     if (!_form.currentState!.validate()) return;
 
     setState(() => _saving = true);
+    
+    final personData = {
+      'firstName': _first.text.trim(),
+      'lastName': _last.text.trim(),
+      'depot': _depot.text.trim(),
+      'branch': _branch.text.trim(),
+      'employeeNo': _empNo.text.trim(),
+      'designation': _designation.trim(),
+      'accessLevel': _accessLevel.trim(),
+      'available': _active ? 'Yes' : 'No',
+      'uuid': _uuid.text.trim(),
+    };
+    
+    debugPrint('Saving person data: $personData');
     final ok = await _svc.createPerson(
-      firstName: _first.text.trim(),
-      lastName: _last.text.trim(),
-      depot: _depot.text.trim(),
-      employeeNo: _empNo.text.trim(),
-      designation: _designation.trim(),
-      accessLevel: _accessLevel.trim(),
-      available: _active ? 'Yes' : 'No',
-      uuid: _uuid.text.trim(),
+      firstName: personData['firstName']!,
+      lastName: personData['lastName']!,
+      depot: personData['depot']!,
+      employeeNo: personData['employeeNo']!,
+      designation: personData['designation']!,
+      accessLevel: personData['accessLevel']!,
+      available: personData['available']!,
+      uuid: personData['uuid']!,
     );
     setState(() => _saving = false);
 
@@ -101,26 +117,27 @@ class _AddPersonPageState extends State<AddPersonPage> {
                 ],
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextFormField(
-                      controller: _depot,
-                      decoration: const InputDecoration(labelText: 'Region / Depot'),
-                      validator: (v) => v!.trim().isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: TextFormField(
-                      controller: _empNo,
-                      decoration: const InputDecoration(labelText: 'Employee No'),
-                      keyboardType: TextInputType.number,
-                      validator: (v) => v!.trim().isEmpty ? 'Required' : null,
-                    ),
-                  ),
-                ],
+              TextFormField(
+                controller: _branch,
+                decoration: const InputDecoration(
+                  labelText: 'Branch',
+                  hintText: 'Enter branch',
+                ),
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _depot,
+                decoration: const InputDecoration(labelText: 'Region / Depot'),
+                validator: (v) => v!.trim().isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _empNo,
+                decoration: const InputDecoration(labelText: 'Employee No'),
+                keyboardType: TextInputType.number,
+                validator: (v) => v!.trim().isEmpty ? 'Required' : null,
+              ),
+              const SizedBox(height: 12),
               const SizedBox(height: 12),
               Row(
                 children: [

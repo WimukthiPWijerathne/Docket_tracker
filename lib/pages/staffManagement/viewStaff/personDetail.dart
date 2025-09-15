@@ -30,11 +30,11 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     
     // Initialize animations
     _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
     _slideController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 500),
       vsync: this,
     );
     
@@ -47,7 +47,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     ));
     
     _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
+      begin: const Offset(0, 0.2),
       end: Offset.zero,
     ).animate(CurvedAnimation(
       parent: _slideController,
@@ -95,7 +95,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         ),
         backgroundColor: _person.isActive ? Colors.green : Colors.orange,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ));
     } else {
       setState(() => _loading = false);
@@ -104,113 +104,68 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         content: const Text('Update failed'),
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ));
     }
   }
 
-  Widget _buildDetailCard(String title, String? value, IconData icon, {int delay = 0}) {
-    return AnimatedBuilder(
-      animation: _fadeAnimation,
-      builder: (context, child) {
-        return Transform.translate(
-          offset: Offset(0, (1 - _fadeAnimation.value) * 20),
-          child: Opacity(
-            opacity: _fadeAnimation.value,
-            child: child,
-          ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        child: Material(
-          elevation: 2,
-          borderRadius: BorderRadius.circular(16),
-          color: Colors.white,
-          shadowColor: Colors.black.withOpacity(0.1),
-          child: InkWell(
+  Widget _buildDetailCard(String title, String? value, IconData icon) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            onTap: value != null ? () {
-              // Add subtle haptic feedback
-              HapticFeedback.selectionClick();
-            } : null,
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Colors.white,
-                    Colors.grey.shade50,
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.white, Colors.grey.shade50],
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF003366).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: const Color(0xFF003366),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w500,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      value ?? 'Not specified',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: value != null ? Colors.black87 : Colors.grey.shade400,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFF003366),
-                          const Color(0xFF004080),
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF003366).withOpacity(0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Icon(
-                      icon,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          title,
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.5,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          value ?? 'Not specified',
-                          style: TextStyle(
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                            color: value != null ? Colors.black87 : Colors.grey.shade400,
-                            letterSpacing: 0.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (value != null)
-                    Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: Colors.grey.shade400,
-                    ),
-                ],
-              ),
-            ),
+            ],
           ),
         ),
       ),
@@ -219,107 +174,107 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
   Widget _buildResponsiveLayout(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth > 600 && screenWidth <= 1024;
-    final isDesktop = screenWidth > 1024;
-    final isMobile = screenWidth <= 600;
+    final screenHeight = MediaQuery.of(context).size.height;
     
-    if (isDesktop) {
-      return _buildDesktopLayout();
-    } else if (isTablet) {
-      return _buildTabletLayout();
-    } else {
-      return _buildMobileLayout();
+    // Enhanced breakpoints for better responsiveness
+    final isVerySmall = screenWidth < 360;        // Very small phones
+    final isSmall = screenWidth < 600;            // Regular phones  
+    final isMedium = screenWidth >= 600 && screenWidth < 900;   // Small tablets
+    final isLarge = screenWidth >= 900 && screenWidth < 1200;   // Large tablets
+    final isXLarge = screenWidth >= 1200;         // Desktop/Large screens
+    
+    // Dynamic padding based on screen size
+    double getPadding() {
+      if (isVerySmall) return 12;
+      if (isSmall) return 16;
+      if (isMedium) return 24;
+      if (isLarge) return 32;
+      return 40;
     }
-  }
+    
+    // Max width constraints for content
+    double getMaxWidth() {
+      if (isXLarge) return 1200;
+      if (isLarge) return 900;
+      return double.infinity;
+    }
 
-  Widget _buildMobileLayout() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildProfileHeader(compact: true),
-          const SizedBox(height: 24),
-          _buildDetailsSection(),
-          const SizedBox(height: 32),
-          _buildActionButton(fullWidth: true),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTabletLayout() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildProfileHeader(compact: false),
-          const SizedBox(height: 32),
-          _buildDetailsGrid(crossAxisCount: 2),
-          const SizedBox(height: 40),
-          Center(child: _buildActionButton(fullWidth: false)),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDesktopLayout() {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: Column(
-              children: [
-                _buildProfileHeader(compact: false),
-                const SizedBox(height: 32),
-                _buildActionButton(fullWidth: true),
-              ],
-            ),
+    return Center(
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: getMaxWidth()),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.all(getPadding()),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Profile header with responsive sizing
+              _buildProfileHeader(
+                compact: isVerySmall,
+                medium: isSmall || isMedium,
+                large: isLarge || isXLarge,
+              ),
+              SizedBox(height: isSmall ? 20 : 32),
+              
+              // Details section with responsive layout
+              if (isSmall)
+                _buildMobileDetailsLayout()
+              else if (isMedium)
+                _buildTabletDetailsLayout()
+              else
+                _buildDesktopDetailsLayout(),
+              
+              SizedBox(height: isSmall ? 24 : 40),
+              
+              // Action button with responsive positioning
+              if (isSmall)
+                _buildActionButton(fullWidth: true)
+              else
+                Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    child: _buildActionButton(fullWidth: true),
+                  ),
+                ),
+              
+              SizedBox(height: getPadding()),
+            ],
           ),
-          const SizedBox(width: 32),
-          Expanded(
-            flex: 3,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildDetailsGrid(crossAxisCount: 1),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildProfileHeader({required bool compact}) {
+  Widget _buildProfileHeader({
+    required bool compact,
+    required bool medium,
+    required bool large,
+  }) {
     final activeColor = _person.isActive ? Colors.green.shade700 : Colors.red.shade700;
     final activeBg = _person.isActive ? Colors.green.shade100 : Colors.red.shade100;
+
+    // Responsive sizing
+    final avatarRadius = compact ? 35.0 : (medium ? 45.0 : 55.0);
+    final statusRadius = compact ? 12.0 : (medium ? 16.0 : 18.0);
+    final titleSize = compact ? 20.0 : (medium ? 24.0 : 28.0);
+    final statusIconSize = compact ? 14.0 : (medium ? 18.0 : 20.0);
 
     return SlideTransition(
       position: _slideAnimation,
       child: FadeTransition(
         opacity: _fadeAnimation,
         child: Container(
-          padding: EdgeInsets.all(compact ? 20 : 32),
+          width: double.infinity,
+          padding: EdgeInsets.all(compact ? 16 : (medium ? 24 : 32)),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Colors.white,
-                Colors.blue.shade50,
-              ],
+              colors: [Colors.white, Colors.blue.shade50],
             ),
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(20),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: Colors.black.withOpacity(0.06),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -327,6 +282,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           ),
           child: Column(
             children: [
+              // Avatar with status indicator
               Stack(
                 children: [
                   Container(
@@ -334,21 +290,21 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF003366).withOpacity(0.3),
+                          color: const Color(0xFF003366).withOpacity(0.2),
                           blurRadius: 20,
-                          offset: const Offset(0, 10),
+                          offset: const Offset(0, 8),
                         ),
                       ],
                     ),
                     child: CircleAvatar(
-                      radius: compact ? 45 : 60,
+                      radius: avatarRadius,
                       backgroundColor: const Color(0xFFE8EEF6),
                       child: Text(
                         _getInitials(),
                         style: TextStyle(
                           color: const Color(0xFF003366),
                           fontWeight: FontWeight.bold,
-                          fontSize: compact ? 24 : 32,
+                          fontSize: avatarRadius * 0.6,
                         ),
                       ),
                     ),
@@ -363,16 +319,16 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                           BoxShadow(
                             color: activeColor.withOpacity(0.3),
                             blurRadius: 8,
-                            offset: const Offset(0, 4),
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: CircleAvatar(
-                        radius: compact ? 16 : 20,
+                        radius: statusRadius,
                         backgroundColor: activeBg,
                         child: Icon(
                           _person.isActive ? Icons.check : Icons.close,
-                          size: compact ? 18 : 24,
+                          size: statusIconSize,
                           color: activeColor,
                         ),
                       ),
@@ -380,28 +336,31 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                   ),
                 ],
               ),
-              SizedBox(height: compact ? 16 : 24),
+              
+              SizedBox(height: compact ? 12 : (medium ? 16 : 20)),
+              
+              // Name
               Text(
                 _person.fullName,
                 style: TextStyle(
-                  fontSize: compact ? 24 : 28,
+                  fontSize: titleSize,
                   fontWeight: FontWeight.bold,
                   color: const Color(0xFF003366),
-                  letterSpacing: 0.5,
+                  letterSpacing: 0.3,
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
+              
               const SizedBox(height: 12),
+              
+              // Status badge
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [activeBg, activeColor.withOpacity(0.1)],
-                  ),
-                  borderRadius: BorderRadius.circular(25),
+                  color: activeBg,
+                  borderRadius: BorderRadius.circular(20),
                   border: Border.all(color: activeColor.withOpacity(0.3)),
                 ),
                 child: Text(
@@ -409,8 +368,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                   style: TextStyle(
                     color: activeColor,
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    letterSpacing: 1.2,
+                    fontSize: compact ? 11 : 12,
+                    letterSpacing: 1.0,
                   ),
                 ),
               ),
@@ -421,50 +380,90 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     );
   }
 
-  Widget _buildDetailsSection() {
+  Widget _buildMobileDetailsLayout() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
           'Details',
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF003366),
-            letterSpacing: 0.5,
+            color: Color(0xFF003366),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
         ..._getDetailCards(),
       ],
     );
   }
 
-  Widget _buildDetailsGrid({required int crossAxisCount}) {
+  Widget _buildTabletDetailsLayout() {
+    final cards = _getDetailCards();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
+        const Text(
+          'Details',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF003366),
+          ),
+        ),
+        const SizedBox(height: 20),
+        // Display cards in a 2-column grid
+        for (int i = 0; i < cards.length; i += 2)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Expanded(child: cards[i]),
+                const SizedBox(width: 16),
+                if (i + 1 < cards.length)
+                  Expanded(child: cards[i + 1])
+                else
+                  const Expanded(child: SizedBox()),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopDetailsLayout() {
+    final cards = _getDetailCards();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
           'Details',
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
-            color: const Color(0xFF003366),
-            letterSpacing: 0.5,
+            color: Color(0xFF003366),
           ),
         ),
-        const SizedBox(height: 20),
-        if (crossAxisCount == 1)
-          ..._getDetailCards()
-        else
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 12,
-            childAspectRatio: 3.5,
-            children: _getDetailCards(),
+        const SizedBox(height: 24),
+        // Display cards in a 3-column grid for desktop
+        for (int i = 0; i < cards.length; i += 3)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Row(
+              children: [
+                Expanded(child: cards[i]),
+                const SizedBox(width: 16),
+                if (i + 1 < cards.length)
+                  Expanded(child: cards[i + 1])
+                else
+                  const Expanded(child: SizedBox()),
+                const SizedBox(width: 16),
+                if (i + 2 < cards.length)
+                  Expanded(child: cards[i + 2])
+                else
+                  const Expanded(child: SizedBox()),
+              ],
+            ),
           ),
       ],
     );
@@ -484,65 +483,69 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   }
 
   Widget _buildActionButton({required bool fullWidth}) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      width: fullWidth ? double.infinity : 300,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: _person.isActive
-                ? [Colors.orange.shade400, Colors.orange.shade600]
-                : [Colors.green.shade400, Colors.green.shade600],
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: (_person.isActive ? Colors.orange : Colors.green).withOpacity(0.3),
-              blurRadius: 15,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: _loading ? null : _toggleActive,
+    return FadeTransition(
+      opacity: _fadeAnimation,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: fullWidth ? double.infinity : null,
+        child: Container(
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 18),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  if (_loading)
-                    const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: _person.isActive
+                  ? [Colors.orange.shade400, Colors.orange.shade600]
+                  : [Colors.green.shade400, Colors.green.shade600],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: (_person.isActive ? Colors.orange : Colors.green).withOpacity(0.3),
+                blurRadius: 15,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _loading ? null : _toggleActive,
+              borderRadius: BorderRadius.circular(16),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
+                  children: [
+                    if (_loading)
+                      const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    else
+                      Icon(
+                        _person.isActive ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.white,
+                        size: 20,
                       ),
-                    )
-                  else
-                    Icon(
-                      _person.isActive ? Icons.visibility_off : Icons.visibility,
-                      color: Colors.white,
-                      size: 24,
+                    const SizedBox(width: 12),
+                    Text(
+                      _loading
+                          ? 'Updating...'
+                          : (_person.isActive ? 'Mark as Inactive' : 'Mark as Active'),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                      ),
                     ),
-                  const SizedBox(width: 12),
-                  Text(
-                    _loading
-                        ? 'Updating...'
-                        : (_person.isActive ? 'Mark as Inactive' : 'Mark as Active'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -556,19 +559,20 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(_person.fullName),
-        backgroundColor: const Color(0xFF003366).withOpacity(0.9),
+        title: Text(
+          _person.fullName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        backgroundColor: const Color(0xFF003366).withOpacity(0.95),
         foregroundColor: Colors.white,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: BoxDecoration(
+          decoration: const BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF003366),
-                const Color(0xFF004080),
-              ],
+              colors: [Color(0xFF003366), Color(0xFF004080)],
             ),
           ),
         ),
@@ -578,10 +582,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Colors.grey.shade50,
-              Colors.white,
-            ],
+            colors: [Colors.grey.shade100, Colors.white],
           ),
         ),
         child: SafeArea(
