@@ -66,6 +66,69 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     super.dispose();
   }
 
+  // Helper method to determine screen type
+  ScreenType _getScreenType(BuildContext context) {
+    final width = MediaQuery.of(context).size.width;
+    if (width < 600) return ScreenType.mobile;
+    if (width < 1024) return ScreenType.tablet;
+    if (width < 1440) return ScreenType.desktop;
+    return ScreenType.largeDesktop;
+  }
+
+  // Get responsive values based on screen type
+  ResponsiveValues _getResponsiveValues(ScreenType screenType) {
+    switch (screenType) {
+      case ScreenType.mobile:
+        return ResponsiveValues(
+          horizontalPadding: 16.0,
+          verticalPadding: 16.0,
+          cardSpacing: 12.0,
+          avatarRadius: 32.0,
+          titleFontSize: 18.0,
+          subtitleFontSize: 14.0,
+          gridCrossAxisCount: 1,
+          maxContentWidth: double.infinity,
+          useCompactLayout: true,
+        );
+      case ScreenType.tablet:
+        return ResponsiveValues(
+          horizontalPadding: 24.0,
+          verticalPadding: 20.0,
+          cardSpacing: 16.0,
+          avatarRadius: 40.0,
+          titleFontSize: 20.0,
+          subtitleFontSize: 16.0,
+          gridCrossAxisCount: 2,
+          maxContentWidth: 800.0,
+          useCompactLayout: false,
+        );
+      case ScreenType.desktop:
+        return ResponsiveValues(
+          horizontalPadding: 32.0,
+          verticalPadding: 24.0,
+          cardSpacing: 16.0,
+          avatarRadius: 48.0,
+          titleFontSize: 24.0,
+          subtitleFontSize: 18.0,
+          gridCrossAxisCount: 2,
+          maxContentWidth: 1100.0,
+          useCompactLayout: false,
+        );
+      case ScreenType.largeDesktop:
+        return ResponsiveValues(
+          horizontalPadding: 40.0,
+          verticalPadding: 32.0,
+          cardSpacing: 20.0,
+          avatarRadius: 52.0,
+          titleFontSize: 26.0,
+          subtitleFontSize: 20.0,
+          gridCrossAxisCount: 2,
+          maxContentWidth: 1300.0,
+          useCompactLayout: false,
+        );
+    }
+  }
+
   String _getInitials() {
     // Extract first name and remove common titles
     String firstName = _person.firstName.trim();
@@ -124,7 +187,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     }
   }
 
-  Widget _buildDetailCard(String title, String? value, IconData icon) {
+  Widget _buildDetailCard(String title, String? value, IconData icon, ResponsiveValues values, {bool isFlexible = false}) {
     return AnimatedBuilder(
       animation: _fadeAnimation,
       builder: (context, child) {
@@ -140,72 +203,81 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         elevation: 1,
         shadowColor: Colors.black.withOpacity(0.05),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.only(bottom: 12),
+        margin: EdgeInsets.only(bottom: values.cardSpacing),
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
             color: Colors.white,
             border: Border.all(color: Colors.grey.shade200),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFF003366),
-                        const Color(0xFF004080),
+          child: IntrinsicHeight(
+            child: Padding(
+              padding: EdgeInsets.all(values.useCompactLayout ? 12 : 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: values.useCompactLayout ? 32 : 40,
+                    height: values.useCompactLayout ? 32 : 40,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF003366),
+                          const Color(0xFF004080),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFF003366).withOpacity(0.2),
+                          blurRadius: 6,
+                          offset: const Offset(0, 3),
+                        ),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(10),
-                    boxShadow: [
-                      BoxShadow(
-                        color: const Color(0xFF003366).withOpacity(0.2),
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
+                    child: Icon(
+                      icon,
+                      color: Colors.white,
+                      size: values.useCompactLayout ? 16 : 18,
+                    ),
                   ),
-                  child: Icon(
-                    icon,
-                    color: Colors.white,
-                    size: 20,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey.shade600,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 0.2,
+                  SizedBox(width: values.useCompactLayout ? 12 : 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            fontSize: values.useCompactLayout ? 10 : 12,
+                            color: Colors.grey.shade600,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.2,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        value ?? 'Not specified',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: value != null ? const Color(0xFF003366) : Colors.grey.shade400,
-                          letterSpacing: 0.1,
+                        SizedBox(height: values.useCompactLayout ? 2 : 4),
+                        Text(
+                          value ?? 'Not specified',
+                          style: TextStyle(
+                            fontSize: values.useCompactLayout ? 12 : 14,
+                            fontWeight: FontWeight.w600,
+                            color: value != null ? const Color(0xFF003366) : Colors.grey.shade400,
+                            letterSpacing: 0.1,
+                          ),
+                          maxLines: isFlexible ? null : (values.useCompactLayout ? 1 : 2),
+                          overflow: isFlexible ? null : TextOverflow.ellipsis,
+                          softWrap: isFlexible,
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -213,105 +285,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     );
   }
 
-  Widget _buildResponsiveLayout(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    
-    if (screenWidth > 1200) {
-      return _buildDesktopLayout();
-    } else if (screenWidth > 768) {
-      return _buildTabletLayout();
-    } else {
-      return _buildMobileLayout();
-    }
-  }
-
-  Widget _buildMobileLayout() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                _buildProfileHeader(compact: true),
-                const SizedBox(height: 24),
-                _buildDetailsSection(),
-                const SizedBox(height: 32),
-                _buildActionButton(fullWidth: true),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildTabletLayout() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Center(
-            child: Container(
-              constraints: BoxConstraints(
-                maxWidth: constraints.maxWidth > 900 ? 700 : constraints.maxWidth * 0.9,
-              ),
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  _buildProfileHeader(compact: false),
-                  const SizedBox(height: 32),
-                  _buildDetailsGrid(crossAxisCount: 2),
-                  const SizedBox(height: 40),
-                  _buildActionButton(fullWidth: false),
-                  const SizedBox(height: 24),
-                ],
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildDesktopLayout() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return Center(
-          child: Container(
-            constraints: const BoxConstraints(maxWidth: 1000),
-            padding: const EdgeInsets.all(32),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Left column - Profile
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    children: [
-                      _buildProfileHeader(compact: false),
-                      const SizedBox(height: 32),
-                      _buildActionButton(fullWidth: true),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 40),
-                // Right column - Details
-                Expanded(
-                  flex: 3,
-                  child: _buildDetailsGrid(crossAxisCount: 1),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildProfileHeader({required bool compact}) {
+  Widget _buildProfileHeader(ResponsiveValues values) {
     final activeColor = _person.isActive ? Colors.green.shade700 : Colors.red.shade700;
     final activeBg = _person.isActive ? Colors.green.shade50 : Colors.red.shade50;
 
@@ -320,11 +294,11 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       child: FadeTransition(
         opacity: _fadeAnimation,
         child: Card(
-          elevation: 4,
+          elevation: values.useCompactLayout ? 2 : 4,
           shadowColor: Colors.black.withOpacity(0.12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           child: Container(
-            padding: EdgeInsets.all(compact ? 20 : 24),
+            padding: EdgeInsets.all(values.useCompactLayout ? 16 : 24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
@@ -334,7 +308,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                   const Color(0xFFF0F7FF),
                 ],
               ),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Column(
               children: [
@@ -346,20 +320,20 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                         boxShadow: [
                           BoxShadow(
                             color: const Color(0xFF003366).withOpacity(0.2),
-                            blurRadius: 16,
-                            offset: const Offset(0, 8),
+                            blurRadius: 12,
+                            offset: const Offset(0, 6),
                           ),
                         ],
                       ),
                       child: CircleAvatar(
-                        radius: compact ? 36 : 42,
+                        radius: values.avatarRadius,
                         backgroundColor: const Color(0xFFE8F4FD),
                         child: Text(
                           _getInitials(),
                           style: TextStyle(
                             color: const Color(0xFF003366),
                             fontWeight: FontWeight.w700,
-                            fontSize: compact ? 18 : 20,
+                            fontSize: values.avatarRadius * 0.4,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -368,25 +342,25 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                     Positioned(
                       bottom: 0,
                       right: 0,
-                      child:                       Container(
+                      child: Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           color: Colors.white,
                           boxShadow: [
                             BoxShadow(
                               color: activeColor.withOpacity(0.25),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
                             ),
                           ],
                         ),
-                        padding: const EdgeInsets.all(3),
+                        padding: const EdgeInsets.all(2),
                         child: CircleAvatar(
-                          radius: compact ? 12 : 14,
+                          radius: values.avatarRadius * 0.25,
                           backgroundColor: activeBg,
                           child: Icon(
                             _person.isActive ? Icons.check_circle : Icons.cancel,
-                            size: compact ? 16 : 18,
+                            size: values.avatarRadius * 0.3,
                             color: activeColor,
                           ),
                         ),
@@ -394,34 +368,36 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                     ),
                   ],
                 ),
-                SizedBox(height: compact ? 16 : 20),
+                SizedBox(height: values.useCompactLayout ? 12 : 16),
                 Text(
                   _person.fullName,
                   style: TextStyle(
-                    fontSize: compact ? 18 : 20,
+                    fontSize: values.titleFontSize,
                     fontWeight: FontWeight.w700,
                     color: const Color(0xFF003366),
                     letterSpacing: 0.2,
                   ),
                   textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 12),
+                SizedBox(height: values.useCompactLayout ? 8 : 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 8,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: values.useCompactLayout ? 12 : 16,
+                    vertical: values.useCompactLayout ? 6 : 8,
                   ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [activeBg, activeColor.withOpacity(0.1)],
                     ),
-                    borderRadius: BorderRadius.circular(25),
+                    borderRadius: BorderRadius.circular(20),
                     border: Border.all(color: activeColor.withOpacity(0.3), width: 1),
                     boxShadow: [
                       BoxShadow(
                         color: activeColor.withOpacity(0.15),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
                       ),
                     ],
                   ),
@@ -431,7 +407,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                       Icon(
                         _person.isActive ? Icons.radio_button_checked : Icons.radio_button_unchecked,
                         color: activeColor,
-                        size: 16,
+                        size: values.useCompactLayout ? 14 : 16,
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -439,7 +415,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                         style: TextStyle(
                           color: activeColor,
                           fontWeight: FontWeight.w600,
-                          fontSize: 11,
+                          fontSize: values.useCompactLayout ? 10 : 11,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -454,76 +430,10 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     );
   }
 
-  Widget _buildDetailsSection() {
-    return Column(
-      children: [
-        Container(
-          alignment: Alignment.centerLeft,
-          margin: const EdgeInsets.only(bottom: 20),
-          child: Text(
-            'Details',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF003366),
-              letterSpacing: 0.2,
-            ),
-          ),
-        ),
-        ..._getDetailCards(),
-      ],
-    );
-  }
-
-  Widget _buildDetailsGrid({required int crossAxisCount}) {
-    return Column(
-      children: [
-        Container(
-          alignment: Alignment.centerLeft,
-          margin: const EdgeInsets.only(bottom: 24),
-          child: Text(
-            'Details',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: const Color(0xFF1F2937),
-              letterSpacing: 0.2,
-            ),
-          ),
-        ),
-        if (crossAxisCount == 1)
-          ..._getDetailCards()
-        else
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: crossAxisCount,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 12,
-            childAspectRatio: 3.5,
-            children: _getDetailCards(),
-          ),
-      ],
-    );
-  }
-
-  List<Widget> _getDetailCards() {
-    return [
-      _buildDetailCard('Employee Number', _person.employeeNo, Icons.badge_outlined),
-      _buildDetailCard('First Name', _person.firstName, Icons.person_outline),
-      _buildDetailCard('Last Name', _person.lastName, Icons.person_outline_outlined),
-      _buildDetailCard('Depot/Region', _person.depot, Icons.location_on_outlined),
-      _buildDetailCard('Designation', _person.designation, Icons.work_outline),
-      _buildDetailCard('Access Level', _person.accessLevel, Icons.security_outlined),
-      _buildDetailCard('Person ID', _person.personID, Icons.fingerprint_outlined),
-      _buildDetailCard('UUID', _person.uuid, Icons.code_outlined),
-    ];
-  }
-
-  Widget _buildActionButton({required bool fullWidth}) {
+  Widget _buildActionButton(ResponsiveValues values, {required bool fullWidth}) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      width: fullWidth ? double.infinity : 280,
+      width: fullWidth ? double.infinity : (values.useCompactLayout ? 200 : 280),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
@@ -537,8 +447,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           boxShadow: [
             BoxShadow(
               color: (_person.isActive ? Colors.orange.shade400 : Colors.green.shade400).withOpacity(0.25),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -548,15 +458,18 @@ class _PersonDetailPageState extends State<PersonDetailPage>
             onTap: _loading ? null : _toggleActive,
             borderRadius: BorderRadius.circular(12),
             child: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: EdgeInsets.symmetric(
+                vertical: values.useCompactLayout ? 12 : 16,
+                horizontal: 16,
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (_loading)
-                    const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
+                    SizedBox(
+                      width: values.useCompactLayout ? 16 : 20,
+                      height: values.useCompactLayout ? 16 : 20,
+                      child: const CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
@@ -565,18 +478,22 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                     Icon(
                       _person.isActive ? Icons.visibility_off : Icons.visibility,
                       color: Colors.white,
-                      size: 20,
+                      size: values.useCompactLayout ? 16 : 20,
                     ),
-                  const SizedBox(width: 12),
-                  Text(
-                    _loading
-                        ? 'Updating...'
-                        : (_person.isActive ? 'Mark as Inactive' : 'Mark as Active'),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.2,
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      _loading
+                          ? 'Updating...'
+                          : (_person.isActive ? 'Mark as Inactive' : 'Mark as Active'),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: values.useCompactLayout ? 12 : 14,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.2,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -588,22 +505,223 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     );
   }
 
+  // New method for flexible detail layout on desktop
+  Widget _buildDetailsFlexibleLayout(ResponsiveValues values) {
+    return Wrap(
+      spacing: values.cardSpacing,
+      runSpacing: values.cardSpacing,
+      children: _getDetailCards(values, isFlexible: true),
+    );
+  }
+
+  List<Widget> _getDetailCards(ResponsiveValues values, {bool isFlexible = false}) {
+    final details = [
+      {'title': 'Employee Number', 'value': _person.employeeNo, 'icon': Icons.badge_outlined},
+      {'title': 'Name', 'value': '${_person.firstName} ${_person.lastName}'.trim(), 'icon': Icons.person_outline},
+      {'title': 'Branch', 'value': 'Kelaniya', 'icon': Icons.business_outlined},
+      {'title': 'Depot', 'value': _person.depot, 'icon': Icons.location_on_outlined},
+      {'title': 'Designation', 'value': _person.designation, 'icon': Icons.work_outline},
+      {'title': 'Access Level', 'value': _person.accessLevel, 'icon': Icons.security_outlined},
+      {'title': 'Person ID', 'value': _person.personID, 'icon': Icons.fingerprint_outlined},
+    ];
+
+    return details.map((detail) {
+      if (isFlexible) {
+        return SizedBox(
+          width: (MediaQuery.of(context).size.width > 1200) ? 
+                 (MediaQuery.of(context).size.width - 200) * 0.4 / 2 : 
+                 (MediaQuery.of(context).size.width - 150) * 0.5 / 2,
+          child: _buildDetailCard(
+            detail['title'] as String,
+            detail['value'] as String?,
+            detail['icon'] as IconData,
+            values,
+            isFlexible: true,
+          ),
+        );
+      } else {
+        return _buildDetailCard(
+          detail['title'] as String,
+          detail['value'] as String?,
+          detail['icon'] as IconData,
+          values,
+          isFlexible: false,
+        );
+      }
+    }).toList();
+  }
+
+  Widget _buildResponsiveLayout(BuildContext context) {
+    final screenType = _getScreenType(context);
+    final values = _getResponsiveValues(screenType);
+    final screenWidth = MediaQuery.of(context).size.width;
+    
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Mobile layout
+        if (screenType == ScreenType.mobile) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Container(
+              padding: EdgeInsets.symmetric(
+                horizontal: values.horizontalPadding,
+                vertical: values.verticalPadding,
+              ),
+              child: Column(
+                children: [
+                  _buildProfileHeader(values),
+                  SizedBox(height: values.cardSpacing * 1.5),
+                  Container(
+                    alignment: Alignment.centerLeft,
+                    margin: EdgeInsets.only(bottom: values.cardSpacing),
+                    child: Text(
+                      'Details',
+                      style: TextStyle(
+                        fontSize: values.subtitleFontSize,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF003366),
+                        letterSpacing: 0.2,
+                      ),
+                    ),
+                  ),
+                                            ..._getDetailCards(values),
+                  SizedBox(height: values.cardSpacing * 2),
+                  _buildActionButton(values, fullWidth: true),
+                  SizedBox(height: values.verticalPadding),
+                ],
+              ),
+            ),
+          );
+        }
+        
+        // Tablet layout
+        else if (screenType == ScreenType.tablet) {
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Center(
+              child: Container(
+                constraints: BoxConstraints(
+                  maxWidth: values.maxContentWidth,
+                ),
+                padding: EdgeInsets.symmetric(
+                  horizontal: values.horizontalPadding,
+                  vertical: values.verticalPadding,
+                ),
+                child: Column(
+                  children: [
+                    _buildProfileHeader(values),
+                    SizedBox(height: values.cardSpacing * 2),
+                    Container(
+                      alignment: Alignment.centerLeft,
+                      margin: EdgeInsets.only(bottom: values.cardSpacing * 1.5),
+                      child: Text(
+                        'Details',
+                        style: TextStyle(
+                          fontSize: values.subtitleFontSize,
+                          fontWeight: FontWeight.w700,
+                          color: const Color(0xFF003366),
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                    ),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: values.gridCrossAxisCount,
+                      crossAxisSpacing: values.cardSpacing,
+                      mainAxisSpacing: values.cardSpacing,
+                      childAspectRatio: 3.0,
+                      children: _getDetailCards(values),
+                    ),
+                    SizedBox(height: values.cardSpacing * 2.5),
+                    _buildActionButton(values, fullWidth: false),
+                    SizedBox(height: values.verticalPadding),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        
+        // Desktop and Large Desktop layout
+        else {
+          // Always use split layout for desktop/web view
+          return SingleChildScrollView(
+            physics: const BouncingScrollPhysics(),
+            child: Center(
+              child: Container(
+                constraints: BoxConstraints(maxWidth: values.maxContentWidth),
+                padding: EdgeInsets.symmetric(
+                  horizontal: values.horizontalPadding,
+                  vertical: values.verticalPadding,
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Left column - Profile
+                    Expanded(
+                      flex: screenWidth > 1200 ? 2 : 3,
+                      child: Column(
+                        children: [
+                          _buildProfileHeader(values),
+                          SizedBox(height: values.cardSpacing * 2),
+                          _buildActionButton(values, fullWidth: true),
+                        ],
+                      ),
+                    ),
+                    SizedBox(width: values.cardSpacing * 2),
+                    // Right column - Details
+                    Expanded(
+                      flex: screenWidth > 1200 ? 3 : 4,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Details',
+                            style: TextStyle(
+                              fontSize: values.subtitleFontSize,
+                              fontWeight: FontWeight.w700,
+                              color: const Color(0xFF003366),
+                              letterSpacing: 0.2,
+                            ),
+                          ),
+                          SizedBox(height: values.cardSpacing * 1.5),
+                          // Use flexible layout for details instead of grid
+                          _buildDetailsFlexibleLayout(values),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final screenType = _getScreenType(context);
+    final values = _getResponsiveValues(screenType);
+    
     return Scaffold(
       appBar: AppBar(
         title: Text(
           _person.fullName,
-          style: const TextStyle(
+          style: TextStyle(
             fontWeight: FontWeight.w600,
-            fontSize: 16,
+            fontSize: values.useCompactLayout ? 14 : 16,
             letterSpacing: 0.2,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
         backgroundColor: const Color(0xFF003366),
         foregroundColor: Colors.white,
         elevation: 0,
-        centerTitle: true,
+        centerTitle: screenType == ScreenType.mobile,
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -625,4 +743,36 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       ),
     );
   }
+}
+
+// Enums and helper classes for responsive design
+enum ScreenType {
+  mobile,
+  tablet,
+  desktop,
+  largeDesktop,
+}
+
+class ResponsiveValues {
+  final double horizontalPadding;
+  final double verticalPadding;
+  final double cardSpacing;
+  final double avatarRadius;
+  final double titleFontSize;
+  final double subtitleFontSize;
+  final int gridCrossAxisCount;
+  final double maxContentWidth;
+  final bool useCompactLayout;
+
+  ResponsiveValues({
+    required this.horizontalPadding,
+    required this.verticalPadding,
+    required this.cardSpacing,
+    required this.avatarRadius,
+    required this.titleFontSize,
+    required this.subtitleFontSize,
+    required this.gridCrossAxisCount,
+    required this.maxContentWidth,
+    required this.useCompactLayout,
+  });
 }
