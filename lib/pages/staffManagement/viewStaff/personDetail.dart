@@ -67,9 +67,22 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   }
 
   String _getInitials() {
-    final fn = _person.firstName.trim();
+    // Extract first name and remove common titles
+    String firstName = _person.firstName.trim();
     final ln = _person.lastName.trim();
-    final a = fn.isNotEmpty ? fn[0] : '';
+    
+    // Remove common titles from first name
+    final titles = ['mr', 'mrs', 'ms'];
+    final nameParts = firstName.split(' ');
+    
+    // If first part is a title, use the next part as first name
+    if (nameParts.length > 1 && titles.contains(nameParts[0].toLowerCase())) {
+      firstName = nameParts[1];
+    } else {
+      firstName = nameParts[0];
+    }
+    
+    final a = firstName.isNotEmpty ? firstName[0] : '';
     final b = ln.isNotEmpty ? ln[0] : '';
     return (a + b).toUpperCase();
   }
@@ -93,79 +106,107 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         content: Text(
           '${_person.fullName} marked ${_person.isActive ? "Active" : "Inactive"}'
         ),
-        backgroundColor: _person.isActive ? Colors.green : Colors.orange,
+        backgroundColor: _person.isActive ? Colors.green.shade700 : Colors.orange.shade700,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        margin: const EdgeInsets.all(16),
       ));
     } else {
       setState(() => _loading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: const Text('Update failed'),
-        backgroundColor: Colors.red,
+        backgroundColor: Colors.red.shade700,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        margin: const EdgeInsets.all(16),
       ));
     }
   }
 
   Widget _buildDetailCard(String title, String? value, IconData icon) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.white, Colors.grey.shade50],
-            ),
+    return AnimatedBuilder(
+      animation: _fadeAnimation,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, (1 - _fadeAnimation.value) * 10),
+          child: Opacity(
+            opacity: _fadeAnimation.value,
+            child: child,
           ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF003366).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  color: const Color(0xFF003366),
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w500,
-                        letterSpacing: 0.3,
-                      ),
+        );
+      },
+      child: Card(
+        elevation: 1,
+        shadowColor: Colors.black.withOpacity(0.05),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: Colors.white,
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        const Color(0xFF003366),
+                        const Color(0xFF004080),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      value ?? 'Not specified',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: value != null ? Colors.black87 : Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF003366).withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
+                  child: Icon(
+                    icon,
+                    color: Colors.white,
+                    size: 20,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.2,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        value ?? 'Not specified',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: value != null ? const Color(0xFF003366) : Colors.grey.shade400,
+                          letterSpacing: 0.1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -174,296 +215,293 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
   Widget _buildResponsiveLayout(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
     
-    // Enhanced breakpoints for better responsiveness
-    final isVerySmall = screenWidth < 360;        // Very small phones
-    final isSmall = screenWidth < 600;            // Regular phones  
-    final isMedium = screenWidth >= 600 && screenWidth < 900;   // Small tablets
-    final isLarge = screenWidth >= 900 && screenWidth < 1200;   // Large tablets
-    final isXLarge = screenWidth >= 1200;         // Desktop/Large screens
-    
-    // Dynamic padding based on screen size
-    double getPadding() {
-      if (isVerySmall) return 12;
-      if (isSmall) return 16;
-      if (isMedium) return 24;
-      if (isLarge) return 32;
-      return 40;
+    if (screenWidth > 1200) {
+      return _buildDesktopLayout();
+    } else if (screenWidth > 768) {
+      return _buildTabletLayout();
+    } else {
+      return _buildMobileLayout();
     }
-    
-    // Max width constraints for content
-    double getMaxWidth() {
-      if (isXLarge) return 1200;
-      if (isLarge) return 900;
-      return double.infinity;
-    }
+  }
 
-    return Center(
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: getMaxWidth()),
-        child: SingleChildScrollView(
-          padding: EdgeInsets.all(getPadding()),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Profile header with responsive sizing
-              _buildProfileHeader(
-                compact: isVerySmall,
-                medium: isSmall || isMedium,
-                large: isLarge || isXLarge,
-              ),
-              SizedBox(height: isSmall ? 20 : 32),
-              
-              // Details section with responsive layout
-              if (isSmall)
-                _buildMobileDetailsLayout()
-              else if (isMedium)
-                _buildTabletDetailsLayout()
-              else
-                _buildDesktopDetailsLayout(),
-              
-              SizedBox(height: isSmall ? 24 : 40),
-              
-              // Action button with responsive positioning
-              if (isSmall)
-                _buildActionButton(fullWidth: true)
-              else
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 400),
-                    child: _buildActionButton(fullWidth: true),
-                  ),
-                ),
-              
-              SizedBox(height: getPadding()),
-            ],
+  Widget _buildMobileLayout() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                _buildProfileHeader(compact: true),
+                const SizedBox(height: 24),
+                _buildDetailsSection(),
+                const SizedBox(height: 32),
+                _buildActionButton(fullWidth: true),
+                const SizedBox(height: 24),
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  Widget _buildProfileHeader({
-    required bool compact,
-    required bool medium,
-    required bool large,
-  }) {
-    final activeColor = _person.isActive ? Colors.green.shade700 : Colors.red.shade700;
-    final activeBg = _person.isActive ? Colors.green.shade100 : Colors.red.shade100;
+  Widget _buildTabletLayout() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
+          child: Center(
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: constraints.maxWidth > 900 ? 700 : constraints.maxWidth * 0.9,
+              ),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  _buildProfileHeader(compact: false),
+                  const SizedBox(height: 32),
+                  _buildDetailsGrid(crossAxisCount: 2),
+                  const SizedBox(height: 40),
+                  _buildActionButton(fullWidth: false),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
 
-    // Responsive sizing
-    final avatarRadius = compact ? 35.0 : (medium ? 45.0 : 55.0);
-    final statusRadius = compact ? 12.0 : (medium ? 16.0 : 18.0);
-    final titleSize = compact ? 20.0 : (medium ? 24.0 : 28.0);
-    final statusIconSize = compact ? 14.0 : (medium ? 18.0 : 20.0);
+  Widget _buildDesktopLayout() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Center(
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            padding: const EdgeInsets.all(32),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Left column - Profile
+                Expanded(
+                  flex: 2,
+                  child: Column(
+                    children: [
+                      _buildProfileHeader(compact: false),
+                      const SizedBox(height: 32),
+                      _buildActionButton(fullWidth: true),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 40),
+                // Right column - Details
+                Expanded(
+                  flex: 3,
+                  child: _buildDetailsGrid(crossAxisCount: 1),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildProfileHeader({required bool compact}) {
+    final activeColor = _person.isActive ? Colors.green.shade700 : Colors.red.shade700;
+    final activeBg = _person.isActive ? Colors.green.shade50 : Colors.red.shade50;
 
     return SlideTransition(
       position: _slideAnimation,
       child: FadeTransition(
         opacity: _fadeAnimation,
-        child: Container(
-          width: double.infinity,
-          padding: EdgeInsets.all(compact ? 16 : (medium ? 24 : 32)),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Colors.white, Colors.blue.shade50],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
+        child: Card(
+          elevation: 4,
+          shadowColor: Colors.black.withOpacity(0.12),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          child: Container(
+            padding: EdgeInsets.all(compact ? 20 : 24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white,
+                  const Color(0xFFF0F7FF),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            children: [
-              // Avatar with status indicator
-              Stack(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF003366).withOpacity(0.2),
-                          blurRadius: 20,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                    ),
-                    child: CircleAvatar(
-                      radius: avatarRadius,
-                      backgroundColor: const Color(0xFFE8EEF6),
-                      child: Text(
-                        _getInitials(),
-                        style: TextStyle(
-                          color: const Color(0xFF003366),
-                          fontWeight: FontWeight.bold,
-                          fontSize: avatarRadius * 0.6,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              children: [
+                Stack(
+                  children: [
+                    Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: activeColor.withOpacity(0.3),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                            color: const Color(0xFF003366).withOpacity(0.2),
+                            blurRadius: 16,
+                            offset: const Offset(0, 8),
                           ),
                         ],
                       ),
                       child: CircleAvatar(
-                        radius: statusRadius,
-                        backgroundColor: activeBg,
-                        child: Icon(
-                          _person.isActive ? Icons.check : Icons.close,
-                          size: statusIconSize,
-                          color: activeColor,
+                        radius: compact ? 36 : 42,
+                        backgroundColor: const Color(0xFFE8F4FD),
+                        child: Text(
+                          _getInitials(),
+                          style: TextStyle(
+                            color: const Color(0xFF003366),
+                            fontWeight: FontWeight.w700,
+                            fontSize: compact ? 18 : 20,
+                            letterSpacing: 0.5,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              
-              SizedBox(height: compact ? 12 : (medium ? 16 : 20)),
-              
-              // Name
-              Text(
-                _person.fullName,
-                style: TextStyle(
-                  fontSize: titleSize,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF003366),
-                  letterSpacing: 0.3,
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child:                       Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white,
+                          boxShadow: [
+                            BoxShadow(
+                              color: activeColor.withOpacity(0.25),
+                              blurRadius: 8,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        padding: const EdgeInsets.all(3),
+                        child: CircleAvatar(
+                          radius: compact ? 12 : 14,
+                          backgroundColor: activeBg,
+                          child: Icon(
+                            _person.isActive ? Icons.check_circle : Icons.cancel,
+                            size: compact ? 16 : 18,
+                            color: activeColor,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              
-              const SizedBox(height: 12),
-              
-              // Status badge
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: activeBg,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: activeColor.withOpacity(0.3)),
-                ),
-                child: Text(
-                  _person.isActive ? 'ACTIVE' : 'INACTIVE',
+                SizedBox(height: compact ? 16 : 20),
+                Text(
+                  _person.fullName,
                   style: TextStyle(
-                    color: activeColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: compact ? 11 : 12,
-                    letterSpacing: 1.0,
+                    fontSize: compact ? 18 : 20,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF003366),
+                    letterSpacing: 0.2,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 18,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [activeBg, activeColor.withOpacity(0.1)],
+                    ),
+                    borderRadius: BorderRadius.circular(25),
+                    border: Border.all(color: activeColor.withOpacity(0.3), width: 1),
+                    boxShadow: [
+                      BoxShadow(
+                        color: activeColor.withOpacity(0.15),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        _person.isActive ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                        color: activeColor,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        _person.isActive ? 'ACTIVE' : 'INACTIVE',
+                        style: TextStyle(
+                          color: activeColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 11,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildMobileDetailsLayout() {
+  Widget _buildDetailsSection() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Details',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF003366),
+        Container(
+          alignment: Alignment.centerLeft,
+          margin: const EdgeInsets.only(bottom: 20),
+          child: Text(
+            'Details',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF003366),
+              letterSpacing: 0.2,
+            ),
           ),
         ),
-        const SizedBox(height: 16),
         ..._getDetailCards(),
       ],
     );
   }
 
-  Widget _buildTabletDetailsLayout() {
-    final cards = _getDetailCards();
+  Widget _buildDetailsGrid({required int crossAxisCount}) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Details',
-          style: TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF003366),
-          ),
-        ),
-        const SizedBox(height: 20),
-        // Display cards in a 2-column grid
-        for (int i = 0; i < cards.length; i += 2)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                Expanded(child: cards[i]),
-                const SizedBox(width: 16),
-                if (i + 1 < cards.length)
-                  Expanded(child: cards[i + 1])
-                else
-                  const Expanded(child: SizedBox()),
-              ],
+        Container(
+          alignment: Alignment.centerLeft,
+          margin: const EdgeInsets.only(bottom: 24),
+          child: Text(
+            'Details',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1F2937),
+              letterSpacing: 0.2,
             ),
           ),
-      ],
-    );
-  }
-
-  Widget _buildDesktopDetailsLayout() {
-    final cards = _getDetailCards();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Details',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF003366),
-          ),
         ),
-        const SizedBox(height: 24),
-        // Display cards in a 3-column grid for desktop
-        for (int i = 0; i < cards.length; i += 3)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Row(
-              children: [
-                Expanded(child: cards[i]),
-                const SizedBox(width: 16),
-                if (i + 1 < cards.length)
-                  Expanded(child: cards[i + 1])
-                else
-                  const Expanded(child: SizedBox()),
-                const SizedBox(width: 16),
-                if (i + 2 < cards.length)
-                  Expanded(child: cards[i + 2])
-                else
-                  const Expanded(child: SizedBox()),
-              ],
-            ),
+        if (crossAxisCount == 1)
+          ..._getDetailCards()
+        else
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: crossAxisCount,
+            crossAxisSpacing: 16,
+            mainAxisSpacing: 12,
+            childAspectRatio: 3.5,
+            children: _getDetailCards(),
           ),
       ],
     );
@@ -471,81 +509,77 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
   List<Widget> _getDetailCards() {
     return [
-      _buildDetailCard('Employee Number', _person.employeeNo, Icons.badge),
-      _buildDetailCard('First Name', _person.firstName, Icons.person),
-      _buildDetailCard('Last Name', _person.lastName, Icons.person_outline),
-      _buildDetailCard('Depot/Region', _person.depot, Icons.location_on),
-      _buildDetailCard('Designation', _person.designation, Icons.work),
-      _buildDetailCard('Access Level', _person.accessLevel, Icons.security),
-      _buildDetailCard('Person ID', _person.personID, Icons.fingerprint),
-      _buildDetailCard('UUID', _person.uuid, Icons.code),
+      _buildDetailCard('Employee Number', _person.employeeNo, Icons.badge_outlined),
+      _buildDetailCard('First Name', _person.firstName, Icons.person_outline),
+      _buildDetailCard('Last Name', _person.lastName, Icons.person_outline_outlined),
+      _buildDetailCard('Depot/Region', _person.depot, Icons.location_on_outlined),
+      _buildDetailCard('Designation', _person.designation, Icons.work_outline),
+      _buildDetailCard('Access Level', _person.accessLevel, Icons.security_outlined),
+      _buildDetailCard('Person ID', _person.personID, Icons.fingerprint_outlined),
+      _buildDetailCard('UUID', _person.uuid, Icons.code_outlined),
     ];
   }
 
   Widget _buildActionButton({required bool fullWidth}) {
-    return FadeTransition(
-      opacity: _fadeAnimation,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        width: fullWidth ? double.infinity : null,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: _person.isActive
-                  ? [Colors.orange.shade400, Colors.orange.shade600]
-                  : [Colors.green.shade400, Colors.green.shade600],
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: (_person.isActive ? Colors.orange : Colors.green).withOpacity(0.3),
-                blurRadius: 15,
-                offset: const Offset(0, 6),
-              ),
-            ],
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: fullWidth ? double.infinity : 280,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: _person.isActive
+                ? [Colors.orange.shade400, Colors.orange.shade600]
+                : [Colors.green.shade400, Colors.green.shade600],
           ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _loading ? null : _toggleActive,
-              borderRadius: BorderRadius.circular(16),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  mainAxisSize: fullWidth ? MainAxisSize.max : MainAxisSize.min,
-                  children: [
-                    if (_loading)
-                      const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      )
-                    else
-                      Icon(
-                        _person.isActive ? Icons.visibility_off : Icons.visibility,
-                        color: Colors.white,
-                        size: 20,
+          boxShadow: [
+            BoxShadow(
+              color: (_person.isActive ? Colors.orange.shade400 : Colors.green.shade400).withOpacity(0.25),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: _loading ? null : _toggleActive,
+            borderRadius: BorderRadius.circular(12),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  if (_loading)
+                    const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                       ),
-                    const SizedBox(width: 12),
-                    Text(
-                      _loading
-                          ? 'Updating...'
-                          : (_person.isActive ? 'Mark as Inactive' : 'Mark as Active'),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.3,
-                      ),
+                    )
+                  else
+                    Icon(
+                      _person.isActive ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.white,
+                      size: 20,
                     ),
-                  ],
-                ),
+                  const SizedBox(width: 12),
+                  Text(
+                    _loading
+                        ? 'Updating...'
+                        : (_person.isActive ? 'Mark as Inactive' : 'Mark as Active'),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -557,34 +591,34 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(
           _person.fullName,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 16,
+            letterSpacing: 0.2,
+          ),
         ),
-        backgroundColor: const Color(0xFF003366).withOpacity(0.95),
+        backgroundColor: const Color(0xFF003366),
         foregroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
         flexibleSpace: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF003366), Color(0xFF004080)],
+              colors: [
+                const Color(0xFF003366),
+                const Color(0xFF004080),
+              ],
             ),
           ),
         ),
       ),
       body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Colors.grey.shade100, Colors.white],
-          ),
-        ),
+        color: const Color(0xFFF8FAFC),
         child: SafeArea(
           child: _buildResponsiveLayout(context),
         ),

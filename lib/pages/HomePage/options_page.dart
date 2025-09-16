@@ -158,7 +158,6 @@ class _OptionsPageState extends State<OptionsPage> {
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => AssignedDocketsPage(userRole: widget.role),
-                            settings: RouteSettings(arguments: widget.role),
                           ),
                         );
                       },
