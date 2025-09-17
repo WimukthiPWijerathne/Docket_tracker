@@ -79,32 +79,55 @@ class PeopleService {
     required Map<String, dynamic> fields,
   }) async {
     final payload = {'personID': personID, ...fields};
-
-    final resp = await http.post(
-      Uri.parse(_updatePerson),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode(payload),
-    ).timeout(const Duration(seconds: 30));
-
-    if (resp.statusCode != 200) return false;
+    print('[DEBUG] updatePerson - Sending payload to $_updatePerson: $payload');
 
     try {
-      final m = jsonDecode(resp.body);
-      final status = (m['status'] ?? '').toString().toLowerCase();
-      return status == 'success' || status == 'warning' || m['success'] == true;
-    } catch (_) {
-      return true;
+      final resp = await http.post(
+        Uri.parse(_updatePerson),
+        headers: const {'Content-Type': 'application/json'},
+        body: jsonEncode(payload),
+      ).timeout(const Duration(seconds: 30));
+
+      print('[DEBUG] updatePerson - Response status: ${resp.statusCode}');
+      print('[DEBUG] updatePerson - Response body: ${resp.body}');
+
+      if (resp.statusCode != 200) {
+        print('[ERROR] updatePerson - Non-200 status code: ${resp.statusCode}');
+        return false;
+      }
+
+      try {
+        final m = jsonDecode(resp.body);
+        final status = (m['status'] ?? '').toString().toLowerCase();
+        final success = status == 'success' || status == 'warning' || m['success'] == true;
+        print('[DEBUG] updatePerson - Update ${success ? 'succeeded' : 'failed'} with status: $status');
+        return success;
+      } catch (e) {
+        print('[WARNING] updatePerson - Error parsing response, treating as success: $e');
+        return true;
+      }
+    } catch (e) {
+      print('[ERROR] updatePerson - Request failed: $e');
+      return false;
     }
   }
 
   Future<bool> setAvailability({
     required String personID,
     required bool active,
-  }) {
-    return updatePerson(
-      personID: personID,
-      fields: {'available': active ? 'Yes' : 'No'},
-    );
+  }) async {
+    try {
+      print('[DEBUG] setAvailability - PersonID: $personID, Setting active to: ${active ? 'Yes' : 'No'}');
+      final success = await updatePerson(
+        personID: personID,
+        fields: {'available': active ? 'Yes' : 'No'},
+      );
+      print('[DEBUG] setAvailability - Update ${success ? 'succeeded' : 'failed'} for PersonID: $personID');
+      return success;
+    } catch (e) {
+      print('[ERROR] setAvailability - Error updating availability: $e');
+      rethrow;
+    }
   }
 }
 
