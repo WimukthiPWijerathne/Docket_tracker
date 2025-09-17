@@ -67,7 +67,65 @@ class _AddPersonPageState extends State<AddPersonPage> {
   String _selectedBranch = 'Kelaniya';
   String? _selectedDepot;
   bool _showOtherDepotField = false;
+  bool _showOtherBranchField = false;
   final _otherDepotController = TextEditingController();
+  final _otherBranchController = TextEditingController();
+
+  Future<void> _showCustomBranchDialog() async {
+    final TextEditingController customBranchController = TextEditingController();
+    final bool? result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Enter Branch Name'),
+          content: TextField(
+            controller: customBranchController,
+            decoration: const InputDecoration(
+              hintText: 'Enter custom branch name',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (customBranchController.text.trim().isNotEmpty) {
+                  Navigator.of(context).pop(true);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true && customBranchController.text.trim().isNotEmpty) {
+      setState(() {
+        _selectedBranch = customBranchController.text.trim();
+        _branch.text = _selectedBranch;
+        _showOtherBranchField = true;
+        _otherBranchController.text = _selectedBranch;
+        
+        // Reset depot when branch changes to custom
+        _selectedDepot = null;
+        _depot.clear();
+        _showOtherDepotField = false;
+        _otherDepotController.clear();
+      });
+    } else {
+      // Reset to previous selection if user cancels or enters empty text
+      setState(() {
+        _selectedBranch = 'Kelaniya'; // or keep previous valid selection
+        _branch.text = _selectedBranch;
+        _showOtherBranchField = false;
+      });
+    }
+  }
 
   Future<void> _showCustomDepotDialog() async {
     final TextEditingController customDepotController = TextEditingController();
@@ -133,6 +191,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
     _empNo.dispose();
     _uuid.dispose();
     _otherDepotController.dispose();
+    _otherBranchController.dispose();
     super.dispose();
   }
 
@@ -284,45 +343,60 @@ class _AddPersonPageState extends State<AddPersonPage> {
                     const SizedBox(height: 20),
                     
                     // Branch
-                    DropdownButtonFormField<String>(
-                      isExpanded: true,
-                      value: _selectedBranch,
-                      decoration: InputDecoration(
-                        labelText: 'Branch *',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    if (_showOtherBranchField && !kBranches.contains(_selectedBranch))
+                      TextFormField(
+                        controller: _otherBranchController,
+                        decoration: InputDecoration(
+                          labelText: 'Enter Branch Name *',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
+                        onChanged: (value) {
+                          _branch.text = value;
+                          _selectedBranch = value;
+                        },
+                        validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                      )
+                    else
+                      DropdownButtonFormField<String>(
+                        isExpanded: true,
+                        value: kBranches.contains(_selectedBranch) ? _selectedBranch : null,
+                        decoration: InputDecoration(
+                          labelText: 'Branch *',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        items: kBranches
+                            .map((branch) => DropdownMenuItem(
+                                  value: branch,
+                                  child: Text(branch),
+                                ))
+                            .toList(),
+                        onChanged: (value) async {
+                          if (value == 'Other') {
+                            await _showCustomBranchDialog();
+                          } else if (value != null) {
+                            setState(() {
+                              _selectedBranch = value;
+                              _branch.text = value;
+                              _showOtherBranchField = false;
+                              
+                              if (value == 'Head Office') {
+                                _selectedDepot = 'Head Office';
+                                _depot.text = 'Head Office';
+                                _showOtherDepotField = false;
+                              } else {
+                                _selectedDepot = null;
+                                _depot.clear();
+                                _showOtherDepotField = false;
+                                _otherDepotController.clear();
+                              }
+                            });
+                          }
+                        },
                       ),
-                      items: kBranches
-                          .map((branch) => DropdownMenuItem(
-                                value: branch,
-                                child: Text(branch),
-                              ))
-                          .toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setState(() {
-                            _selectedBranch = value;
-                            _branch.text = value;
-                            
-                            if (value == 'Head Office') {
-                              _selectedDepot = 'Head Office';
-                              _depot.text = 'Head Office';
-                              _showOtherDepotField = false;
-                            } else if (value == 'Other') {
-                              _selectedDepot = null;
-                              _depot.clear();
-                              _showOtherDepotField = true;
-                            } else {
-                              _selectedDepot = null;
-                              _depot.clear();
-                              _showOtherDepotField = false;
-                              _otherDepotController.clear();
-                            }
-                          });
-                        }
-                      },
-                    ),
                     const SizedBox(height: 20),
                     
                     // Depot
@@ -353,7 +427,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
                         },
                         validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                       )
-                    else
+                    else if (kBranchDepots.containsKey(_selectedBranch))
                       DropdownButtonFormField<String>(
                         isExpanded: true,
                         value: _selectedDepot,
@@ -367,7 +441,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
                         items: (kBranchDepots[_selectedBranch] ?? []).map((depot) {
                           return DropdownMenuItem(
                             value: depot,
-                            child: Text(depot == 'Other' ? 'Other...' : depot),
+                            child: Text(depot == 'Other' ? 'Other' : depot),
                           );
                         }).toList(),
                         validator: (value) => value == null ? 'Required' : null,
@@ -382,6 +456,19 @@ class _AddPersonPageState extends State<AddPersonPage> {
                             });
                           }
                         },
+                      )
+                    else
+                      // For custom branches, show a text field for depot entry
+                      TextFormField(
+                        controller: _depot,
+                        decoration: InputDecoration(
+                          labelText: 'Region / Depot *',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          hintText: 'Enter depot name',
+                        ),
+                        validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                       ),
                     const SizedBox(height: 20),
                     

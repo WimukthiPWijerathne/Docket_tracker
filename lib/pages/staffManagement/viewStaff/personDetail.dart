@@ -84,8 +84,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           verticalPadding: 16.0,
           cardSpacing: 12.0,
           avatarRadius: 32.0,
-          titleFontSize: 18.0,
-          subtitleFontSize: 14.0,
+          titleFontSize: 20.0,  
+          subtitleFontSize: 16.0, 
           gridCrossAxisCount: 1,
           maxContentWidth: double.infinity,
           useCompactLayout: true,
@@ -96,8 +96,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           verticalPadding: 20.0,
           cardSpacing: 16.0,
           avatarRadius: 40.0,
-          titleFontSize: 20.0,
-          subtitleFontSize: 16.0,
+          titleFontSize: 24.0,  
+          subtitleFontSize: 18.0, 
           gridCrossAxisCount: 2,
           maxContentWidth: 800.0,
           useCompactLayout: false,
@@ -108,8 +108,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           verticalPadding: 24.0,
           cardSpacing: 16.0,
           avatarRadius: 48.0,
-          titleFontSize: 24.0,
-          subtitleFontSize: 18.0,
+          titleFontSize: 26.0,  
+          subtitleFontSize: 20.0, 
           gridCrossAxisCount: 2,
           maxContentWidth: 1100.0,
           useCompactLayout: false,
@@ -120,8 +120,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           verticalPadding: 32.0,
           cardSpacing: 20.0,
           avatarRadius: 52.0,
-          titleFontSize: 26.0,
-          subtitleFontSize: 20.0,
+          titleFontSize: 28.0,  
+          subtitleFontSize: 22.0, 
           gridCrossAxisCount: 2,
           maxContentWidth: 1300.0,
           useCompactLayout: false,
@@ -150,6 +150,278 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     return (a + b).toUpperCase();
   }
 
+  Future<void> _showConfirmationDialog() async {
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false, // Prevent dismissing by tapping outside
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(24),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Colors.white,
+                  const Color(0xFFF8FAFC),
+                ],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: (_person.isActive ? Colors.orange.shade100 : Colors.green.shade100).withOpacity(0.3),
+                  blurRadius: 30,
+                  offset: const Offset(0, 5),
+                ),
+              ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Animated Icon with pulsing effect
+                  TweenAnimationBuilder<double>(
+                    duration: const Duration(milliseconds: 1000),
+                    tween: Tween(begin: 0.8, end: 1.0),
+                    builder: (context, value, child) {
+                      return Transform.scale(
+                        scale: value,
+                        child: Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                (_person.isActive ? Colors.orange.shade100 : Colors.green.shade100).withOpacity(0.3),
+                                (_person.isActive ? Colors.orange.shade200 : Colors.green.shade200).withOpacity(0.1),
+                              ],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: (_person.isActive ? Colors.orange.shade300 : Colors.green.shade300).withOpacity(0.4),
+                                blurRadius: 15,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            _person.isActive ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                            size: 40,
+                            color: _person.isActive ? Colors.orange.shade700 : Colors.green.shade700,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  
+                  // Title with enhanced styling
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: (_person.isActive ? Colors.orange.shade50 : Colors.green.shade50),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: (_person.isActive ? Colors.orange.shade200 : Colors.green.shade200),
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      'Confirm ${_person.isActive ? 'Deactivation' : 'Activation'}',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: _person.isActive ? Colors.orange.shade800 : Colors.green.shade800,
+                        letterSpacing: 0.5,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  // Content with better styling
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Column(
+                      children: [
+                        Text(
+                          'Are you sure you want to mark',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF003366).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF003366).withOpacity(0.2)),
+                          ),
+                          child: Text(
+                            _person.fullName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFF003366),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'as ${_person.isActive ? 'Inactive' : 'Active'}?',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  // Action buttons with enhanced styling
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.grey.shade300, width: 2),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.shade200,
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            child: InkWell(
+                              onTap: () => Navigator.of(context).pop(false),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.close_rounded,
+                                      color: Colors.grey.shade600,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'CANCEL',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade600,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      
+                      const SizedBox(width: 16),
+                      
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: _person.isActive
+                                  ? [Colors.orange.shade500, Colors.orange.shade700]
+                                  : [Colors.green.shade500, Colors.green.shade700],
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: (_person.isActive ? Colors.orange.shade400 : Colors.green.shade400).withOpacity(0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(12),
+                            child: InkWell(
+                              onTap: () => Navigator.of(context).pop(true),
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      _person.isActive ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                      color: Colors.white,
+                                      size: 20,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      _person.isActive ? 'DEACTIVATE' : 'ACTIVATE',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        letterSpacing: 0.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    if (confirm == true) {
+      await _toggleActive();
+    }
+  }
+
   Future<void> _toggleActive() async {
     setState(() => _loading = true);
     
@@ -166,23 +438,103 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-          '${_person.fullName} marked ${_person.isActive ? "Active" : "Inactive"}'
+        content: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                _person.isActive ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Status Updated!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    '${_person.fullName} marked ${_person.isActive ? "Active" : "Inactive"}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
         backgroundColor: _person.isActive ? Colors.green.shade700 : Colors.orange.shade700,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
+        elevation: 8,
       ));
     } else {
       setState(() => _loading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: const Text('Update failed'),
+        content: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.error_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Update Failed!',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    'Unable to update ${_person.fullName} status',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         backgroundColor: Colors.red.shade700,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         margin: const EdgeInsets.all(16),
+        duration: const Duration(seconds: 4),
+        elevation: 8,
       ));
     }
   }
@@ -430,10 +782,10 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     );
   }
 
-  Widget _buildActionButton(ResponsiveValues values, {required bool fullWidth}) {
+  Widget _buildActionButton(ResponsiveValues values, {bool fullWidth = false}) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
-      width: fullWidth ? double.infinity : (values.useCompactLayout ? 200 : 280),
+      width: fullWidth ? double.infinity : 280,
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
@@ -455,7 +807,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: _loading ? null : _toggleActive,
+            onTap: _loading ? null : _showConfirmationDialog,
             borderRadius: BorderRadius.circular(12),
             child: Container(
               padding: EdgeInsets.symmetric(
@@ -563,9 +915,11 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             child: Container(
-              padding: EdgeInsets.symmetric(
-                horizontal: values.horizontalPadding,
-                vertical: values.verticalPadding,
+              padding: EdgeInsets.only(
+                left: values.horizontalPadding,
+                right: values.horizontalPadding,
+                top: values.verticalPadding,
+                bottom: values.verticalPadding + 80, // Add extra bottom padding for the floating button
               ),
               child: Column(
                 children: [
@@ -585,8 +939,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                     ),
                   ),
                                             ..._getDetailCards(values),
-                  SizedBox(height: values.cardSpacing * 2),
-                  _buildActionButton(values, fullWidth: true),
                   SizedBox(height: values.verticalPadding),
                 ],
               ),
@@ -659,16 +1011,18 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Left column - Profile
-                    Expanded(
-                      flex: screenWidth > 1200 ? 2 : 3,
-                      child: Column(
-                        children: [
-                          _buildProfileHeader(values),
-                          SizedBox(height: values.cardSpacing * 2),
-                          _buildActionButton(values, fullWidth: true),
-                        ],
+                    if (screenWidth > 1024 || screenType == ScreenType.mobile) ...[
+                      if (screenType != ScreenType.mobile)
+                        SizedBox(width: values.cardSpacing * 2),
+                      Expanded(
+                        flex: screenWidth > 1200 ? 2 : 3,
+                        child: Column(
+                          children: [
+                            _buildProfileHeader(values),
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                     SizedBox(width: values.cardSpacing * 2),
                     // Right column - Details
                     Expanded(
@@ -722,6 +1076,15 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         foregroundColor: Colors.white,
         elevation: 0,
         centerTitle: screenType == ScreenType.mobile,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home),
+            onPressed: () {
+              // Navigate back to home/root page
+              Navigator.of(context).popUntil((route) => route.isFirst);
+            },
+          ),
+        ],
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -735,11 +1098,28 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           ),
         ),
       ),
-      body: Container(
-        color: const Color(0xFFF8FAFC),
-        child: SafeArea(
-          child: _buildResponsiveLayout(context),
-        ),
+      body: Stack(
+        children: [
+          Container(
+            color: const Color(0xFFF8FAFC),
+            child: SafeArea(
+              child: _buildResponsiveLayout(context),
+            ),
+          ),
+          // Floating action button at bottom
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 20,
+            child: Center(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: _buildActionButton(values, fullWidth: true),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../model/httpServicePeople.dart';
 import '../model/person.dart';
 import 'personDetail.dart'; // Add this import
+import 'edit_person_page.dart';
 
 
 const List<String> kDesignations = [
@@ -17,6 +18,18 @@ const List<String> kDepots = [
   'Mahara',
   'Paliyagoda',
 ];
+
+// Mapping of designations to their corresponding access levels
+const Map<String, String> kDesignationAccessLevels = {
+  'Admin': '1',
+  'CE': '2',
+  'SEE': '3',
+  'EE': '4',
+  'TO': '5',
+  'CSS': '6',
+  'RO': '7',
+  'Technician': '8',
+};
 
 class ViewPeoplePage extends StatefulWidget {
   const ViewPeoplePage({super.key});
@@ -129,6 +142,61 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
     });
   }
 
+  // Helper function to generate changes list
+  List<Map<String, String>> _generateChangesList(Person p, String firstName, String lastName, String depot, String empNo, String designation, String accessLevel) {
+    List<Map<String, String>> changes = [];
+    
+    if (firstName.trim() != p.firstName) {
+      changes.add({
+        'field': 'First Name',
+        'old': p.firstName,
+        'new': firstName.trim(),
+      });
+    }
+    
+    if (lastName.trim() != p.lastName) {
+      changes.add({
+        'field': 'Last Name',
+        'old': p.lastName,
+        'new': lastName.trim(),
+      });
+    }
+    
+    if (depot != p.depot) {
+      changes.add({
+        'field': 'Depot',
+        'old': p.depot,
+        'new': depot,
+      });
+    }
+    
+    if (empNo.trim() != p.employeeNo) {
+      changes.add({
+        'field': 'Employee No',
+        'old': p.employeeNo,
+        'new': empNo.trim(),
+      });
+    }
+    
+    if (designation != p.designation) {
+      changes.add({
+        'field': 'Designation',
+        'old': p.designation,
+        'new': designation,
+      });
+    }
+    
+    if (accessLevel.trim() != p.accessLevel) {
+      changes.add({
+        'field': 'Access Level',
+        'old': p.accessLevel,
+        'new': accessLevel.trim(),
+      });
+    }
+    
+    return changes;
+  }
+
   // ---------- UI helpers ----------
 
 Widget _summaryPanel() {
@@ -201,15 +269,7 @@ Widget _summaryPanel() {
                   ),
                 ),
                 const Spacer(),
-                if (total > 0)
-                  Text(
-                    '${((active / total) * 100).toStringAsFixed(0)}% active',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.green.shade700,
-                    ),
-                  ),
+                
               ],
             ),
             const SizedBox(height: 10),
@@ -252,15 +312,29 @@ Widget _summaryPanel() {
   Future<void> _edit(Person p) async {
     final first = TextEditingController(text: p.firstName);
     final last = TextEditingController(text: p.lastName);
-    final depot = TextEditingController(text: p.depot);
     final emp = TextEditingController(text: p.employeeNo);
+    
+    // Ensure designation is valid, fallback to first available option
     String designation = p.designation;
-    String accessLevel = p.accessLevel;
+    if (designation.isEmpty || !kDesignations.contains(designation)) {
+      designation = kDesignations.firstWhere((d) => d != 'All');
+    }
+    
+    // Ensure depot is valid, fallback to first available option
+    String selectedDepot = p.depot;
+    if (selectedDepot.isEmpty || !kDepots.contains(selectedDepot)) {
+      selectedDepot = kDepots.firstWhere((d) => d != 'All');
+    }
+    
+    // Initialize access level based on designation
+    String accessLevel = kDesignationAccessLevels[designation] ?? p.accessLevel;
+    final accessLevelController = TextEditingController(text: accessLevel);
 
-    final saved = await showModalBottomSheet<bool>(
+    final saved = await showModalBottomSheet<Object?>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) {
+        final formKey = GlobalKey<FormState>();
         return Padding(
           padding:
           EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
@@ -268,9 +342,11 @@ Widget _summaryPanel() {
             top: false,
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   const Text('Edit Person',
                       style:
                       TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
@@ -278,33 +354,69 @@ Widget _summaryPanel() {
                   Row(
                     children: [
                       Expanded(
-                          child: TextField(
+                          child: TextFormField(
                               controller: first,
                               decoration: const InputDecoration(
-                                  labelText: 'First name'))),
+                                  labelText: 'First name'),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'First name is required';
+                                }
+                                return null;
+                              })),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: TextField(
+                          child: TextFormField(
                               controller: last,
                               decoration: const InputDecoration(
-                                  labelText: 'Last name'))),
+                                  labelText: 'Last name'),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Last name is required';
+                                }
+                                return null;
+                              })),
                     ],
                   ),
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
-                          child: TextField(
-                              controller: depot,
-                              decoration: const InputDecoration(
-                                  labelText: 'Region / Depot'))),
+                        child: DropdownButtonFormField<String>(
+                          value: selectedDepot.isNotEmpty ? selectedDepot : null,
+                          items: kDepots
+                              .where((e) => e != 'All')
+                              .map((d) =>
+                              DropdownMenuItem(value: d, child: Text(d)))
+                              .toList(),
+                          onChanged: (v) {
+                            if (v != null) {
+                              selectedDepot = v;
+                            }
+                          },
+                          decoration: const InputDecoration(
+                              labelText: 'Region / Depot'),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please select a depot';
+                            }
+                            return null;
+                          },
+                        ),
+                      ),
                       const SizedBox(width: 12),
                       Expanded(
-                          child: TextField(
+                          child: TextFormField(
                             controller: emp,
                             decoration:
                             const InputDecoration(labelText: 'Employee No'),
-                            keyboardType: TextInputType.number,
+                            keyboardType: TextInputType.text,
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Employee No is required';
+                              }
+                              return null;
+                            },
                           )),
                     ],
                   ),
@@ -313,26 +425,46 @@ Widget _summaryPanel() {
                     children: [
                       Expanded(
                         child: DropdownButtonFormField<String>(
-                          value: designation,
+                          value: designation.isNotEmpty ? designation : null,
                           items: kDesignations
                               .where((e) => e != 'All')
                               .map((d) =>
                               DropdownMenuItem(value: d, child: Text(d)))
                               .toList(),
-                          onChanged: (v) => designation = v ?? designation,
+                          onChanged: (v) {
+                            if (v != null) {
+                              designation = v;
+                              // Auto-fill access level based on designation
+                              final newAccessLevel = kDesignationAccessLevels[v] ?? '';
+                              accessLevel = newAccessLevel;
+                              accessLevelController.text = newAccessLevel;
+                            }
+                          },
                           decoration: const InputDecoration(
                               labelText: 'Designation'),
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please select a designation';
+                            }
+                            return null;
+                          },
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: TextField(
-                          controller:
-                          TextEditingController(text: accessLevel),
+                        child: TextFormField(
+                          controller: accessLevelController,
                           onChanged: (v) => accessLevel = v,
                           decoration: const InputDecoration(
-                              labelText: 'Access level'),
+                            labelText: 'Access level',
+                          ),
                           keyboardType: TextInputType.number,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Access level is required';
+                            }
+                            return null;
+                          },
                         ),
                       ),
                     ],
@@ -342,7 +474,226 @@ Widget _summaryPanel() {
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => Navigator.pop(ctx, false),
+                          onPressed: () async {
+                            // Check if there are any changes before showing confirmation
+                            bool hasChanges = first.text.trim() != p.firstName ||
+                                last.text.trim() != p.lastName ||
+                                selectedDepot != p.depot ||
+                                emp.text.trim() != p.employeeNo ||
+                                designation != p.designation ||
+                                accessLevelController.text.trim() != p.accessLevel;
+
+                            if (hasChanges) {
+                              // Show confirmation dialog only if there are changes
+                              final bool? confirm = await showDialog<bool>(
+                                context: ctx,
+                                builder: (BuildContext context) {
+                                  return Dialog(
+                                    backgroundColor: Colors.transparent,
+                                    elevation: 0,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(20),
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Colors.white,
+                                            const Color(0xFFF8FAFC),
+                                          ],
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.15),
+                                            blurRadius: 20,
+                                            offset: const Offset(0, 10),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            // Icon
+                                            Container(
+                                              width: 60,
+                                              height: 60,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                gradient: RadialGradient(
+                                                  colors: [
+                                                    Colors.orange.shade100.withOpacity(0.3),
+                                                    Colors.orange.shade200.withOpacity(0.1),
+                                                  ],
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.orange.shade300.withOpacity(0.4),
+                                                    blurRadius: 15,
+                                                    spreadRadius: 2,
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Icon(
+                                                Icons.warning_rounded,
+                                                size: 30,
+                                                color: Colors.orange.shade700,
+                                              ),
+                                            ),
+                                            
+                                            const SizedBox(height: 16),
+                                            
+                                            // Title
+                                            Text(
+                                              'Unsaved Changes',
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.orange.shade800,
+                                                letterSpacing: 0.5,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            
+                                            const SizedBox(height: 12),
+                                            
+                                            // Content
+                                            Text(
+                                              'You have unsaved changes. Do you want to discard them and close the editor?',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: Colors.grey.shade700,
+                                                fontWeight: FontWeight.w500,
+                                              ),
+                                              textAlign: TextAlign.center,
+                                            ),
+                                            
+                                            const SizedBox(height: 24),
+                                            
+                                            // Action buttons
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      gradient: LinearGradient(
+                                                        begin: Alignment.topLeft,
+                                                        end: Alignment.bottomRight,
+                                                        colors: [
+                                                          Colors.green.shade500,
+                                                          Colors.green.shade700,
+                                                        ],
+                                                      ),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.green.shade400.withOpacity(0.4),
+                                                          blurRadius: 12,
+                                                          offset: const Offset(0, 4),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Material(
+                                                      color: Colors.transparent,
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      child: InkWell(
+                                                        onTap: () => Navigator.of(context).pop(false),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                                          child: Row(
+                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            children: [
+                                                              Icon(
+                                                                Icons.edit_rounded,
+                                                                color: Colors.white,
+                                                                size: 18,
+                                                              ),
+                                                              const SizedBox(width: 6),
+                                                              Text(
+                                                                'KEEP EDITING',
+                                                                style: const TextStyle(
+                                                                  color: Colors.white,
+                                                                  fontWeight: FontWeight.w700,
+                                                                  fontSize: 12,
+                                                                  letterSpacing: 0.5,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                
+                                                const SizedBox(width: 12),
+                                                
+                                                Expanded(
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      border: Border.all(color: Colors.grey.shade300, width: 2),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.grey.shade200,
+                                                          blurRadius: 8,
+                                                          offset: const Offset(0, 2),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Material(
+                                                      color: Colors.white,
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      child: InkWell(
+                                                        onTap: () => Navigator.of(context).pop(true),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                                          child: Row(
+                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            children: [
+                                                              Icon(
+                                                                Icons.close_rounded,
+                                                                color: Colors.grey.shade600,
+                                                                size: 18,
+                                                              ),
+                                                              const SizedBox(width: 6),
+                                                              Text(
+                                                                'DISCARD',
+                                                                style: TextStyle(
+                                                                  color: Colors.grey.shade600,
+                                                                  fontWeight: FontWeight.w600,
+                                                                  fontSize: 12,
+                                                                  letterSpacing: 0.5,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+
+                              if (confirm == true) {
+                                Navigator.pop(ctx, false);
+                              }
+                            } else {
+                              // No changes, close directly
+                              Navigator.pop(ctx, false);
+                            }
+                          },
                           child: const Text('Cancel'),
                         ),
                       ),
@@ -350,19 +701,370 @@ Widget _summaryPanel() {
                       Expanded(
                         child: ElevatedButton(
                           onPressed: () async {
-                            final ok = await _svc.updatePerson(
-                              personID: p.personID,
-                              fields: {
-                                'firstName': first.text.trim(),
-                                'lastName': last.text.trim(),
-                                'depot': depot.text.trim(),
-                                'employeeNo': emp.text.trim(),
-                                'designation': designation.trim(),
-                                'accessLevel': accessLevel.trim(),
-                              },
-                            );
-                            if (!mounted) return;
-                            Navigator.pop(ctx, ok);
+                            if (formKey.currentState?.validate() ?? false) {
+                              // Generate changes list
+                              final changes = _generateChangesList(p, first.text, last.text, selectedDepot, emp.text, designation, accessLevelController.text);
+                              
+                              // Show confirmation dialog
+                              final bool? confirm = await showDialog<bool>(
+                                context: ctx,
+                                builder: (BuildContext context) {
+                                  return Dialog(
+                                    backgroundColor: Colors.transparent,
+                                    elevation: 0,
+                                    child: Container(
+                                      constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(20),
+                                        gradient: LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Colors.white,
+                                            const Color(0xFFF8FAFC),
+                                          ],
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.15),
+                                            blurRadius: 20,
+                                            offset: const Offset(0, 10),
+                                          ),
+                                        ],
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(24),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            // Icon
+                                            Container(
+                                              width: 60,
+                                              height: 60,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                gradient: RadialGradient(
+                                                  colors: [
+                                                    Colors.blue.shade100.withOpacity(0.3),
+                                                    Colors.blue.shade200.withOpacity(0.1),
+                                                  ],
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Colors.blue.shade300.withOpacity(0.4),
+                                                    blurRadius: 15,
+                                                    spreadRadius: 2,
+                                                  ),
+                                                ],
+                                              ),
+                                              child: Icon(
+                                                Icons.save_rounded,
+                                                size: 30,
+                                                color: Colors.blue.shade700,
+                                              ),
+                                            ),
+                                            
+                                            const SizedBox(height: 16),
+                                            
+                                            // Title
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                              decoration: BoxDecoration(
+                                                color: Colors.blue.shade50,
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(
+                                                  color: Colors.blue.shade200,
+                                                  width: 1,
+                                                ),
+                                              ),
+                                              child: Text(
+                                                'Save Changes',
+                                                style: TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Colors.blue.shade800,
+                                                  letterSpacing: 0.5,
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                            
+                                            const SizedBox(height: 12),
+                                            
+                                            // Person name
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                              decoration: BoxDecoration(
+                                                color: const Color(0xFF003366).withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: const Color(0xFF003366).withOpacity(0.2)),
+                                              ),
+                                              child: Text(
+                                                p.fullName,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  fontWeight: FontWeight.w700,
+                                                  color: Color(0xFF003366),
+                                                ),
+                                                textAlign: TextAlign.center,
+                                              ),
+                                            ),
+                                            
+                                            const SizedBox(height: 16),
+                                            
+                                            // Changes section
+                                            if (changes.isNotEmpty) ...[
+                                              Container(
+                                                width: double.infinity,
+                                                padding: const EdgeInsets.all(16),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade50,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  border: Border.all(color: Colors.grey.shade200),
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Row(
+                                                      children: [
+                                                        Icon(
+                                                          Icons.edit_rounded,
+                                                          size: 16,
+                                                          color: Colors.blue.shade600,
+                                                        ),
+                                                        const SizedBox(width: 6),
+                                                        Text(
+                                                          'Changes to be saved:',
+                                                          style: TextStyle(
+                                                            fontSize: 12,
+                                                            fontWeight: FontWeight.w600,
+                                                            color: Colors.blue.shade700,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    const SizedBox(height: 8),
+                                                    ...changes.map((change) => Container(
+                                                      margin: const EdgeInsets.only(bottom: 6),
+                                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        border: Border.all(color: Colors.grey.shade300),
+                                                      ),
+                                                      child: Row(
+                                                        children: [
+                                                          Expanded(
+                                                            flex: 2,
+                                                            child: Text(
+                                                              change['field']!,
+                                                              style: TextStyle(
+                                                                fontSize: 11,
+                                                                fontWeight: FontWeight.w600,
+                                                                color: Colors.grey.shade700,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                          Expanded(
+                                                            flex: 3,
+                                                            child: Text(
+                                                              change['old']!,
+                                                              style: TextStyle(
+                                                                fontSize: 11,
+                                                                color: Colors.red.shade600,
+                                                                decoration: TextDecoration.lineThrough,
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ),
+                                                          Icon(
+                                                            Icons.arrow_forward_rounded,
+                                                            size: 12,
+                                                            color: Colors.grey.shade500,
+                                                          ),
+                                                          Expanded(
+                                                            flex: 3,
+                                                            child: Text(
+                                                              change['new']!,
+                                                              style: TextStyle(
+                                                                fontSize: 11,
+                                                                fontWeight: FontWeight.w600,
+                                                                color: Colors.green.shade600,
+                                                              ),
+                                                              maxLines: 1,
+                                                              overflow: TextOverflow.ellipsis,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    )).toList(),
+                                                  ],
+                                                ),
+                                              ),
+                                            ] else ...[
+                                              Container(
+                                                width: double.infinity,
+                                                padding: const EdgeInsets.all(16),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.green.shade50,
+                                                  borderRadius: BorderRadius.circular(12),
+                                                  border: Border.all(color: Colors.green.shade200),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.check_circle_rounded,
+                                                      size: 16,
+                                                      color: Colors.green.shade600,
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    Text(
+                                                      'No changes detected',
+                                                      style: TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                        color: Colors.green.shade700,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                            
+                                            const SizedBox(height: 20),
+                                            
+                                            // Action buttons
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      border: Border.all(color: Colors.grey.shade300, width: 2),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.grey.shade200,
+                                                          blurRadius: 8,
+                                                          offset: const Offset(0, 2),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Material(
+                                                      color: Colors.white,
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      child: InkWell(
+                                                        onTap: () => Navigator.of(context).pop(false),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                                          child: Row(
+                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            children: [
+                                                              Icon(
+                                                                Icons.close_rounded,
+                                                                color: Colors.grey.shade600,
+                                                                size: 18,
+                                                              ),
+                                                              const SizedBox(width: 6),
+                                                              Text(
+                                                                'CANCEL',
+                                                                style: TextStyle(
+                                                                  color: Colors.grey.shade600,
+                                                                  fontWeight: FontWeight.w600,
+                                                                  fontSize: 12,
+                                                                  letterSpacing: 0.5,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                
+                                                const SizedBox(width: 12),
+                                                
+                                                Expanded(
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      gradient: LinearGradient(
+                                                        begin: Alignment.topLeft,
+                                                        end: Alignment.bottomRight,
+                                                        colors: [
+                                                          Colors.blue.shade500,
+                                                          Colors.blue.shade700,
+                                                        ],
+                                                      ),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Colors.blue.shade400.withOpacity(0.4),
+                                                          blurRadius: 12,
+                                                          offset: const Offset(0, 4),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                    child: Material(
+                                                      color: Colors.transparent,
+                                                      borderRadius: BorderRadius.circular(12),
+                                                      child: InkWell(
+                                                        onTap: () => Navigator.of(context).pop(true),
+                                                        borderRadius: BorderRadius.circular(12),
+                                                        child: Container(
+                                                          padding: const EdgeInsets.symmetric(vertical: 12),
+                                                          child: Row(
+                                                            mainAxisAlignment: MainAxisAlignment.center,
+                                                            children: [
+                                                              Icon(
+                                                                Icons.save_rounded,
+                                                                color: Colors.white,
+                                                                size: 18,
+                                                              ),
+                                                              const SizedBox(width: 6),
+                                                              Text(
+                                                                'SAVE',
+                                                                style: const TextStyle(
+                                                                  color: Colors.white,
+                                                                  fontWeight: FontWeight.w700,
+                                                                  fontSize: 12,
+                                                                  letterSpacing: 0.5,
+                                                                ),
+                                                              ),
+                                                            ],
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              );
+
+                              if (confirm == true) {
+                                final result = await _svc.updatePerson(
+                                  personID: p.personID,
+                                  fields: {
+                                    'firstName': first.text.trim(),
+                                    'lastName': last.text.trim(),
+                                    'depot': selectedDepot.trim(),
+                                    'employeeNo': emp.text.trim(),
+                                    'designation': designation.trim(),
+                                    'accessLevel': accessLevelController.text.trim(),
+                                  },
+                                );
+                                if (!mounted) return;
+                                Navigator.pop(ctx, result);
+                              }
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF003366),
@@ -373,7 +1075,8 @@ Widget _summaryPanel() {
                       ),
                     ],
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -381,13 +1084,221 @@ Widget _summaryPanel() {
       },
     );
 
-    if (saved == true) {
+    if (saved != null && saved != false) {
       await _load();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Updated'),
-        backgroundColor: Colors.green,
-      ));
+      
+      // Handle different response types
+      if (saved is Map) {
+        final status = saved['status']?.toString();
+        final message = saved['message']?.toString();
+        final affectedRowsRaw = saved['affected_rows'];
+        final int? affectedRows = affectedRowsRaw is int
+            ? affectedRowsRaw
+            : int.tryParse(affectedRowsRaw?.toString() ?? '');
+        
+        if (status == 'success' || affectedRows != null && affectedRows > 0) {
+          // Success case
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.check_circle_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Update Successful!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        message ?? 'Person details updated successfully',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.green.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 4),
+            elevation: 8,
+          ));
+        } else if (status == 'warning') {
+          // Warning case (like "No changes made")
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.info_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'No Changes Made',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        message ?? 'No changes were detected',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.orange.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 4),
+            elevation: 8,
+          ));
+        } else {
+          // Error case
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.error_rounded,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Update Failed!',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 14,
+                        ),
+                      ),
+                      Text(
+                        message ?? 'Failed to update person details',
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            margin: const EdgeInsets.all(16),
+            duration: const Duration(seconds: 4),
+            elevation: 8,
+          ));
+        }
+      } else if (saved == true) {
+        // Fallback for boolean true response
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.check_circle_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Update Successful!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Text(
+                      'Person details updated successfully',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 4),
+          elevation: 8,
+        ));
+      }
     }
   }
 
@@ -440,7 +1351,56 @@ Widget _summaryPanel() {
 
               final editButton = IconButton(
                 tooltip: 'Edit',
-                onPressed: () => _edit(p),
+                onPressed: () async {
+                  final result = await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => EditPersonPage(person: p),
+                    ),
+                  );
+                  if (result != null && result != false) {
+                    await _load();
+                    if (!mounted) return;
+                    if (result is Map) {
+                      final status = result['status']?.toString();
+                      final message = result['message']?.toString();
+                      final affectedRowsRaw = result['affected_rows'];
+                      final int? affectedRows = affectedRowsRaw is int
+                          ? affectedRowsRaw
+                          : int.tryParse(affectedRowsRaw?.toString() ?? '');
+                      Color bg; IconData icon; String title;
+                      if (status == 'success' || (affectedRows != null && affectedRows > 0)) {
+                        bg = Colors.green.shade700; icon = Icons.check_circle_rounded; title = 'Update Successful!';
+                      } else if (status == 'warning') {
+                        bg = Colors.orange.shade700; icon = Icons.info_rounded; title = 'No Changes Made';
+                      } else {
+                        bg = Colors.red.shade700; icon = Icons.error_rounded; title = 'Update Failed!';
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Row(children: [
+                          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: Colors.white, size: 20)),
+                          const SizedBox(width: 12),
+                          Expanded(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                            Text(message ?? (title == 'No Changes Made' ? 'No changes were detected' : 'Person details updated'), style: TextStyle(color: Colors.white.withOpacity(0.9), fontSize: 12)),
+                          ])),
+                        ]),
+                        backgroundColor: bg, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), margin: const EdgeInsets.all(16), duration: const Duration(seconds: 4), elevation: 8,
+                      ));
+                    } else if (result == true) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Row(children: [
+                          Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.check_circle_rounded, color: Colors.white, size: 20)),
+                          const SizedBox(width: 12),
+                          const Expanded(child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text('Update Successful!', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+                            Text('Person details updated successfully', style: TextStyle(color: Colors.white, fontSize: 12)),
+                          ])),
+                        ]),
+                        backgroundColor: Colors.green.shade700, behavior: SnackBarBehavior.floating, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), margin: const EdgeInsets.all(16), duration: const Duration(seconds: 4), elevation: 8,
+                      ));
+                    }
+                  }
+                },
                 icon: Icon(Icons.edit, size: showIconOnly ? 18 : 20),
                 padding: const EdgeInsets.all(8),
                 constraints: const BoxConstraints(),
