@@ -6,8 +6,19 @@ const List<String> kDesignations = [
   'Admin', 'CE', 'SEE', 'EE', 'TO', 'CSS', 'RO', 'Technician'
 ];
 
+const Map<String, String> kDesignationAccessLevels = {
+  'Admin': '1',
+  'CE': '2',
+  'SEE': '3',
+  'EE': '4',
+  'TO': '5',
+  'CSS': '6',
+  'RO': '7',
+  'Technician': '8',
+};
+
 const List<String> kBranches = [
-  'HQ',
+  'Head Office',
   'Kotte',
   'Nugegoda',
   'Moratuwa',
@@ -19,16 +30,16 @@ const List<String> kBranches = [
 ];
 
 final Map<String, List<String>> kBranchDepots = {
-  'Kelaniya': ['Wattala', 'Kandana', 'Mahara', 'Dalugama'],
-  'Kotte': ['Depot 1', 'Depot 2', 'Depot 3'],
-  'Nugegoda': ['Depot 4', 'Depot 5'],
-  'Moratuwa': ['Depot 6', 'Depot 7'],
-  'Kalutara': ['Depot 8', 'Depot 9'],
-  'Negombo': ['Depot 10', 'Depot 11'],
-  'Galle': ['Depot 12', 'Depot 13'],
-  'HQ': ['Head Office'],
+  'Kelaniya': ['Wattala', 'Kandana', 'Mahara', 'Dalugama','Other'],
+  'Kotte': ['Pitakotte', 'Kolonnawa', 'Kotikawatta','Other'],
+  'Nugegoda': ['Boralesgamuwa', 'Nugegoda','Maharagama','Other'],
+  'Moratuwa': ['Moratuwa North', 'Moratuwa South','Keselwatta','Panadura','Koralawella','Other'],
+  'Kalutara': ['Payagala', 'Kalutara','Aluthgama','Other'],
+  'Negombo': ['Negambo', 'Seeduwa','Ja-Ela','Other'],
+  'Galle': ['Ambalangoda', 'Hikkaduwa','Galle','Other'],
+  'Head Office': ['Head Office'],
 };
-
+  
 class AddPersonPage extends StatefulWidget {
   const AddPersonPage({super.key});
 
@@ -47,15 +58,65 @@ class _AddPersonPageState extends State<AddPersonPage> {
   String _salutation = 'Mr';
   final _empNo = TextEditingController();
   final _uuid = TextEditingController();
+  final _accessLevelController = TextEditingController(text: kDesignationAccessLevels['Technician']);
 
   String _designation = 'Technician';
-  String _accessLevel = '7';
+  String get _accessLevel => _accessLevelController.text;
   bool _active = true;
   bool _saving = false;
   String _selectedBranch = 'Kelaniya';
   String? _selectedDepot;
   bool _showOtherDepotField = false;
   final _otherDepotController = TextEditingController();
+
+  Future<void> _showCustomDepotDialog() async {
+    final TextEditingController customDepotController = TextEditingController();
+    final bool? result = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Enter Depot Name'),
+          content: TextField(
+            controller: customDepotController,
+            decoration: const InputDecoration(
+              hintText: 'Enter custom depot name',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+          ),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (customDepotController.text.trim().isNotEmpty) {
+                  Navigator.of(context).pop(true);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (result == true && customDepotController.text.trim().isNotEmpty) {
+      setState(() {
+        _selectedDepot = customDepotController.text.trim();
+        _depot.text = _selectedDepot!;
+        _showOtherDepotField = true;
+        _otherDepotController.text = _selectedDepot!;
+      });
+    } else {
+      // Reset to null if user cancels or enters empty text
+      setState(() {
+        _selectedDepot = null;
+        _depot.clear();
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -80,10 +141,11 @@ class _AddPersonPageState extends State<AddPersonPage> {
 
     setState(() => _saving = true);
     
+    final isHeadOffice = _branch.text.trim() == 'Head Office';
     final personData = {
       'firstName': '$_salutation ${_first.text.trim()}',
       'lastName': _last.text.trim(),
-      'depot': _depot.text.trim(),
+      'depot': isHeadOffice ? 'Head Office' : _depot.text.trim(),
       'branch': _branch.text.trim(),
       'employeeNo': _empNo.text.trim(),
       'designation': _designation.trim(),
@@ -91,6 +153,10 @@ class _AddPersonPageState extends State<AddPersonPage> {
       'available': _active ? 'Yes' : 'No',
       'uuid': _uuid.text.trim(),
     };
+    
+    debugPrint('Is Head Office: $isHeadOffice');
+    debugPrint('Original Depot: ${_depot.text.trim()}');
+    debugPrint('Final Depot: ${personData['depot']}');
     
     debugPrint('Saving person data: $personData');
     final ok = await _svc.createPerson(
@@ -206,12 +272,13 @@ class _AddPersonPageState extends State<AddPersonPage> {
                     TextFormField(
                       controller: _empNo,
                       decoration: InputDecoration(
-                        labelText: 'Employee Number *',
+                        labelText: 'Employee ID *',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
+                        hintText: 'Enter Employee ID',
                       ),
-                      keyboardType: TextInputType.number,
+                      keyboardType: TextInputType.text,
                       validator: (v) => v!.trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 20),
@@ -237,10 +304,19 @@ class _AddPersonPageState extends State<AddPersonPage> {
                           setState(() {
                             _selectedBranch = value;
                             _branch.text = value;
-                            _selectedDepot = null;
-                            _depot.clear();
-                            _showOtherDepotField = value == 'Other';
-                            if (!_showOtherDepotField) {
+                            
+                            if (value == 'Head Office') {
+                              _selectedDepot = 'Head Office';
+                              _depot.text = 'Head Office';
+                              _showOtherDepotField = false;
+                            } else if (value == 'Other') {
+                              _selectedDepot = null;
+                              _depot.clear();
+                              _showOtherDepotField = true;
+                            } else {
+                              _selectedDepot = null;
+                              _depot.clear();
+                              _showOtherDepotField = false;
                               _otherDepotController.clear();
                             }
                           });
@@ -250,7 +326,20 @@ class _AddPersonPageState extends State<AddPersonPage> {
                     const SizedBox(height: 20),
                     
                     // Depot
-                    if (_showOtherDepotField)
+                    if (_selectedBranch == 'Head Office')
+                      TextFormField(
+                        controller: TextEditingController(text: 'Head Office'),
+                        readOnly: true,
+                        decoration: InputDecoration(
+                          labelText: 'Region / Depot',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          filled: true,
+                          fillColor: Colors.grey[200],
+                        ),
+                      )
+                    else if (_showOtherDepotField && _selectedDepot != null)
                       TextFormField(
                         controller: _otherDepotController,
                         decoration: InputDecoration(
@@ -260,7 +349,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
                           ),
                         ),
                         onChanged: (value) {
-                          _depot.text = value;
+                          _depot.text = value!;
                         },
                         validator: (value) => value == null || value.isEmpty ? 'Required' : null,
                       )
@@ -275,16 +364,21 @@ class _AddPersonPageState extends State<AddPersonPage> {
                           ),
                         ),
                         hint: const Text('Select depot'),
-                        items: (kBranchDepots[_selectedBranch] ?? []).map((depot) => DropdownMenuItem(
-                              value: depot,
-                              child: Text(depot),
-                            )).toList(),
+                        items: (kBranchDepots[_selectedBranch] ?? []).map((depot) {
+                          return DropdownMenuItem(
+                            value: depot,
+                            child: Text(depot == 'Other' ? 'Other...' : depot),
+                          );
+                        }).toList(),
                         validator: (value) => value == null ? 'Required' : null,
-                        onChanged: (value) {
-                          if (value != null) {
+                        onChanged: (value) async {
+                          if (value == 'Other') {
+                            await _showCustomDepotDialog();
+                          } else if (value != null) {
                             setState(() {
                               _selectedDepot = value;
                               _depot.text = value;
+                              _showOtherDepotField = false;
                             });
                           }
                         },
@@ -300,7 +394,14 @@ class _AddPersonPageState extends State<AddPersonPage> {
                             items: kDesignations
                                 .map((d) => DropdownMenuItem(value: d, child: Text(d)))
                                 .toList(),
-                            onChanged: (v) => setState(() => _designation = v ?? _designation),
+                            onChanged: (v) {
+                              if (v != null) {
+                                setState(() {
+                                  _designation = v;
+                                  _accessLevelController.text = kDesignationAccessLevels[v] ?? '8';
+                                });
+                              }
+                            },
                             decoration: InputDecoration(
                               labelText: 'Designation *',
                               border: OutlineInputBorder(
@@ -313,15 +414,18 @@ class _AddPersonPageState extends State<AddPersonPage> {
                         SizedBox(
                           width: 120,
                           child: TextFormField(
-                            initialValue: _accessLevel,
+                            controller: _accessLevelController,
+                            readOnly: true,
                             decoration: InputDecoration(
                               labelText: 'Access Level *',
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
+                              filled: true,
+                              fillColor: Colors.grey[200],
                             ),
                             keyboardType: TextInputType.number,
-                            onChanged: (v) => _accessLevel = v,
+                            onChanged: (v) => _accessLevelController.text = v ?? '',
                             validator: (v) => v!.trim().isEmpty ? 'Required' : null,
                           ),
                         ),
