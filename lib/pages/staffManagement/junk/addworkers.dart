@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter/material.dart';
@@ -23,19 +22,21 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
 
   Future<void> submitWorker() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final body = {
         "firstName": _firstNameController.text.trim(),
         "lastName": _lastNameController.text.trim(),
         "depot": selectedDepot,
       };
-      
-      final response = await http.post(
-        Uri.parse('https://powerprox.sltidc.lk/POSTPeople2.php'),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: body.map((key, value) => MapEntry(key, value.toString())),
-      ).timeout(const Duration(seconds: 30));
+
+      final response = await http
+          .post(
+            Uri.parse('https://powerprox.sltidc.lk/POSTPeople2.php'),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: body.map((key, value) => MapEntry(key, value.toString())),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -49,8 +50,7 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
           });
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(data['message'] ?? "Failed to add worker")),
+            SnackBar(content: Text(data['message'] ?? "Failed to add worker")),
           );
         }
       } else {
@@ -63,9 +63,9 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
         const SnackBar(content: Text("Request timed out. Please try again.")),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -136,10 +136,10 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
                   prefixIcon: Icon(Icons.location_city),
                 ),
                 items: depots
-                    .map((depot) => DropdownMenuItem(
-                          value: depot,
-                          child: Text(depot),
-                        ))
+                    .map(
+                      (depot) =>
+                          DropdownMenuItem(value: depot, child: Text(depot)),
+                    )
                     .toList(),
                 onChanged: (value) {
                   if (value != null) {
@@ -183,14 +183,13 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
                         },
                   icon: const Icon(Icons.add),
                   label: _isLoading
-                      ? const CircularProgressIndicator(
-                          color: Colors.white,
-                        )
+                      ? const CircularProgressIndicator(color: Colors.white)
                       : const Text("Add Worker"),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.teal,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
@@ -201,7 +200,7 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
     );
   }
 }
-=======
+
 // import 'dart:convert';
 // import 'dart:async';
 // import 'package:flutter/material.dart';
@@ -384,4 +383,4 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
 //     );
 //   }
 // }
->>>>>>> 2a2a7f93f9f04d9007865cc1dc03218847d2e49e
+

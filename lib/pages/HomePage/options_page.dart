@@ -9,6 +9,7 @@ import '../AssignedDockets/assigned_dockets_page.dart';
 // 🔹 Import Workers Summary page (you can create this later)
 import '../../pages/workersSummey/workers_summery_page.dart';
 import '../../pages/staffManagement/staffHomePage.dart';
+import '../../pages/technicianPortal/technicianPortalPage.dart';
 
 class OptionsPage extends StatefulWidget {
   final String role; // role parameter
@@ -147,6 +148,21 @@ class _OptionsPageState extends State<OptionsPage> {
                           );
                         },
                       ),
+
+                    // ---- Technician Portal (All Roles) ----
+                    _buildOptionCard(
+                      context,
+                      'Technician Portal',
+                      Icons.engineering,
+                      const Color(0xFFFFD700),
+                      () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const TechnicianPortalPage(),
+                          ),
+                        );
+                      },
+                    ),
 
                     // ---- Assigned Dockets (All Roles) ----
                     _buildOptionCard(

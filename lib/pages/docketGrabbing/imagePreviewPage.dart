@@ -4,11 +4,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:image_picker/image_picker.dart';
 
 import '../../services/api_service.dart';
 import '../../utils/file_helper.dart';
-import '../post_capture_options_page.dart';
+import '../addDocket/docket_type_selection_page.dart';
 import 'http_post_docket_details.dart';
 
 class ImagePreviewPage extends StatefulWidget {
@@ -22,9 +21,9 @@ class ImagePreviewPage extends StatefulWidget {
     this.filePath,
     required this.docketType,
   }) : assert(
-  capturedFile != null || filePath != null,
-  'Either capturedFile or filePath must be provided',
-  );
+         capturedFile != null || filePath != null,
+         'Either capturedFile or filePath must be provided',
+       );
 
   @override
   State<ImagePreviewPage> createState() => _ImagePreviewPageState();
@@ -37,7 +36,10 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
   @override
   void initState() {
     super.initState();
-    developer.log('ImagePreviewPage: initState called.', name: 'ImagePreviewPage');
+    developer.log(
+      'ImagePreviewPage: initState called.',
+      name: 'ImagePreviewPage',
+    );
   }
 
   String get _imagePath => widget.capturedFile?.path ?? widget.filePath!;
@@ -52,7 +54,10 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       // 1) Prepare the file (compress if needed)
       File fileToUpload;
       if (widget.capturedFile != null) {
-        developer.log('Saving & compressing captured file', name: 'ImagePreviewPage');
+        developer.log(
+          'Saving & compressing captured file',
+          name: 'ImagePreviewPage',
+        );
 
         // Map your docket abbreviations
         final docketTypeMap = {
@@ -78,11 +83,12 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
         final folderPath = await getAppStoragePath();
         final targetPath = "$folderPath/$newFileName";
 
-        final XFile? compressedXFile = await FlutterImageCompress.compressAndGetFile(
-          widget.capturedFile!.path,
-          targetPath,
-          quality: 20,
-        );
+        final XFile? compressedXFile =
+            await FlutterImageCompress.compressAndGetFile(
+              widget.capturedFile!.path,
+              targetPath,
+              quality: 20,
+            );
         if (compressedXFile == null) {
           throw Exception('Failed to compress image');
         }
@@ -101,7 +107,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
         'Estimate': 3,
       };
       final subdirectory = subdirectoryMap[widget.docketType] ?? 4;
-      
+
       final imageUploadSuccess = await ApiService.uploadDocketImage(
         fileToUpload,
         fileName,
@@ -143,7 +149,11 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
         );
       }
     } catch (e, st) {
-      developer.log('Error during upload: $e', name: 'ImagePreviewPage', stackTrace: st);
+      developer.log(
+        'Error during upload: $e',
+        name: 'ImagePreviewPage',
+        stackTrace: st,
+      );
       if (!mounted) return;
       setState(() {
         _isUploading = false;
@@ -264,7 +274,9 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
               fontWeight: FontWeight.bold,
             ),
           ),
-          content: const Text('Are you sure you want to delete this image? This action cannot be undone.'),
+          content: const Text(
+            'Are you sure you want to delete this image? This action cannot be undone.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
