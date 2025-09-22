@@ -11,6 +11,8 @@ import '../../models/docketAssignment.dart' as models;
 import '../../service/dockey_service.dart' as dockey;
 import '../../service/assigned_docket_service.dart';
 
+// --- Detail page
+
 class TechnicianPortalPage extends StatefulWidget {
   const TechnicianPortalPage({super.key});
 
@@ -18,60 +20,50 @@ class TechnicianPortalPage extends StatefulWidget {
   State<TechnicianPortalPage> createState() => _TechnicianPortalPageState();
 }
 
-class _TechnicianPortalPageState extends State<TechnicianPortalPage>
-    with TickerProviderStateMixin {
+class _TechnicianPortalPageState extends State<TechnicianPortalPage> {
   final _docketSvc = dockey.DocketService();
   final _assignedDocketSvc = AssignedDocketService();
 
   bool _loading = true;
   String? _error;
+
+  /// All dockets (used to render cards)
   List<Docket> _allDockets = [];
+
+  /// Map<docketId, AssignedDocket> for all assignments
   final Map<String, AssignedDocket> _myAssignments = {};
 
-  late AnimationController _refreshController;
-  late TabController _tabController;
-
   static const int _criticalDays = 2;
+
+  // status code sets (strings)
   static const Set<String> _completedCodes = {'2'};
   static const Set<String> _pendingCodes = {'0', '1', '4', '', 'null'};
 
   @override
   void initState() {
     super.initState();
-    _refreshController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    );
-    _tabController = TabController(length: 2, vsync: this);
     _load();
   }
 
-  @override
-  void dispose() {
-    _refreshController.dispose();
-    _tabController.dispose();
-    super.dispose();
-  }
-
+  // ---------------- Load ----------------
   Future<void> _load() async {
-    if (!_loading) {
-      _refreshController.forward();
-    }
-
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
+      // 1) Docket details (for card data)
       final dockets = await _docketSvc.fetchDockets();
       debugPrint('[TechPortal] fetched ${dockets.length} dockets');
 
+      // 2) Fetch ALL assignments (do NOT rely on server filter)
       final allAssignments = await _assignedDocketSvc.fetchAssignedDockets();
       debugPrint(
         '[TechPortal] fetched ${allAssignments.length} assignments (unfiltered)',
       );
 
+      // 3) Index all assignments by docketId (string) - no user filtering
       _myAssignments.clear();
       int assignmentCount = 0;
       for (final a in allAssignments) {
@@ -83,15 +75,24 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
         _myAssignments[k] = a;
         assignmentCount++;
       }
+      debugPrint('[TechPortal] total assignments indexed → $assignmentCount');
 
       setState(() {
         _allDockets = dockets;
         _loading = false;
       });
 
-      if (!_loading) {
-        _refreshController.reset();
-      }
+      final totalAssigned = _allDockets.where(_hasAssignment).length;
+      final completedAssigned = _allDockets
+          .where((d) => _hasAssignment(d) && _isCompleted(d))
+          .length;
+      final pendingAssigned = _allDockets
+          .where((d) => _hasAssignment(d) && _isPending(d))
+          .length;
+
+      debugPrint(
+        '[TechPortal] all assigned: total=$totalAssigned, pending=$pendingAssigned, completed=$completedAssigned',
+      );
     } catch (e) {
       setState(() {
         _error = 'Failed to load: $e';
@@ -99,11 +100,10 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
         _allDockets = [];
         _myAssignments.clear();
       });
-      _refreshController.reset();
     }
   }
 
-  // Helper methods (same as original)
+  // ---------------- Helpers ----------------
   static DateTime _parseLoose(String? s) {
     if (s == null || s.trim().isEmpty || s.toUpperCase() == 'NULL') {
       return DateTime.fromMillisecondsSinceEpoch(0);
@@ -121,11 +121,16 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
 
   static String _pretty(DateTime d) => d.millisecondsSinceEpoch == 0
       ? '-'
-      : DateFormat('MMM dd, yyyy • HH:mm').format(d);
+      : DateFormat('yyyy-MM-dd HH:mm').format(d);
 
+  // Robust docketId normalization
   String _docketKeyFromDocket(Docket d) => d.id.toString().trim();
 
-  String _normalizeAssignmentDocketId(AssignedDocket a) => a.docketID.trim();
+  // Try to read either docketId or docketID from the model (strings everywhere)
+  String _normalizeAssignmentDocketId(AssignedDocket a) {
+    // Use the docketID field from AssignedDocket
+    return a.docketID.trim();
+  }
 
   Map<String, dynamic> _safeToJson(AssignedDocket a) {
     try {
@@ -138,6 +143,8 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
   bool _hasAssignment(Docket d) =>
       _myAssignments.containsKey(_docketKeyFromDocket(d));
 
+  // Decide pending/completed from DocketDetails.assignTime,
+  // fall back to AssignedDocket.reassigned if needed.
   bool _isCompleted(Docket d) {
     final s = d.assignTime.trim();
     if (_completedCodes.contains(s)) return true;
@@ -192,359 +199,59 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
     return (total: total, completed: completed, pending: pending);
   }
 
+  // ---------------- UI ----------------
   @override
   Widget build(BuildContext context) {
-    final summary = _summary();
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 600;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          // Removed the SliverAppBar and replaced with custom sliver to avoid back button overlap
-          SliverToBoxAdapter(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF003366),
-                    Color(0xFF004080),
-                    Color(0xFF0066CC),
-                  ],
-                ),
-              ),
-              child: SafeArea(
-                bottom: false,
-                child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    isSmallScreen ? 16 : 24,
-                    16, // Reduced top padding to prevent overlap
-                    isSmallScreen ? 16 : 24,
-                    16,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.engineering,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Technician Portal',
-                              style: TextStyle(
-                                fontSize: isSmallScreen ? 20 : 24,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          RotationTransition(
-                            turns: _refreshController,
-                            child: IconButton(
-                              onPressed: _load,
-                              icon: const Icon(
-                                Icons.refresh,
-                                color: Colors.white,
-                              ),
-                              tooltip: 'Refresh',
-                              style: IconButton.styleFrom(
-                                backgroundColor: Colors.white.withOpacity(0.15),
-                                padding: const EdgeInsets.all(10),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      _buildSummaryCards(summary, isSmallScreen),
-                      const SizedBox(height: 8), // Added spacing before tab bar
-                    ],
-                  ),
-                ),
-              ),
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Technician'),
+          backgroundColor: const Color(0xFF003366),
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh',
             ),
+          ],
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Assigned'),
+              Tab(text: 'Completed'),
+            ],
           ),
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _TabBarDelegate(
-              tabController: _tabController,
-              summary: summary,
-              isSmallScreen: isSmallScreen,
-            ),
-          ),
-        ],
+        ),
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : _error != null
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.error_outline,
-                        size: 48,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _error!,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: _load,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF003366),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        child: const Text('Try Again'),
-                      ),
-                    ],
-                  ),
-                ),
-              )
+            ? _ErrorView(message: _error!, onRetry: _load)
             : TabBarView(
-                controller: _tabController,
                 children: [
-                  _pendingAssignedList().isEmpty
-                      ? _buildEmptyState(
-                          Icons.assignment,
-                          'No assigned jobs',
-                          'All assigned jobs will appear here',
-                        )
-                      : ListView.builder(
-                          padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-                          itemCount: _pendingAssignedList().length,
-                          itemBuilder: (context, index) {
-                            final d = _pendingAssignedList()[index];
-                            final up = _parseLoose(d.uploadedTime);
-                            final days = DateTime.now().difference(up).inDays;
-                            final critical = days >= _criticalDays;
-
-                            return _buildDocketCard(
-                              docket: d,
-                              status: critical ? 'Critical' : 'Pending',
-                              statusColor: critical
-                                  ? Colors.red
-                                  : Colors.orange,
-                              icon: Icons.assignment,
-                              iconColor: critical
-                                  ? Colors.red
-                                  : const Color(0xFF003366),
-                              onTap: () => _openDetail(
-                                d,
-                                _myAssignments[_docketKeyFromDocket(d)]!,
-                              ),
-                              subtitle: 'Uploaded: ${_pretty(up)}',
-                              isCritical: critical,
-                            );
-                          },
-                        ),
-                  _completedAssignedList().isEmpty
-                      ? _buildEmptyState(
-                          Icons.check_circle,
-                          'No completed jobs',
-                          'Completed jobs will appear here',
-                        )
-                      : ListView.builder(
-                          padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-                          itemCount: _completedAssignedList().length,
-                          itemBuilder: (context, index) {
-                            final d = _completedAssignedList()[index];
-                            final cAt = _parseLoose(d.completedTime);
-
-                            return _buildDocketCard(
-                              docket: d,
-                              status: 'Completed',
-                              statusColor: Colors.green,
-                              icon: Icons.check_circle,
-                              iconColor: Colors.green,
-                              onTap: () => _openDetail(
-                                d,
-                                _myAssignments[_docketKeyFromDocket(d)]!,
-                              ),
-                              subtitle: 'Completed: ${_pretty(cAt)}',
-                            );
-                          },
-                        ),
+                  _AssignedTab(
+                    summary: _summary(),
+                    items: _pendingAssignedList(),
+                    onTap: (d) => _openDetail(
+                      d,
+                      _myAssignments[_docketKeyFromDocket(d)]!,
+                    ),
+                  ),
+                  _CompletedTab(
+                    summary: _summary(),
+                    items: _completedAssignedList(),
+                    onTap: (d) => _openDetail(
+                      d,
+                      _myAssignments[_docketKeyFromDocket(d)]!,
+                    ),
+                  ),
                 ],
               ),
       ),
     );
   }
 
-  Widget _buildSummaryCards(
-    ({int total, int completed, int pending}) summary,
-    bool isSmallScreen,
-  ) {
-    return Row(
-      children: [
-        Expanded(
-          child: _SummaryCard(
-            title: 'Total',
-            value: summary.total,
-            icon: Icons.folder_outlined,
-            color: Colors.blue.shade100,
-            textColor: Colors.blue.shade800,
-            isSmallScreen: isSmallScreen,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _SummaryCard(
-            title: 'Pending',
-            value: summary.pending,
-            icon: Icons.pending_actions,
-            color: Colors.orange.shade100,
-            textColor: Colors.orange.shade800,
-            isSmallScreen: isSmallScreen,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _SummaryCard(
-            title: 'Completed',
-            value: summary.completed,
-            icon: Icons.check_circle,
-            color: Colors.green.shade100,
-            textColor: Colors.green.shade800,
-            isSmallScreen: isSmallScreen,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmptyState(IconData icon, String title, String description) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 64, color: Colors.grey.shade400),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              description,
-              style: TextStyle(fontSize: 16, color: Colors.grey.shade500),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDocketCard({
-    required Docket docket,
-    required String status,
-    required Color statusColor,
-    required IconData icon,
-    required Color iconColor,
-    required VoidCallback onTap,
-    required String subtitle,
-    bool isCritical = false,
-  }) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: iconColor, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      docket.docketType,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Depot: ${docket.depot} • Serial: ${docket.docketSerial}',
-                      style: const TextStyle(fontSize: 14, color: Colors.grey),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(subtitle, style: const TextStyle(fontSize: 14)),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
+  // Convert AssignedDocket to DocketAssignment for the detail page
   models.DocketAssignment _convertToDetailAssignment(
     AssignedDocket assignedDocket,
   ) {
@@ -561,96 +268,309 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
   }
 
   void _openDetail(Docket d, AssignedDocket a) {
+    // Convert AssignedDocket to DocketAssignment for the detail page
     final detailAssignment = _convertToDetailAssignment(a);
+
     Navigator.push(
       context,
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            AssignmentDetailPage(
-              docket: d,
-              assignment: detailAssignment,
-              employeeNo: '',
-              onChanged: _load,
-            ),
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          const begin = Offset(1.0, 0.0);
-          const end = Offset.zero;
-          const curve = Curves.easeInOut;
-
-          var tween = Tween(
-            begin: begin,
-            end: end,
-          ).chain(CurveTween(curve: curve));
-          return SlideTransition(
-            position: animation.drive(tween),
-            child: child,
-          );
-        },
+      MaterialPageRoute(
+        builder: (_) => AssignmentDetailPage(
+          docket: d,
+          assignment: detailAssignment,
+          employeeNo:
+              'TEMP_USER', // Temporary fix - should be actual logged-in user
+          onChanged: _load,
+        ),
       ),
     );
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  final String title;
-  final int value;
-  final IconData icon;
-  final Color color;
-  final Color textColor;
-  final bool isSmallScreen;
+// ---------------- Assigned Tab with summary ----------------
+class _AssignedTab extends StatelessWidget {
+  final ({int total, int completed, int pending}) summary;
+  final List<Docket> items;
+  final void Function(Docket) onTap;
 
-  const _SummaryCard({
-    required this.title,
-    required this.value,
-    required this.icon,
-    required this.color,
-    required this.textColor,
-    required this.isSmallScreen,
+  const _AssignedTab({
+    required this.summary,
+    required this.items,
+    required this.onTap,
+  });
+
+  static DateTime _p(String? s) => _TechnicianPortalPageState._parseLoose(s);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: _SummaryChips(
+            total: summary.total,
+            completed: summary.completed,
+            pending: summary.pending,
+          ),
+        ),
+        Expanded(
+          child: items.isEmpty
+              ? const _Empty(icon: Icons.inbox, title: 'No assigned jobs')
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  itemBuilder: (_, i) {
+                    final d = items[i];
+                    final up = _p(d.uploadedTime);
+                    final days = DateTime.now().difference(up).inDays;
+                    final critical =
+                        days >= _TechnicianPortalPageState._criticalDays;
+
+                    return Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Color(0xFFE8EEF6),
+                          child: Icon(
+                            Icons.assignment,
+                            color: Color(0xFF003366),
+                          ),
+                        ),
+                        title: Text(
+                          d.docketType,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF003366),
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Depot: ${d.depot} • Serial: ${d.docketSerial}\nUploaded: ${_TechnicianPortalPageState._pretty(up)}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: _DueBadge(days: days, critical: critical),
+                        onTap: () => onTap(d),
+                      ),
+                    );
+                  },
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemCount: items.length,
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------- Completed Tab with summary ----------------
+class _CompletedTab extends StatelessWidget {
+  final ({int total, int completed, int pending}) summary;
+  final List<Docket> items;
+  final void Function(Docket) onTap;
+
+  const _CompletedTab({
+    required this.summary,
+    required this.items,
+    required this.onTap,
+  });
+
+  static DateTime _p(String? s) => _TechnicianPortalPageState._parseLoose(s);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: _SummaryChips(
+            total: summary.total,
+            completed: summary.completed,
+            pending: summary.pending,
+          ),
+        ),
+        Expanded(
+          child: items.isEmpty
+              ? const _Empty(icon: Icons.inbox, title: 'No completed jobs')
+              : ListView.separated(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                  itemBuilder: (_, i) {
+                    final d = items[i];
+                    final cAt = _p(d.completedTime);
+
+                    return Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Color(0xFFE8EEF6),
+                          child: Icon(Icons.check, color: Color(0xFF003366)),
+                        ),
+                        title: Text(
+                          d.docketType,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF003366),
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Depot: ${d.depot} • Serial: ${d.docketSerial}\nCompleted: ${_TechnicianPortalPageState._pretty(cAt)}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () => onTap(d),
+                      ),
+                    );
+                  },
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemCount: items.length,
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------- Shared UI ----------------
+class _SummaryChips extends StatelessWidget {
+  final int total, completed, pending;
+  const _SummaryChips({
+    required this.total,
+    required this.completed,
+    required this.pending,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(12),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [color, color.withOpacity(0.8)],
-          ),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(icon, color: textColor, size: isSmallScreen ? 20 : 24),
-                const SizedBox(width: 8),
-                Text(
-                  '$value',
-                  style: TextStyle(
-                    fontSize: isSmallScreen ? 20 : 24,
-                    fontWeight: FontWeight.bold,
-                    color: textColor,
-                  ),
-                ),
-              ],
+    Widget chip(String title, int count, Color color) => Container(
+      margin: const EdgeInsets.only(right: 8, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.18)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
             ),
-            const SizedBox(height: 4),
-            Text(
-              title.toUpperCase(),
-              style: TextStyle(
-                fontSize: isSmallScreen ? 10 : 12,
-                color: textColor.withOpacity(0.9),
-                fontWeight: FontWeight.w600,
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          chip('Total', total, Colors.blueGrey),
+          chip('Completed', completed, Colors.green.shade700),
+          chip('Pending', pending, const Color(0xFF003366)),
+        ],
+      ),
+    );
+  }
+}
+
+class _DueBadge extends StatelessWidget {
+  final int days;
+  final bool critical;
+  const _DueBadge({required this.days, required this.critical});
+
+  @override
+  Widget build(BuildContext context) {
+    final dueText = days <= 0 ? 'Due today' : 'Pending $days d';
+    final c = critical ? Colors.red : const Color(0xFF003366);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.1),
+        border: Border.all(color: c.withOpacity(0.3)),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        dueText,
+        style: TextStyle(color: c, fontWeight: FontWeight.w700, fontSize: 12),
+      ),
+    );
+  }
+}
+
+class _Empty extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  const _Empty({required this.icon, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+        Icon(icon, size: 64, color: Colors.black26),
+        const SizedBox(height: 12),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 16),
+        ),
+      ],
+    );
+  }
+}
+
+class _ErrorView extends StatelessWidget {
+  final String message;
+  final Future<void> Function()? onRetry;
+  const _ErrorView({required this.message, this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 56, color: Colors.redAccent),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center),
+            if (onRetry != null) ...[
+              const SizedBox(height: 12),
+              ElevatedButton(
+                onPressed: onRetry,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF003366),
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Retry'),
+              ),
+            ],
           ],
         ),
       ),
@@ -658,112 +578,357 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _TabBarDelegate extends SliverPersistentHeaderDelegate {
-  final TabController tabController;
-  final ({int total, int completed, int pending}) summary;
-  final bool isSmallScreen;
-
-  _TabBarDelegate({
-    required this.tabController,
-    required this.summary,
-    required this.isSmallScreen,
-  });
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return Container(
-      color: const Color(0xFF003366),
-      child: TabBar(
-        controller: tabController,
-        indicatorColor: Colors.white,
-        indicatorWeight: 3,
-        indicatorSize: TabBarIndicatorSize.label,
-        labelColor: Colors.white,
-        unselectedLabelColor: Colors.white.withOpacity(0.7),
-        labelStyle: TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: isSmallScreen ? 14 : 16,
-        ),
-        tabs: [
-          Tab(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.assignment, size: 18),
-                const SizedBox(width: 6),
-                const Text('Assigned'),
-                if (summary.pending > 0) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.orange,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${summary.pending}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Tab(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.check_circle, size: 18),
-                const SizedBox(width: 6),
-                const Text('Completed'),
-                if (summary.completed > 0) ...[
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      '${summary.completed}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  @override
-  double get maxExtent => 48;
-
-  @override
-  double get minExtent => 48;
-
-  @override
-  bool shouldRebuild(covariant SliverPersistentHeaderDelegate oldDelegate) {
-    return true;
-  }
-}
+//v1
+// import 'package:flutter/material.dart';
+// import 'package:intl/intl.dart';
+// import 'package:leco_docket_tracker/pages/technicianPortal/technicianAssignmentDetailPage.dart';
+// import 'package:provider/provider.dart';
+//
+// // --- Models
+// import '../../models/dockets.dart';
+// import '../../models/docketAssignment.dart' as models;
+//
+// // --- Services
+// // Hide the conflicting DocketAssignment class that exists inside this service file.
+// import '../../service/dockey_service.dart' as dockey hide DocketAssignment;
+// import '../../service/assignment_service.dart';
+//
+// // --- Auth / user
+// import '../loginScreen/fetchUserAccess.dart';
+//
+// class TechnicianPortalPage extends StatefulWidget {
+//   const TechnicianPortalPage({super.key});
+//
+//   @override
+//   State<TechnicianPortalPage> createState() => _TechnicianPortalPageState();
+// }
+//
+// class _TechnicianPortalPageState extends State<TechnicianPortalPage> {
+//   final _docketSvc = dockey.DocketService();
+//
+//   bool _loading = true;
+//   String? _error;
+//
+//   /// All dockets (used to render cards)
+//   List<Docket> _allDockets = [];
+//
+//   /// Map<docketId, models.DocketAssignment> for the logged-in tech
+//   final Map<String, models.DocketAssignment> _myAssignments = {};
+//
+//   static const int _criticalDays = 2;
+//
+//   @override
+//   void initState() {
+//     super.initState();
+//     _load();
+//   }
+//
+//   Future<void> _load() async {
+//     setState(() {
+//       _loading = true;
+//       _error = null;
+//     });
+//
+//     final ua = Provider.of<UserAccess>(context, listen: false);
+//     final me = (ua.employeeNumber ?? '').trim();
+//
+//     try {
+//       // 1) Docket details (for card data)
+//       final dockets = await _docketSvc.fetchDockets();
+//
+//       // 2) Assignments for this employee (any reassigned state)
+//       final mine = await AssignmentService.fetchAssignments(employeeNo: me);
+//
+//       _myAssignments
+//         ..clear()
+//         ..addEntries(mine.map((a) => MapEntry(a.docketId, a)));
+//
+//       setState(() {
+//         _allDockets = dockets;
+//         _loading = false;
+//       });
+//     } catch (e) {
+//       setState(() {
+//         _error = 'Failed to load: $e';
+//         _loading = false;
+//         _allDockets = [];
+//         _myAssignments.clear();
+//       });
+//     }
+//   }
+//
+//   // ---------- helpers ----------
+//   static DateTime _parseLoose(String? s) {
+//     if (s == null || s.trim().isEmpty || s.toUpperCase() == 'NULL') {
+//       return DateTime.fromMillisecondsSinceEpoch(0);
+//     }
+//     try {
+//       return DateTime.parse(s.replaceAll('/', '-'));
+//     } catch (_) {
+//       try {
+//         return DateFormat('yyyy-MM-dd HH:mm:ss').parse(s);
+//       } catch (_) {
+//         return DateTime.fromMillisecondsSinceEpoch(0);
+//       }
+//     }
+//   }
+//
+//   static String _pretty(DateTime d) =>
+//       d.millisecondsSinceEpoch == 0 ? '-' : DateFormat('yyyy-MM-dd HH:mm').format(d);
+//
+//   bool _assignedToMe(Docket d) => _myAssignments.containsKey('${d.id}');
+//
+//   List<Docket> _pendingMine() => _allDockets.where((d) {
+//     final status = (d.AssignedTime ?? '0').trim();
+//     return status == '1' && _assignedToMe(d);
+//   }).toList()
+//     ..sort((a, b) => _parseLoose(a.uploadedTime).compareTo(_parseLoose(b.uploadedTime)));
+//
+//   List<Docket> _completedMine() => _allDockets.where((d) {
+//     final status = (d.AssignedTime ?? '0').trim();
+//     return status == '2' && _assignedToMe(d);
+//   }).toList()
+//     ..sort((a, b) => _parseLoose(b.completedTime).compareTo(_parseLoose(a.completedTime)));
+//
+//   // ---------- UI ----------
+//   @override
+//   Widget build(BuildContext context) {
+//     final me = Provider.of<UserAccess>(context, listen: false).employeeNumber ?? '';
+//
+//     return DefaultTabController(
+//       length: 2,
+//       child: Scaffold(
+//         appBar: AppBar(
+//           title: const Text('Technician'),
+//           backgroundColor: const Color(0xFF003366),
+//           foregroundColor: Colors.white,
+//           actions: [
+//             IconButton(onPressed: _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
+//           ],
+//           bottom: const TabBar(tabs: [
+//             Tab(text: 'Assigned'),
+//             Tab(text: 'Completed'),
+//           ]),
+//         ),
+//         body: _loading
+//             ? const Center(child: CircularProgressIndicator())
+//             : _error != null
+//             ? _ErrorView(message: _error!, onRetry: _load)
+//             : me.trim().isEmpty
+//             ? const _ErrorView(
+//           message:
+//           'Your employee number is missing. Please sign in again or contact admin.',
+//         )
+//             : TabBarView(
+//           children: [
+//             _AssignedList(
+//               items: _pendingMine(),
+//               getAssignment: (d) => _myAssignments['${d.id}']!,
+//               onTap: (d) => _openDetail(d, _myAssignments['${d.id}']!),
+//             ),
+//             _CompletedList(
+//               items: _completedMine(),
+//               getAssignment: (d) => _myAssignments['${d.id}']!,
+//               onTap: (d) => _openDetail(d, _myAssignments['${d.id}']!),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+//
+//   void _openDetail(Docket d, models.DocketAssignment a) {
+//     final empNo = Provider.of<UserAccess>(context, listen: false).employeeNumber!;
+//     Navigator.push(
+//       context,
+//       MaterialPageRoute(
+//         builder: (_) => AssignmentDetailPage(
+//           docket: d,
+//           assignment: a,
+//           employeeNo: empNo,
+//           onChanged: _load,
+//         ),
+//       ),
+//     );
+//   }
+// }
+//
+// // ---------- Assigned list ----------
+// class _AssignedList extends StatelessWidget {
+//   final List<Docket> items;
+//   final models.DocketAssignment Function(Docket) getAssignment;
+//   final void Function(Docket) onTap;
+//
+//   const _AssignedList({
+//     required this.items,
+//     required this.getAssignment,
+//     required this.onTap,
+//   });
+//
+//   static DateTime _p(String? s) => _TechnicianPortalPageState._parseLoose(s);
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     if (items.isEmpty) {
+//       return const _Empty(icon: Icons.inbox, title: 'No assigned jobs');
+//     }
+//     return ListView.separated(
+//       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+//       itemBuilder: (_, i) {
+//         final d = items[i];
+//         final up = _p(d.uploadedTime);
+//         final days = DateTime.now().difference(up).inDays;
+//         final critical = days >= _TechnicianPortalPageState._criticalDays;
+//
+//         return Card(
+//           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+//           child: ListTile(
+//             leading: const CircleAvatar(
+//               backgroundColor: Color(0xFFE8EEF6),
+//               child: Icon(Icons.assignment, color: Color(0xFF003366)),
+//             ),
+//             title: Text(d.docketType,
+//                 maxLines: 1,
+//                 overflow: TextOverflow.ellipsis,
+//                 style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF003366))),
+//             subtitle: Text(
+//               'Depot: ${d.depot} • Serial: ${d.docketSerial}\nUploaded: ${_TechnicianPortalPageState._pretty(up)}',
+//               maxLines: 2,
+//               overflow: TextOverflow.ellipsis,
+//             ),
+//             trailing: _DueBadge(days: days, critical: critical),
+//             onTap: () => onTap(d),
+//           ),
+//         );
+//       },
+//       separatorBuilder: (_, __) => const SizedBox(height: 10),
+//       itemCount: items.length,
+//     );
+//   }
+// }
+//
+// // ---------- Completed list ----------
+// class _CompletedList extends StatelessWidget {
+//   final List<Docket> items;
+//   final models.DocketAssignment Function(Docket) getAssignment;
+//   final void Function(Docket) onTap;
+//
+//   const _CompletedList({
+//     required this.items,
+//     required this.getAssignment,
+//     required this.onTap,
+//   });
+//
+//   static DateTime _p(String? s) => _TechnicianPortalPageState._parseLoose(s);
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     if (items.isEmpty) {
+//       return const _Empty(icon: Icons.inbox, title: 'No completed jobs');
+//     }
+//     return ListView.separated(
+//       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+//       itemBuilder: (_, i) {
+//         final d = items[i];
+//         final cAt = _p(d.completedTime);
+//
+//         return Card(
+//           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+//           child: ListTile(
+//             leading: const CircleAvatar(
+//               backgroundColor: Color(0xFFE8EEF6),
+//               child: Icon(Icons.check, color: Color(0xFF003366)),
+//             ),
+//             title: Text(d.docketType,
+//                 maxLines: 1,
+//                 overflow: TextOverflow.ellipsis,
+//                 style: const TextStyle(fontWeight: FontWeight.w700, color: Color(0xFF003366))),
+//             subtitle: Text(
+//               'Depot: ${d.depot} • Serial: ${d.docketSerial}\nCompleted: ${_TechnicianPortalPageState._pretty(cAt)}',
+//               maxLines: 2,
+//               overflow: TextOverflow.ellipsis,
+//             ),
+//             onTap: () => onTap(d),
+//           ),
+//         );
+//       },
+//       separatorBuilder: (_, __) => const SizedBox(height: 10),
+//       itemCount: items.length,
+//     );
+//   }
+// }
+//
+// // ---------- small UI bits ----------
+// class _DueBadge extends StatelessWidget {
+//   final int days;
+//   final bool critical;
+//   const _DueBadge({required this.days, required this.critical});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     final dueText = days <= 0 ? 'Due today' : 'Pending $days d';
+//     final c = critical ? Colors.red : const Color(0xFF003366);
+//     return Container(
+//       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+//       decoration: BoxDecoration(
+//         color: c.withOpacity(0.1),
+//         border: Border.all(color: c.withOpacity(0.3)),
+//         borderRadius: BorderRadius.circular(999),
+//       ),
+//       child: Text(dueText, style: TextStyle(color: c, fontWeight: FontWeight.w700, fontSize: 12)),
+//     );
+//   }
+// }
+//
+// class _Empty extends StatelessWidget {
+//   final IconData icon;
+//   final String title;
+//   const _Empty({required this.icon, required this.title});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return ListView(
+//       physics: const AlwaysScrollableScrollPhysics(),
+//       children: [
+//         SizedBox(height: MediaQuery.of(context).size.height * 0.2),
+//         Icon(icon, size: 64, color: Colors.black26),
+//         const SizedBox(height: 12),
+//         Text(title, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16)),
+//       ],
+//     );
+//   }
+// }
+//
+// class _ErrorView extends StatelessWidget {
+//   final String message;
+//   final Future<void> Function()? onRetry;
+//   const _ErrorView({required this.message, this.onRetry});
+//
+//   @override
+//   Widget build(BuildContext context) {
+//     return Center(
+//       child: Padding(
+//         padding: const EdgeInsets.all(24),
+//         child: Column(
+//           mainAxisSize: MainAxisSize.min,
+//           children: [
+//             const Icon(Icons.error_outline, size: 56, color: Colors.redAccent),
+//             const SizedBox(height: 12),
+//             Text(message, textAlign: TextAlign.center),
+//             if (onRetry != null) ...[
+//               const SizedBox(height: 12),
+//               ElevatedButton(
+//                 onPressed: onRetry,
+//                 style: ElevatedButton.styleFrom(
+//                   backgroundColor: const Color(0xFF003366),
+//                   foregroundColor: Colors.white,
+//                 ),
+//                 child: const Text('Retry'),
+//               ),
+//             ],
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+// }

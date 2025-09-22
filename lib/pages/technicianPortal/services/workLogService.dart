@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:developer';
 import 'package:http/http.dart' as http;
-import '../../../models/ImageModel.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:intl/intl.dart';
 import '../../../models/WorkPhoto.dart';
 import '../../../models/WorkLog.dart';
+import '../../../services/api_service.dart';
 
 enum PhotoKind { before, after, extra }
-
-enum MilestoneField { acknowledgedAt, attendingAt, startedAt, completedAt }
 
 String _kindToStr(PhotoKind k) {
   switch (k) {
@@ -35,226 +35,51 @@ class WorkLogService {
   static String get postWorkPhotoUrl => '$baseUrl/POSTDocketWorkPhoto.php';
   static String get updateWorkPhotoUrl => '$baseUrl/UPDATEDocketWorkPhoto.php';
 
-  // Legacy endpoints (keeping for backward compatibility)
-  static const String base = 'https://your.api.host'; // TODO
-  static String get ensureUrl => '$base/worklog/ensure';
-  static String get milestoneUrl => '$base/worklog/milestone';
-  static String get remarksUrl => '$base/worklog/remarks';
-  static String get completeUrl => '$base/worklog/complete';
-  static String get listUrl => '$base/worklog/photos';
-  static String get uploadUrl => '$base/worklog/photo';
-
-  /// Ensure a work log exists and return its id as string.
-  static Future<String> ensureWorkLogId({
-    required String assignmentID,
-    required String docketID,
-    required String employeeNo,
-    String? onStartedIfNew,
-  }) async {
-    // TODO: call your API. A sample JSON body:
-    // {"assignmentID": "...", "docketID": "...", "employeeNo": "...", "startedAt": "...?"}
-    // Response: {"workLogId":"123"} or {"id":"123"}
-    final r = await http.post(
-      Uri.parse(ensureUrl),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'assignmentID': assignmentID,
-        'docketID': docketID,
-        'employeeNo': employeeNo,
-        if (onStartedIfNew != null) 'startedAt': onStartedIfNew,
-      }),
-    );
-    if (r.statusCode != 200) {
-      throw 'ensureWorkLogId failed ${r.statusCode}';
-    }
-    final m = jsonDecode(r.body);
-    return (m['workLogId'] ?? m['id'] ?? '').toString();
-  }
-
-  /// Set a milestone time as string, e.g. '2025-09-14 12:00:00'
-  static Future<void> setMilestone({
-    required String assignmentID,
-    required String employeeNo,
-    required MilestoneField field,
-    required String value,
-  }) async {
-    final fieldName = _fieldName(field);
-    final r = await http.post(
-      Uri.parse(milestoneUrl),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'assignmentID': assignmentID,
-        'employeeNo': employeeNo,
-        fieldName: value,
-      }),
-    );
-    if (r.statusCode != 200) {
-      throw 'setMilestone failed ${r.statusCode}';
-    }
-  }
-
-  static String _fieldName(MilestoneField f) {
-    switch (f) {
-      case MilestoneField.acknowledgedAt:
-        return 'acknowledgedAt';
-      case MilestoneField.attendingAt:
-        return 'attendingAt';
-      case MilestoneField.startedAt:
-        return 'startedAt';
-      case MilestoneField.completedAt:
-        return 'completedAt';
-    }
-  }
-
-  static Future<void> saveRemarks({
-    required String assignmentID,
-    required String employeeNo,
-    required String remarks,
-  }) async {
-    final r = await http.post(
-      Uri.parse(remarksUrl),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'assignmentID': assignmentID,
-        'employeeNo': employeeNo,
-        'remarks': remarks,
-      }),
-    );
-    if (r.statusCode != 200) {
-      throw 'saveRemarks failed ${r.statusCode}';
-    }
-  }
-
-  static Future<void> complete({
-    required String assignmentID,
-    required String employeeNo,
-    required String completedAt,
-  }) async {
-    final r = await http.post(
-      Uri.parse(completeUrl),
-      headers: const {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'assignmentID': assignmentID,
-        'employeeNo': employeeNo,
-        'completedAt': completedAt,
-      }),
-    );
-    if (r.statusCode != 200) {
-      throw 'complete failed ${r.statusCode}';
-    }
-  }
-
-  /// List photos for a work log per kind.
-  static Future<List<ImageModel>> listPhotos({
-    required String workLogId,
-    required PhotoKind kind,
-  }) async {
-    final r = await http.get(
-      Uri.parse('$listUrl?workLogId=$workLogId&kind=${_kindToStr(kind)}'),
-    );
-    if (r.statusCode != 200) return <ImageModel>[];
-    final data = jsonDecode(r.body);
-    if (data is! List) return <ImageModel>[];
-    return data.map<ImageModel>((e) => ImageModel.fromJson(e)).toList();
-  }
-
-  /// Upload a photo (multipart) and return ImageModel.
-  /// Acknowledge a work log
-  static Future<void> acknowledgeWorkLog({
-    required String assignmentID,
-    required String docketID,
-    required String employeeNo,
-    required String acknowledgedAt,
-  }) async {
-    try {
-      final response = await http.post(
-        Uri.parse(postWorkLogUrl),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'assignmentID': assignmentID,
-          'docketID': docketID,
-          'employeeNo': employeeNo,
-          'status': '1', // Assuming '1' means acknowledged
-          'acknowledgedAt': acknowledgedAt,
-          'createdAt': acknowledgedAt,
-          'updatedAt': acknowledgedAt,
-        }),
-      );
-
-      if (response.statusCode != 200) {
-        throw Exception('Failed to acknowledge work log: ${response.body}');
-      }
-
-      // If you need to parse and return the created work log:
-      // final responseData = jsonDecode(response.body);
-      // return responseData;
-    } catch (e) {
-      throw Exception('Error acknowledging work log: $e');
-    }
-  }
-
-  static Future<ImageModel> uploadPhoto({
-    required String workLogId,
-    required PhotoKind kind,
-    required String filePath,
-    required int sequence,
-    required String uploadedBy,
-    String? caption,
-  }) async {
-    // TODO: connect to your actual uploader. Below is a generic multipart sample:
-    final req = http.MultipartRequest('POST', Uri.parse(uploadUrl));
-    req.fields['workLogId'] = workLogId;
-    req.fields['kind'] = _kindToStr(kind);
-    req.fields['sequence'] = sequence.toString();
-    req.fields['uploadedBy'] = uploadedBy;
-    if (caption != null) req.fields['caption'] = caption;
-
-    req.files.add(await http.MultipartFile.fromPath('file', filePath));
-    final resp = await req.send();
-    final body = await http.Response.fromStream(resp);
-
-    if (body.statusCode != 200) {
-      throw 'uploadPhoto failed ${body.statusCode}';
-    }
-    final json = jsonDecode(body.body);
-    return ImageModel.fromJson(json);
-  }
-
   // ==================== NEW WORK LOG API METHODS ====================
 
   /// Get work logs - GET request
   static Future<List<WorkLog>> getWorkLogs({
     String? assignmentId,
-    String? docketID,
+    String? docketId,
     String? employeeNo,
   }) async {
     try {
-      final uri = Uri.parse(getWorkLogUrl).replace(
-        queryParameters: {
-          if (assignmentId != null) 'assignmentID': assignmentId,
-          if (docketID != null) 'docketID': docketID,
-          if (employeeNo != null) 'employeeNo': employeeNo,
-        }..removeWhere((key, value) => value == null || value.isEmpty),
+      String url = getWorkLogUrl;
+      Map<String, String> queryParams = {};
+
+      if (assignmentId != null)
+        queryParams['assignmentID'] = assignmentId; // Use capital ID
+      if (docketId != null)
+        queryParams['docketID'] = docketId; // Use capital ID
+      if (employeeNo != null) queryParams['employeeNo'] = employeeNo;
+
+      if (queryParams.isNotEmpty) {
+        url +=
+            '?' +
+            queryParams.entries
+                .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
+                .join('&');
+      }
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {'Content-Type': 'application/json'},
       );
 
-      final response = await http.get(uri);
-
-      if (response.statusCode != 200) {
-        throw Exception('Failed to load work logs: ${response.statusCode}');
+      if (response.statusCode == 200) {
+        final dynamic jsonData = jsonDecode(response.body);
+        if (jsonData is List) {
+          return jsonData
+              .map<WorkLog>((item) => WorkLog.fromJson(item))
+              .toList();
+        } else if (jsonData is Map<String, dynamic>) {
+          return [WorkLog.fromJson(jsonData)];
+        }
       }
 
-      final dynamic responseData = jsonDecode(response.body);
-      
-      if (responseData is List) {
-        return responseData.map<WorkLog>((item) => WorkLog.fromJson(item)).toList();
-      } else if (responseData is Map<String, dynamic>) {
-        return [WorkLog.fromJson(responseData)];
-      }
-      
-      throw Exception('Unexpected response format');
+      throw 'Failed to get work logs: ${response.statusCode} - ${response.body}';
     } catch (e) {
-      print('Error fetching work logs: $e');
-      rethrow;
+      throw 'Error getting work logs: $e';
     }
   }
 
@@ -271,8 +96,8 @@ class WorkLogService {
   }) async {
     try {
       final requestBody = {
-        'assignmentId': assignmentId,
-        'docketId': docketId,
+        'assignmentID': assignmentId, // Use capital ID
+        'docketID': docketId, // Use capital ID
         'employeeNo': employeeNo,
       };
 
@@ -283,19 +108,44 @@ class WorkLogService {
       if (completedAt != null) requestBody['completedAt'] = completedAt;
       if (remarks != null) requestBody['remarks'] = remarks;
 
+      print('DEBUG: Creating work log with URL: $postWorkLogUrl');
+      print('DEBUG: Request body: $requestBody');
+
       final response = await http.post(
         Uri.parse(postWorkLogUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(requestBody),
       );
 
+      print('DEBUG: Create response status: ${response.statusCode}');
+      print('DEBUG: Create response body: ${response.body}');
+
       if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonData = jsonDecode(response.body);
-        return WorkLog.fromJson(jsonData);
+        print('DEBUG: Parsed create response data: $jsonData');
+
+        // Check if the response indicates an error
+        if (jsonData is Map<String, dynamic> && jsonData['success'] == false) {
+          final errorMessage = jsonData['message'] ?? 'Unknown error';
+          print('DEBUG: API returned error: $errorMessage');
+          throw 'API Error: $errorMessage';
+        }
+
+        // Check if the response has the expected work log data
+        if (jsonData is Map<String, dynamic> &&
+            (jsonData['id'] == null || jsonData['id'].toString().isEmpty)) {
+          print('DEBUG: API returned empty work log data');
+          throw 'API Error: No work log ID returned from server';
+        }
+
+        final workLog = WorkLog.fromJson(jsonData);
+        print('DEBUG: Created WorkLog object: $workLog');
+        return workLog;
       }
 
       throw 'Failed to create work log: ${response.statusCode} - ${response.body}';
     } catch (e) {
+      print('DEBUG: Exception in createWorkLog: $e');
       throw 'Error creating work log: $e';
     }
   }
@@ -315,8 +165,10 @@ class WorkLogService {
     try {
       final requestBody = {'id': workLogId};
 
-      if (assignmentId != null) requestBody['assignmentId'] = assignmentId;
-      if (docketId != null) requestBody['docketId'] = docketId;
+      if (assignmentId != null)
+        requestBody['assignmentID'] = assignmentId; // Use capital ID
+      if (docketId != null)
+        requestBody['docketID'] = docketId; // Use capital ID
       if (employeeNo != null) requestBody['employeeNo'] = employeeNo;
       if (acknowledgedAt != null)
         requestBody['acknowledgedAt'] = acknowledgedAt;
@@ -325,19 +177,27 @@ class WorkLogService {
       if (completedAt != null) requestBody['completedAt'] = completedAt;
       if (remarks != null) requestBody['remarks'] = remarks;
 
+      print('DEBUG: Updating work log with URL: $updateWorkLogUrl');
+      print('DEBUG: Request body: $requestBody');
+
       final response = await http.post(
         Uri.parse(updateWorkLogUrl),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode(requestBody),
       );
 
+      print('DEBUG: Response status: ${response.statusCode}');
+      print('DEBUG: Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
+        print('DEBUG: Parsed response data: $jsonData');
         return WorkLog.fromJson(jsonData);
       }
 
       throw 'Failed to update work log: ${response.statusCode} - ${response.body}';
     } catch (e) {
+      print('DEBUG: Exception in updateWorkLog: $e');
       throw 'Error updating work log: $e';
     }
   }
@@ -386,7 +246,44 @@ class WorkLogService {
     }
   }
 
-  /// Upload work photo - POST request with multipart
+  /// Generates a proper filename for work photos based on the pattern used in add docket
+  static String _generateWorkPhotoFileName({
+    required String docketSerial,
+    required String kind,
+    required int sequence,
+  }) {
+    final now = DateTime.now();
+    final formattedDate = DateFormat('yyyyMMdd_HHmmss').format(now);
+    return "${docketSerial}_${kind}_${sequence}_$formattedDate.jpg";
+  }
+
+  /// Compresses an image file before uploading
+  static Future<File?> _compressImage(
+    String originalPath,
+    String targetPath,
+  ) async {
+    try {
+      final XFile? compressedXFile =
+          await FlutterImageCompress.compressAndGetFile(
+            originalPath,
+            targetPath,
+            quality: 80, // Good quality for work photos
+          );
+
+      if (compressedXFile != null) {
+        final file = File(compressedXFile.path);
+        if (await file.exists()) {
+          return file;
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error compressing image: $e');
+      return null;
+    }
+  }
+
+  /// Upload work photo using api_service.dart approach with proper subdirectories
   static Future<WorkPhoto> uploadWorkPhoto({
     required String workLogId,
     required String kind, // BEFORE, AFTER, EXTRA
@@ -396,37 +293,138 @@ class WorkLogService {
     required String uploadedBy,
   }) async {
     try {
-      final request = http.MultipartRequest(
-        'POST',
-        Uri.parse(postWorkPhotoUrl),
+      // Compress the image before uploading
+      final tempDir = await getTemporaryDirectory();
+      final originalFile = File(filePath);
+      final compressedPath =
+          '${tempDir.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+      final compressedFile = await _compressImage(filePath, compressedPath);
+      final fileToUpload = compressedFile ?? originalFile;
+
+      print('DEBUG: Original file size: ${await originalFile.length()} bytes');
+      print(
+        'DEBUG: Compressed file size: ${await fileToUpload.length()} bytes',
       );
 
-      // Add form fields
-      request.fields['workLogId'] = workLogId;
-      request.fields['kind'] = kind;
-      request.fields['caption'] = caption;
-      request.fields['sequence'] = sequence;
-      request.fields['uploadedBy'] = uploadedBy;
+      // Generate proper filename using the established pattern
+      final fileName = _generateWorkPhotoFileName(
+        docketSerial: workLogId, // Using workLogId as identifier
+        kind: kind,
+        sequence: int.parse(sequence),
+      );
 
-      // Add file - verify file exists
-      final file = File(filePath);
-      if (!await file.exists()) {
-        throw 'File does not exist: $filePath';
+      // Determine subdirectory based on photo kind
+      int subdirectory;
+      switch (kind.toUpperCase()) {
+        case 'BEFORE':
+          subdirectory = 1;
+          break;
+        case 'AFTER':
+          subdirectory = 2;
+          break;
+        case 'EXTRA':
+          subdirectory = 3;
+          break;
+        default:
+          subdirectory = 3; // Default to extra
       }
 
-      request.files.add(await http.MultipartFile.fromPath('image', filePath));
+      print(
+        'DEBUG: Uploading $kind photo to subdirectory $subdirectory with filename: $fileName',
+      );
 
-      final streamedResponse = await request.send();
-      final response = await http.Response.fromStream(streamedResponse);
+      // Use ApiService to upload the photo
+      print('DEBUG: About to call ApiService.uploadDocketImage...');
+      print('DEBUG: File to upload: ${fileToUpload.path}');
+      print('DEBUG: File exists: ${await fileToUpload.exists()}');
+      print('DEBUG: File size: ${await fileToUpload.length()} bytes');
+
+      final uploadSuccess = await ApiService.uploadDocketImage(
+        fileToUpload,
+        fileName,
+        subdirectory,
+      );
+
+      print('DEBUG: ApiService.uploadDocketImage returned: $uploadSuccess');
+
+      // Clean up compressed file if it was created
+      if (compressedFile != null && await compressedFile.exists()) {
+        try {
+          await compressedFile.delete();
+        } catch (e) {
+          print('Warning: Could not delete compressed file: $e');
+        }
+      }
+
+      if (uploadSuccess) {
+        print(
+          'DEBUG: Photo uploaded successfully to file system using ApiService!',
+        );
+        print(
+          'DEBUG: Access URL: http://124.43.136.185:8000/api/fetch-testdocket-image/$subdirectory/$fileName.jpg',
+        );
+
+        // Now save the photo metadata to the database
+        print('DEBUG: About to save photo metadata to database...');
+        final workPhoto = await _saveWorkPhotoToDatabase(
+          workLogId: workLogId,
+          kind: kind,
+          imageName: '$fileName.jpg', // Store with .jpg extension
+          caption: caption,
+          sequence: sequence,
+          uploadedBy: uploadedBy,
+        );
+
+        print('DEBUG: Photo metadata saved to database successfully!');
+        print('DEBUG: Database Photo ID: ${workPhoto.id}');
+        print('DEBUG: Stored imageName: ${workPhoto.imageName}');
+
+        return workPhoto;
+      } else {
+        throw 'Failed to upload photo using ApiService';
+      }
+    } catch (e) {
+      throw 'Error uploading work photo: $e';
+    }
+  }
+
+  /// Save work photo metadata to database
+  static Future<WorkPhoto> _saveWorkPhotoToDatabase({
+    required String workLogId,
+    required String kind,
+    required String imageName,
+    required String caption,
+    required String sequence,
+    required String uploadedBy,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse(postWorkPhotoUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'workLogId': workLogId,
+          'kind': kind,
+          'imageName': imageName,
+          'caption': caption,
+          'sequence': sequence,
+          'uploadedBy': uploadedBy,
+          'uploadedAt': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        }),
+      );
+
+      print('DEBUG: Database save response status: ${response.statusCode}');
+      print('DEBUG: Database save response body: ${response.body}');
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonData = jsonDecode(response.body);
         return WorkPhoto.fromJson(jsonData);
       }
 
-      throw 'Failed to upload work photo: ${response.statusCode} - ${response.body}';
+      throw 'Failed to save work photo to database: ${response.statusCode} - ${response.body}';
     } catch (e) {
-      throw 'Error uploading work photo: $e';
+      throw 'Error saving work photo to database: $e';
     }
   }
 
@@ -478,6 +476,38 @@ class WorkLogService {
   }
 
   /// Upload work photo using PhotoKind enum
+  /// Helper method to construct proper image URL for retrieval
+  static String getImageUrl(WorkPhoto workPhoto) {
+    if (workPhoto.imageName.startsWith('http')) {
+      return workPhoto.imageName;
+    }
+
+    int subdirectory;
+    switch (workPhoto.kind.toUpperCase()) {
+      case 'BEFORE':
+        subdirectory = 1;
+        break;
+      case 'AFTER':
+        subdirectory = 2;
+        break;
+      case 'EXTRA':
+        subdirectory = 3;
+        break;
+      default:
+        subdirectory = 4;
+    }
+
+    // Remove .jpg extension if present to prevent double extension
+    final cleanName = workPhoto.imageName.endsWith('.jpg')
+        ? workPhoto.imageName.substring(0, workPhoto.imageName.length - 4)
+        : workPhoto.imageName;
+
+    final url =
+        'http://124.43.136.185:8000/api/fetch-testdocket-image/$subdirectory/$cleanName.jpg';
+    print('DEBUG: Constructed image URL for ${workPhoto.kind} photo: $url');
+    return url;
+  }
+
   static Future<WorkPhoto> uploadWorkPhotoWithKind({
     required String workLogId,
     required PhotoKind kind,
