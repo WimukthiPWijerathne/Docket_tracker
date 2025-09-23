@@ -335,18 +335,11 @@ class WorkLogService {
       );
 
       // Use ApiService to upload the photo
-      print('DEBUG: About to call ApiService.uploadDocketImage...');
-      print('DEBUG: File to upload: ${fileToUpload.path}');
-      print('DEBUG: File exists: ${await fileToUpload.exists()}');
-      print('DEBUG: File size: ${await fileToUpload.length()} bytes');
-
       final uploadSuccess = await ApiService.uploadDocketImage(
         fileToUpload,
         fileName,
         subdirectory,
       );
-
-      print('DEBUG: ApiService.uploadDocketImage returned: $uploadSuccess');
 
       // Clean up compressed file if it was created
       if (compressedFile != null && await compressedFile.exists()) {
@@ -366,11 +359,10 @@ class WorkLogService {
         );
 
         // Now save the photo metadata to the database
-        print('DEBUG: About to save photo metadata to database...');
         final workPhoto = await _saveWorkPhotoToDatabase(
           workLogId: workLogId,
           kind: kind,
-          imageName: '$fileName.jpg', // Store with .jpg extension
+          imageName: '$fileName.jpg', // ApiService adds .jpg extension
           caption: caption,
           sequence: sequence,
           uploadedBy: uploadedBy,
@@ -378,7 +370,6 @@ class WorkLogService {
 
         print('DEBUG: Photo metadata saved to database successfully!');
         print('DEBUG: Database Photo ID: ${workPhoto.id}');
-        print('DEBUG: Stored imageName: ${workPhoto.imageName}');
 
         return workPhoto;
       } else {
@@ -476,38 +467,6 @@ class WorkLogService {
   }
 
   /// Upload work photo using PhotoKind enum
-  /// Helper method to construct proper image URL for retrieval
-  static String getImageUrl(WorkPhoto workPhoto) {
-    if (workPhoto.imageName.startsWith('http')) {
-      return workPhoto.imageName;
-    }
-
-    int subdirectory;
-    switch (workPhoto.kind.toUpperCase()) {
-      case 'BEFORE':
-        subdirectory = 1;
-        break;
-      case 'AFTER':
-        subdirectory = 2;
-        break;
-      case 'EXTRA':
-        subdirectory = 3;
-        break;
-      default:
-        subdirectory = 4;
-    }
-
-    // Remove .jpg extension if present to prevent double extension
-    final cleanName = workPhoto.imageName.endsWith('.jpg')
-        ? workPhoto.imageName.substring(0, workPhoto.imageName.length - 4)
-        : workPhoto.imageName;
-
-    final url =
-        'http://124.43.136.185:8000/api/fetch-testdocket-image/$subdirectory/$cleanName.jpg';
-    print('DEBUG: Constructed image URL for ${workPhoto.kind} photo: $url');
-    return url;
-  }
-
   static Future<WorkPhoto> uploadWorkPhotoWithKind({
     required String workLogId,
     required PhotoKind kind,
@@ -524,5 +483,26 @@ class WorkLogService {
       sequence: sequence.toString(),
       uploadedBy: uploadedBy,
     );
+  }
+
+  /// Get image URL for a work photo
+  static String getImageUrl(WorkPhoto workPhoto) {
+    // If imageName already contains a full URL, return it
+    if (workPhoto.imageName.startsWith('http://') ||
+        workPhoto.imageName.startsWith('https://')) {
+      return workPhoto.imageName;
+    }
+
+    // Determine subdirectory based on photo kind
+    final subdirectory = workPhoto.kind == 'BEFORE'
+        ? '1'
+        : workPhoto.kind == 'AFTER'
+        ? '2'
+        : workPhoto.kind == 'EXTRA'
+        ? '3'
+        : '4';
+
+    // Construct full URL
+    return 'http://124.43.136.185:8000/api/fetch-testdocket-image/$subdirectory/${workPhoto.imageName}';
   }
 }

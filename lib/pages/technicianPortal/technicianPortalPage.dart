@@ -278,7 +278,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage> {
           docket: d,
           assignment: detailAssignment,
           employeeNo:
-              'TEMP_USER', // Temporary fix - should be actual logged-in user
+              'TEMP_USER_001', // Use fallback since no specific employee
           onChanged: _load,
         ),
       ),
@@ -323,35 +323,118 @@ class _AssignedTab extends StatelessWidget {
                     final days = DateTime.now().difference(up).inDays;
                     final critical =
                         days >= _TechnicianPortalPageState._criticalDays;
+                    final isOverdue = critical;
 
-                    return Card(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.2),
+                            spreadRadius: 1,
+                            blurRadius: 3,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                        gradient: LinearGradient(
+                          colors: isOverdue
+                              ? [
+                                  Colors.red[50]!,
+                                  Colors.red[50]!.withOpacity(0.3),
+                                ]
+                              : [
+                                  Colors.blue[50]!,
+                                  Colors.blue[50]!.withOpacity(0.3),
+                                ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        border: Border.all(
+                          color: isOverdue
+                              ? Colors.red[200]!
+                              : Colors.blue[100]!,
+                          width: 1.5,
+                        ),
                       ),
-                      child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFFE8EEF6),
-                          child: Icon(
-                            Icons.assignment,
-                            color: Color(0xFF003366),
-                          ),
-                        ),
-                        title: Text(
-                          d.docketType,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF003366),
-                          ),
-                        ),
-                        subtitle: Text(
-                          'Depot: ${d.depot} • Serial: ${d.docketSerial}\nUploaded: ${_TechnicianPortalPageState._pretty(up)}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: _DueBadge(days: days, critical: critical),
+                      child: InkWell(
                         onTap: () => onTap(d),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Header row with type and status
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.assignment,
+                                    color: Colors.blue[700],
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      d.docketType,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.blue[800],
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  _DueBadge(days: days, critical: critical),
+                                ],
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              // Info rows
+                              _buildInfoRow(Icons.business, 'Depot', d.depot),
+                              _buildInfoRow(
+                                Icons.numbers,
+                                'Docket ID',
+                                d.docketSerial,
+                              ),
+                              _buildInfoRow(
+                                Icons.person,
+                                'Assigned To',
+                                d.assignedTo.isNotEmpty ? d.assignedTo : 'N/A',
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              // Footer with uploaded time
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Uploaded: ${_TechnicianPortalPageState._pretty(up)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  if (days > 0)
+                                    Text(
+                                      '$days ${days == 1 ? 'day' : 'days'} pending',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: critical
+                                            ? Colors.red
+                                            : Colors.orange[800],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -398,31 +481,118 @@ class _CompletedTab extends StatelessWidget {
                   itemBuilder: (_, i) {
                     final d = items[i];
                     final cAt = _p(d.completedTime);
+                    final up = _p(d.uploadedTime);
 
-                    return Card(
-                      shape: RoundedRectangleBorder(
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFFE8EEF6),
-                          child: Icon(Icons.check, color: Color(0xFF003366)),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.2),
+                            spreadRadius: 1,
+                            blurRadius: 3,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.green[50]!,
+                            Colors.green[50]!.withOpacity(0.3),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
                         ),
-                        title: Text(
-                          d.docketType,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFF003366),
+                        border: Border.all(
+                          color: Colors.green[300]!,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: InkWell(
+                        onTap: () => onTap(d),
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.check_circle,
+                                    color: Colors.green[700],
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      d.docketType,
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green[800],
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green[50],
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      'Completed',
+                                      style: TextStyle(
+                                        color: Colors.green[800],
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              _buildInfoRow(Icons.business, 'Depot', d.depot),
+                              _buildInfoRow(
+                                Icons.numbers,
+                                'Docket ID',
+                                d.docketSerial,
+                              ),
+                              _buildInfoRow(
+                                Icons.person,
+                                'Assigned To',
+                                d.assignedTo.isNotEmpty ? d.assignedTo : 'N/A',
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Uploaded: ${_TechnicianPortalPageState._pretty(up)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                  Text(
+                                    'Completed: ${_TechnicianPortalPageState._pretty(cAt)}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.green[800],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
                         ),
-                        subtitle: Text(
-                          'Depot: ${d.depot} • Serial: ${d.docketSerial}\nCompleted: ${_TechnicianPortalPageState._pretty(cAt)}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        onTap: () => onTap(d),
                       ),
                     );
                   },
@@ -436,6 +606,39 @@ class _CompletedTab extends StatelessWidget {
 }
 
 // ---------------- Shared UI ----------------
+Widget _buildInfoRow(IconData icon, String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: Colors.grey[600]),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: TextStyle(
+            fontSize: 14,
+            color: Colors.grey[700],
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+              fontWeight: FontWeight.w500,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
 class _SummaryChips extends StatelessWidget {
   final int total, completed, pending;
   const _SummaryChips({
