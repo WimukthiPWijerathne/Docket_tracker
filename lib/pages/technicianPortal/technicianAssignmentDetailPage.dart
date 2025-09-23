@@ -82,6 +82,20 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
   String get _effectiveEmployeeNo =>
       widget.employeeNo.isEmpty ? 'TEMP_USER_001' : widget.employeeNo;
 
+  /// Generate docket image URL
+  String _getDocketImageUrl(String imageName) {
+    if (imageName.isEmpty) return '';
+
+    // Clean the image name (remove any existing .jpg extensions)
+    String cleanImageName = imageName.replaceAll('.jpg', '');
+
+    // Docket images are stored in subdirectory '4' (original docket images)
+    final url =
+        'http://124.43.181.243:8000/api/fetch-testdocket-image/4/$cleanImageName.jpg';
+    print('DEBUG getDocketImageUrl: $imageName -> $url');
+    return url;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -593,6 +607,105 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
     }
   }
 
+  /// Show docket image in full screen
+  void _showDocketImageFullScreen(String imageUrl, String docketSerial) {
+    if (imageUrl.isEmpty) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(16),
+        child: Stack(
+          children: [
+            // Full screen image
+            Center(
+              child: InteractiveViewer(
+                panEnabled: true,
+                boundaryMargin: const EdgeInsets.all(20),
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (context, child, loadingProgress) {
+                    if (loadingProgress == null) return child;
+                    return Center(
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    );
+                  },
+                  errorBuilder: (context, error, stackTrace) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            color: Colors.white,
+                            size: 48,
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Failed to load docket image',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+            // Close button
+            Positioned(
+              top: 16,
+              right: 16,
+              child: IconButton(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.black54,
+                  shape: CircleBorder(),
+                ),
+              ),
+            ),
+            // Title at bottom
+            Positioned(
+              bottom: 16,
+              left: 16,
+              right: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  'Docket Image - $docketSerial',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -669,22 +782,97 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
   }
 
   Widget _buildDocketInfo(Docket docket, models.DocketAssignment assignment) {
+    final docketImageUrl = _getDocketImageUrl(docket.imageName);
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              docket.docketType,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF003366),
-              ),
+            Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        docket.docketType,
+                        style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF003366),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Depot: ${docket.depot}  •  Serial: ${docket.docketSerial}',
+                      ),
+                    ],
+                  ),
+                ),
+                if (docketImageUrl.isNotEmpty) ...[
+                  const SizedBox(width: 16),
+                  GestureDetector(
+                    onTap: () => _showDocketImageFullScreen(
+                      docketImageUrl,
+                      docket.docketSerial,
+                    ),
+                    child: Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey[300]!),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(7),
+                        child: Image.network(
+                          docketImageUrl,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Center(
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                value:
+                                    loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                          loadingProgress.expectedTotalBytes!
+                                    : null,
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              color: Colors.grey[100],
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.image_not_supported,
+                                    color: Colors.grey[400],
+                                    size: 24,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'No Image',
+                                    style: TextStyle(
+                                      color: Colors.grey[600],
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(height: 8),
-            Text('Depot: ${docket.depot}  •  Serial: ${docket.docketSerial}'),
             const Divider(height: 20),
             KvRow(label: 'Docket ID', value: assignment.docketId),
             KvRow(label: 'Assigned Persons', value: assignment.assignedPersons),
