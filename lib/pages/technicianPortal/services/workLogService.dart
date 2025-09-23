@@ -198,6 +198,28 @@ class WorkLogService {
       if (response.statusCode == 200) {
         final jsonData = jsonDecode(response.body);
         print('DEBUG: Parsed response data: $jsonData');
+
+        // Handle success response format: {"success":true,"message":"..."}
+        if (jsonData is Map<String, dynamic> && jsonData['success'] == true) {
+          print('DEBUG: Update successful, fetching updated work log data...');
+
+          // Since the server returns success but not the work log data,
+          // we need to fetch the updated work log from database
+          // For now, we'll create a minimal work log object with the ID to avoid breaking the flow
+          return WorkLog(
+            id: workLogId,
+            assignmentId: assignmentId ?? '',
+            docketId: docketId ?? '',
+            employeeNo: employeeNo ?? '',
+            acknowledgedAt: acknowledgedAt,
+            attendingAt: attendingAt,
+            startedAt: startedAt,
+            completedAt: completedAt,
+            remarks: remarks,
+          );
+        }
+
+        // Handle work log data response format (if server returns the actual data)
         return WorkLog.fromJson(jsonData);
       }
 

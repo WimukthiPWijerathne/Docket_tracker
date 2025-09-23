@@ -538,16 +538,31 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
 
   /// Save notes
   Future<void> _saveNotes() async {
-    if (_workLog?.id == null) return;
+    if (_workLog?.id == null) {
+      print('DEBUG: _workLog is null or id is null');
+      return;
+    }
 
+    if (_workLog!.id.isEmpty) {
+      print('DEBUG: _workLog.id is empty string');
+      _showError('Work log ID is missing. Please try refreshing the page.');
+      return;
+    }
+
+    print('DEBUG: Saving notes with work log ID: "${_workLog!.id}"');
+    print('DEBUG: Notes content: "${_notesController.text.trim()}"');
+
+    setState(() => _saving = true);
     try {
       await WorkLogService.updateWorkLog(
-        workLogId: _workLog!.id!,
+        workLogId: _workLog!.id,
         remarks: _notesController.text.trim(),
       );
-      _showSuccess('Notes saved');
+      _showSuccess('Notes saved successfully');
     } catch (e) {
       _showError('Failed to save notes: $e');
+    } finally {
+      setState(() => _saving = false);
     }
   }
 
@@ -1364,9 +1379,15 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
             Align(
               alignment: Alignment.centerRight,
               child: TextButton.icon(
-                onPressed: _saveNotes,
-                icon: const Icon(Icons.save_alt),
-                label: const Text('Save Notes'),
+                onPressed: _saving ? null : _saveNotes,
+                icon: _saving
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save_alt),
+                label: Text(_saving ? 'Saving...' : 'Save Notes'),
               ),
             ),
           ],
