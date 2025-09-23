@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../models/WorkPhoto.dart';
-import '../services/workLogService.dart';
 
 class PhotoGrid extends StatelessWidget {
   final List<WorkPhoto> images;
@@ -12,9 +11,6 @@ class PhotoGrid extends StatelessWidget {
     String imageUri,
     WorkPhoto workPhoto,
   ) {
-    // Use the proper URL construction method for full screen preview
-    final properImageUri = WorkLogService.getImageUrl(workPhoto);
-
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => Scaffold(
@@ -39,10 +35,10 @@ class PhotoGrid extends StatelessWidget {
               minScale: 0.5,
               maxScale: 4.0,
               child:
-                  properImageUri.startsWith('http://') ||
-                      properImageUri.startsWith('https://')
+                  imageUri.startsWith('http://') ||
+                      imageUri.startsWith('https://')
                   ? Image.network(
-                      properImageUri,
+                      imageUri,
                       fit: BoxFit.contain,
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
@@ -74,8 +70,8 @@ class PhotoGrid extends StatelessWidget {
                             ),
                           ),
                     )
-                  : File(properImageUri).existsSync()
-                  ? Image.file(File(properImageUri), fit: BoxFit.contain)
+                  : File(imageUri).existsSync()
+                  ? Image.file(File(imageUri), fit: BoxFit.contain)
                   : const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -120,8 +116,17 @@ class PhotoGrid extends StatelessWidget {
       ),
       itemBuilder: (_, i) {
         final workPhoto = images[i];
-        // Use the proper URL construction method
-        final uri = WorkLogService.getImageUrl(workPhoto);
+        // Construct the image URL based on the WorkPhoto data
+        // Assuming the imageName contains the filename and we need to construct the full URL
+        final uri = workPhoto.imageName.startsWith('http')
+            ? workPhoto.imageName
+            : 'http://124.43.181.243:8000/api/fetch-testdocket-image/${workPhoto.kind == 'BEFORE'
+                  ? '1'
+                  : workPhoto.kind == 'AFTER'
+                  ? '2'
+                  : workPhoto.kind == 'EXTRA'
+                  ? '3'
+                  : '4'}/${workPhoto.imageName}';
 
         final isNet = uri.startsWith('http://') || uri.startsWith('https://');
         final widget = isNet

@@ -59,7 +59,6 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
 
   // UI state helpers
   bool get _canAttend => _isAcknowledged && !_isAttending;
-  bool get _canStartWork => _isAttending && !_isStarted;
 
   // Test: Acknowledge → Attend → BEFORE photos → Auto start → AFTER photos → Complete
   // Photo-related getters - Attendance tracking workflow
@@ -406,8 +405,6 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
     final image = await _picker.pickImage(
       source: ImageSource.camera,
       imageQuality: 85,
-      preferredCameraDevice:
-          CameraDevice.rear, // Use rear camera for work photos
     );
     if (image == null) return;
 
@@ -622,17 +619,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
                   _buildProgressAndActions(),
                   const SizedBox(height: 32),
 
-                  // Photo Sections
-                  _buildPhotoSection(
-                    'Before Photos',
-                    _beforePhotos,
-                    PhotoKind.before,
-                    _canTakeBeforePhotos,
-                    'Add BEFORE Photo',
-                    Icons.add_a_photo,
-                  ),
-                  const SizedBox(height: 24),
-
+                  // Photo Sections (Before photos are now integrated in Start Work step)
                   _buildPhotoSection(
                     'Extra Photos',
                     _extraPhotos,
@@ -774,46 +761,22 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
             if (!_isCompleted) _buildConnectorLine(_isAttending),
 
             // Step 3: Start Work (Auto-triggered)
-            _buildProgressActionStep(
+            _buildProgressActionStepWithPhotos(
               stepNumber: 3,
               title: 'Start Work',
-              description:
-                  'Automatically triggered when you take your first BEFORE photo',
+              description: _isStarted
+                  ? 'Work started successfully! You can continue taking BEFORE photos if needed.'
+                  : 'Take your first BEFORE photo to automatically start work',
               isCompleted: _isStarted,
-              isActive: _isAttending && !_isStarted,
+              isActive: _isAttending && !_isCompleted,
               icon: Icons.play_arrow,
-              actionButton: _isStarted
-                  ? null
-                  : Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.orange),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.camera_alt,
-                            size: 16,
-                            color: Colors.orange,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Take BEFORE photo to start',
-                            style: TextStyle(
-                              color: Colors.orange,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+              showPhotoSection: _isAttending && !_isCompleted,
+              photoSectionTitle: 'Before Photos (${_beforePhotos.length})',
+              photos: _beforePhotos,
+              photoKind: PhotoKind.before,
+              canTakePhoto: _canTakeBeforePhotos,
+              addPhotoButtonText: 'Take BEFORE Photo',
+              addPhotoIcon: Icons.add_a_photo,
             ),
 
             // Connector Line
@@ -1021,6 +984,258 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
     );
   }
 
+  Widget _buildProgressActionStepWithPhotos({
+    required int stepNumber,
+    required String title,
+    required String description,
+    required bool isCompleted,
+    required bool isActive,
+    required IconData icon,
+    required bool showPhotoSection,
+    required String photoSectionTitle,
+    required List<WorkPhoto> photos,
+    required PhotoKind photoKind,
+    required bool canTakePhoto,
+    required String addPhotoButtonText,
+    required IconData addPhotoIcon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: isCompleted
+            ? const Color(0xFF003366).withOpacity(0.05)
+            : (isActive
+                  ? Colors.blue.withOpacity(0.02)
+                  : Colors.grey.withOpacity(0.02)),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isCompleted
+              ? const Color(0xFF003366)
+              : (isActive ? Colors.blue : Colors.grey.withOpacity(0.3)),
+          width: isCompleted ? 2 : 1,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              // Step Number/Status Circle
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: isCompleted
+                      ? const Color(0xFF003366)
+                      : (isActive ? Colors.blue : Colors.grey.withOpacity(0.3)),
+                  shape: BoxShape.circle,
+                ),
+                child: isCompleted
+                    ? const Icon(Icons.check, color: Colors.white, size: 20)
+                    : Text(
+                        '$stepNumber',
+                        style: TextStyle(
+                          color: isActive ? Colors.white : Colors.grey[600],
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+              ),
+              const SizedBox(width: 16),
+
+              // Content
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          icon,
+                          size: 20,
+                          color: isCompleted
+                              ? const Color(0xFF003366)
+                              : (isActive ? Colors.blue : Colors.grey),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            title,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 16,
+                              color: isCompleted
+                                  ? const Color(0xFF003366)
+                                  : (isActive ? Colors.blue : Colors.grey[700]),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      description,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey[600],
+                        height: 1.3,
+                      ),
+                    ),
+                    if (isCompleted) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle,
+                            size: 16,
+                            color: Colors.green,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Completed',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // Photo Section
+          if (showPhotoSection) ...[
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.grey[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey[200]!),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.camera_alt,
+                        size: 18,
+                        color: isActive ? Colors.blue : Colors.grey[600],
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          photoSectionTitle,
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: isActive ? Colors.blue : Colors.grey[700],
+                          ),
+                        ),
+                      ),
+                      if (canTakePhoto)
+                        ElevatedButton.icon(
+                          onPressed: _saving
+                              ? null
+                              : () => _addPhoto(photoKind),
+                          icon: Icon(addPhotoIcon, size: 16),
+                          label: Text(
+                            addPhotoButtonText,
+                            style: const TextStyle(fontSize: 12),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (!canTakePhoto)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: Colors.orange.withOpacity(0.3),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            color: Colors.orange,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _getPhotoLockMessage(photoKind),
+                              style: TextStyle(
+                                color: Colors.orange[700],
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (photos.isNotEmpty)
+                    PhotoGrid(images: photos)
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.05),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.photo_camera,
+                            color: Colors.blue,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'No photos taken yet. Take your first BEFORE photo to start work!',
+                              style: TextStyle(
+                                color: Colors.blue[700],
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildConnectorLine(bool isCompleted) {
     return Container(
       margin: const EdgeInsets.only(left: 20),
@@ -1170,83 +1385,6 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // Replace status chips with step-by-step progress indicators
-  Widget _buildProgressStep(String title, bool isCompleted, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: isCompleted
-            ? const Color(0xFF003366).withOpacity(0.1)
-            : Colors.grey[50],
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: isCompleted ? const Color(0xFF003366) : Colors.grey[300]!,
-          width: isCompleted ? 2 : 1,
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: isCompleted ? const Color(0xFF003366) : Colors.grey[300],
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              isCompleted ? Icons.check : icon,
-              color: isCompleted ? Colors.white : Colors.grey[600],
-              size: 18,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              title,
-              style: TextStyle(
-                color: isCompleted ? const Color(0xFF003366) : Colors.grey[700],
-                fontWeight: isCompleted ? FontWeight.w600 : FontWeight.w500,
-                fontSize: 14,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusChip(String text, bool isActive) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: isActive
-            ? const Color(0xFF003366).withOpacity(0.1)
-            : Colors.grey[100],
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isActive ? const Color(0xFF003366) : Colors.grey[300]!,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isActive)
-            const Icon(Icons.check_circle, size: 16, color: Color(0xFF003366)),
-          if (isActive) const SizedBox(width: 4),
-          Text(
-            text,
-            style: TextStyle(
-              color: isActive ? const Color(0xFF003366) : Colors.grey[600],
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
-            ),
-          ),
-        ],
       ),
     );
   }

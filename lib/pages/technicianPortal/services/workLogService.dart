@@ -355,14 +355,14 @@ class WorkLogService {
           'DEBUG: Photo uploaded successfully to file system using ApiService!',
         );
         print(
-          'DEBUG: Access URL: http://124.43.136.185:8000/api/fetch-testdocket-image/$subdirectory/$fileName.jpg',
+          'DEBUG: Access URL: http://124.43.181.243:8000/api/fetch-testdocket-image/$subdirectory/$fileName',
         );
 
         // Now save the photo metadata to the database
         final workPhoto = await _saveWorkPhotoToDatabase(
           workLogId: workLogId,
           kind: kind,
-          imageName: '$fileName.jpg', // ApiService adds .jpg extension
+          imageName: fileName, // fileName already includes .jpg extension
           caption: caption,
           sequence: sequence,
           uploadedBy: uploadedBy,
@@ -390,19 +390,28 @@ class WorkLogService {
     required String uploadedBy,
   }) async {
     try {
+      // Format datetime to match database format (MySQL datetime)
+      final now = DateTime.now();
+      final formattedDateTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
+
+      final requestBody = {
+        'workLogId': workLogId,
+        'kind': kind,
+        'imageName': imageName,
+        'caption': caption,
+        'sequence': sequence,
+        'uploadedBy': uploadedBy,
+        'uploadedAt': formattedDateTime,
+        'updatedAt': formattedDateTime,
+      };
+
+      print('DEBUG: Sending to database - URL: $postWorkPhotoUrl');
+      print('DEBUG: Request body: $requestBody');
+
       final response = await http.post(
         Uri.parse(postWorkPhotoUrl),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'workLogId': workLogId,
-          'kind': kind,
-          'imageName': imageName,
-          'caption': caption,
-          'sequence': sequence,
-          'uploadedBy': uploadedBy,
-          'uploadedAt': DateTime.now().toIso8601String(),
-          'updatedAt': DateTime.now().toIso8601String(),
-        }),
+        body: jsonEncode(requestBody),
       );
 
       print('DEBUG: Database save response status: ${response.statusCode}');
@@ -410,11 +419,42 @@ class WorkLogService {
 
       if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonData = jsonDecode(response.body);
+
+        // Check if response indicates success
+        if (jsonData is Map<String, dynamic>) {
+          // If API returns success status
+          if (jsonData.containsKey('success') && jsonData['success'] == false) {
+            throw 'API Error: ${jsonData['message'] ?? 'Unknown error'}';
+          }
+
+          // If response contains the work photo data, return it
+          if (jsonData.containsKey('id') || jsonData.containsKey('workLogId')) {
+            return WorkPhoto.fromJson(jsonData);
+          }
+
+          // If response is just a success confirmation, create a WorkPhoto object
+          // with the data we sent (since some APIs just return success without data)
+          return WorkPhoto(
+            id:
+                jsonData['id']?.toString() ??
+                DateTime.now().millisecondsSinceEpoch.toString(),
+            workLogId: workLogId,
+            kind: kind,
+            imageName: imageName,
+            caption: caption,
+            sequence: sequence,
+            uploadedBy: uploadedBy,
+            uploadedAt: formattedDateTime,
+            updatedAt: formattedDateTime,
+          );
+        }
+
         return WorkPhoto.fromJson(jsonData);
       }
 
       throw 'Failed to save work photo to database: ${response.statusCode} - ${response.body}';
     } catch (e) {
+      print('DEBUG: Exception in _saveWorkPhotoToDatabase: $e');
       throw 'Error saving work photo to database: $e';
     }
   }
@@ -453,6 +493,31 @@ class WorkLogService {
       throw 'Failed to update work photo: ${response.statusCode} - ${response.body}';
     } catch (e) {
       throw 'Error updating work photo: $e';
+    }
+  }
+
+  // ==================== DEBUG/TEST METHODS ====================
+
+  /// Test database connection for work photos
+  static Future<bool> testDatabaseConnection() async {
+    try {
+      print('DEBUG: Testing database connection...');
+      print('DEBUG: GET URL: $getWorkPhotosUrl');
+      print('DEBUG: POST URL: $postWorkPhotoUrl');
+
+      // Try to get existing work photos to test connection
+      final response = await http.get(
+        Uri.parse(getWorkPhotosUrl),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      print('DEBUG: Test connection response status: ${response.statusCode}');
+      print('DEBUG: Test connection response body: ${response.body}');
+
+      return response.statusCode == 200;
+    } catch (e) {
+      print('DEBUG: Database connection test failed: $e');
+      return false;
     }
   }
 
@@ -503,6 +568,6 @@ class WorkLogService {
         : '4';
 
     // Construct full URL
-    return 'http://124.43.136.185:8000/api/fetch-testdocket-image/$subdirectory/${workPhoto.imageName}';
+    return 'http://124.43.181.243:8000/api/fetch-testdocket-image/$subdirectory/${workPhoto.imageName}';
   }
 }
