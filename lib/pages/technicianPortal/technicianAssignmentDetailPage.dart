@@ -69,8 +69,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
       _beforePhotos.isNotEmpty &&
       !_isCompleted; // AFTER photos unlock only when work started AND BEFORE photos exist
   bool get _canTakeExtraPhotos =>
-      _isAttending &&
-      !_isCompleted; // EXTRA photos available throughout process after attending
+      _isAcknowledged; // EXTRA photos available always after acknowledgment
   bool get _canComplete =>
       _isStarted &&
       _beforePhotos.isNotEmpty &&
@@ -168,34 +167,71 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
       }
 
       if (_workLog == null) {
-        print('DEBUG: Creating new work log...');
+        print(
+          'DEBUG: No existing work log found - creating new one automatically...',
+        );
         print('DEBUG: About to call WorkLogService.createWorkLog...');
+
         try {
-          // Create new work log
+          // Always create work log when assignment is opened (if it doesn't exist)
           _workLog = await WorkLogService.createWorkLog(
             assignmentId: widget.assignment.docketId,
             docketId: '${widget.docket.id}',
             employeeNo: _effectiveEmployeeNo,
           );
-          print('DEBUG: Created new work log: $_workLog');
+          print('DEBUG: Successfully created new work log: $_workLog');
         } catch (createError) {
-          print('DEBUG: Failed to create work log: $createError');
-          // Don't throw error here - let user try to acknowledge manually
-          print('DEBUG: Will allow manual acknowledgment attempt');
+          print('DEBUG: Error during createWorkLog: $createError');
+          print('DEBUG: Checking if work log was actually created...');
+
+          // Add a small delay to allow database consistency
+          await Future.delayed(Duration(milliseconds: 500));
+
+          // Try to reload work logs to see if creation succeeded despite error
+          try {
+            final existingLogs = await WorkLogService.getWorkLogs(
+              assignmentId: widget.assignment.docketId,
+              docketId: '${widget.docket.id}',
+              employeeNo: _effectiveEmployeeNo,
+            );
+
+            if (existingLogs.isNotEmpty) {
+              print(
+                'DEBUG: Work log was actually created successfully despite API error!',
+              );
+              _workLog = existingLogs.first;
+            } else {
+              print('DEBUG: Work log creation truly failed');
+
+              // Provide more helpful error message for server errors
+              if (createError.toString().contains('Server Error: 500')) {
+                throw 'Server temporarily unavailable. Please try again.';
+              }
+              throw createError; // Re-throw original error
+            }
+          } catch (reloadError) {
+            print('DEBUG: Failed to reload work logs: $reloadError');
+
+            // Provide more helpful error message for server errors
+            if (createError.toString().contains('Server Error: 500')) {
+              throw 'Server temporarily unavailable. Please try again.';
+            }
+            throw createError; // Re-throw original error
+          }
         }
       }
 
       // Validate work log was created/loaded successfully
       if (_workLog == null) {
-        print('DEBUG: _workLog is null - user can try manual acknowledgment');
-        // Don't show error or return early - let the user try to acknowledge
-      } else if (_workLog!.id.isEmpty) {
         print(
-          'DEBUG: _workLog.id is empty - user can try manual acknowledgment',
+          'DEBUG: CRITICAL ERROR: _workLog is still null after creation attempt',
         );
-        // Don't show error or return early - let the user try to acknowledge
+        throw 'Failed to create or load work log';
+      } else if (_workLog!.id.isEmpty) {
+        print('DEBUG: CRITICAL ERROR: _workLog.id is empty after creation');
+        throw 'Work log created but has empty ID';
       } else {
-        print('DEBUG: Work log loaded successfully with ID: ${_workLog!.id}');
+        print('DEBUG: Work log ready with ID: ${_workLog!.id}');
       }
 
       // Load existing photos
@@ -217,8 +253,18 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
     } catch (e, stackTrace) {
       print('DEBUG: Exception in _loadWorkLog(): $e');
       print('DEBUG: Stack trace: $stackTrace');
-      setState(() => _loading = false);
-      _showError('Failed to load work log: $e');
+
+      // Check if we actually have a work log despite the error
+      if (_workLog != null && _workLog!.id.isNotEmpty) {
+        print('DEBUG: Work log exists despite error - continuing normally');
+        setState(() => _loading = false);
+        // Don't show error message since work log is actually available
+      } else {
+        print('DEBUG: No work log available after error');
+        setState(() => _loading = false);
+        _showError('Failed to load work log: $e');
+      }
+
       print('DEBUG: _loadWorkLog() completed with error');
     }
   }
@@ -255,13 +301,11 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
     }
   }
 
-  /// Mark as acknowledged
+  /// Mark as acknowledged - Simply update the existing work log
   Future<void> _markAcknowledged() async {
     print('DEBUG: _markAcknowledged called');
     print('DEBUG: _isAcknowledged = $_isAcknowledged');
     print('DEBUG: _workLog?.id = ${_workLog?.id}');
-    print('DEBUG: _workLog = $_workLog');
-    print('DEBUG: _saving = $_saving');
 
     if (_saving) {
       print('DEBUG: Already saving, ignoring acknowledge request');
@@ -273,59 +317,32 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
       return;
     }
 
+    if (_workLog == null || _workLog!.id.isEmpty) {
+      _showError('Work log not found. Please try reloading the page.');
+      return;
+    }
+
     setState(() => _saving = true);
     try {
-      // If work log doesn't exist or has empty ID, create a new one with acknowledgment
-      if (_workLog == null || _workLog!.id.isEmpty) {
-        print('DEBUG: Creating new work log with acknowledgment');
-        print('DEBUG: acknowledgedAt: ${_now()}');
-        print('DEBUG: Current employee: $_effectiveEmployeeNo');
+      print('DEBUG: Updating work log with acknowledgment');
+      print('DEBUG: workLogId: ${_workLog!.id}');
+      print('DEBUG: acknowledgedAt: ${_now()}');
 
-        _workLog = await WorkLogService.createWorkLog(
-          assignmentId: widget.assignment.docketId,
-          docketId: '${widget.docket.id}',
-          employeeNo: _effectiveEmployeeNo,
-          acknowledgedAt: _now(), // Set acknowledgment time during creation
-        );
-
-        print('DEBUG: Created new work log with acknowledgment: $_workLog');
-      } else {
-        // Update existing work log with acknowledgment
-        print(
-          'DEBUG: Updating existing work log with workLogId: ${_workLog!.id}',
-        );
-        print('DEBUG: acknowledgedAt: ${_now()}');
-        print('DEBUG: Current employee: $_effectiveEmployeeNo');
-
-        _workLog = await WorkLogService.updateWorkLog(
-          workLogId: _workLog!.id,
-          acknowledgedAt: _now(),
-        );
-
-        print('DEBUG: Updated existing work log: $_workLog');
-      }
-
-      print('DEBUG: Final workLog: $_workLog');
-      print('DEBUG: New acknowledgedAt: ${_workLog?.acknowledgedAt}');
-      print(
-        'DEBUG: _isAcknowledged after update: ${_workLog?.acknowledgedAt != null}',
+      // Simply update the existing work log with acknowledgment
+      _workLog = await WorkLogService.updateWorkLog(
+        workLogId: _workLog!.id,
+        acknowledgedAt: _now(),
       );
+
+      print('DEBUG: Successfully updated work log: $_workLog');
 
       // Update local state for immediate UI response
       _localIsAcknowledged = true;
 
-      print('DEBUG: After setting _localIsAcknowledged = true');
-      print('DEBUG: _localIsAcknowledged = $_localIsAcknowledged');
-      print('DEBUG: _isAcknowledged = $_isAcknowledged');
-      print('DEBUG: _canAttend = $_canAttend');
-
-      setState(() {
-        // Force UI rebuild with updated state
-      });
+      setState(() {});
       _showSuccess('Assignment acknowledged successfully!');
     } catch (e) {
       print('DEBUG: Error in _markAcknowledged: $e');
-      print('DEBUG: Error type: ${e.runtimeType}');
       _showError('Failed to acknowledge: $e');
     } finally {
       setState(() => _saving = false);
@@ -398,7 +415,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
       return;
     }
     if (kind == PhotoKind.extra && !_canTakeExtraPhotos) {
-      _showError('You must mark as attending first');
+      _showError('You must acknowledge the assignment first');
       return;
     }
 

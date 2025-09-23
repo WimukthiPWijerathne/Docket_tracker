@@ -120,6 +120,7 @@ class WorkLogService {
       print('DEBUG: Create response status: ${response.statusCode}');
       print('DEBUG: Create response body: ${response.body}');
 
+      // Handle successful status codes
       if (response.statusCode == 200 || response.statusCode == 201) {
         final jsonData = jsonDecode(response.body);
         print('DEBUG: Parsed create response data: $jsonData');
@@ -143,7 +144,12 @@ class WorkLogService {
         return workLog;
       }
 
-      throw 'Failed to create work log: ${response.statusCode} - ${response.body}';
+      // If we get a server error (500), the work log might still have been created
+      // We'll let the calling method handle this by checking if the work log exists
+      print(
+        'DEBUG: Server error ${response.statusCode}, but work log might have been created',
+      );
+      throw 'Server Error: ${response.statusCode} - Work log may have been created despite error';
     } catch (e) {
       print('DEBUG: Exception in createWorkLog: $e');
       throw 'Error creating work log: $e';
