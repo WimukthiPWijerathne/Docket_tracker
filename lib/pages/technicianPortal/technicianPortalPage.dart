@@ -408,11 +408,6 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
             tooltip: "Notifications",
           ),
           IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: _showFilterDialog,
-            tooltip: "Filter",
-          ),
-          IconButton(
             onPressed: _load,
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
@@ -968,57 +963,6 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
           onChanged: _load,
         ),
       ),
-    );
-  }
-
-  void _showFilterDialog() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                margin: const EdgeInsets.only(top: 8),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text(
-                  "Filter Assignments",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ),
-              ..._filterOptions.map((filter) {
-                return RadioListTile<String>(
-                  title: Text(filter),
-                  value: filter,
-                  groupValue: _selectedFilter,
-                  activeColor: const Color(0xFF003366),
-                  onChanged: (value) {
-                    if (value != null) {
-                      setState(() {
-                        _selectedFilter = value;
-                      });
-                      Navigator.pop(context);
-                    }
-                  },
-                );
-              }),
-              const SizedBox(height: 16),
-            ],
-          ),
-        );
-      },
     );
   }
 }
