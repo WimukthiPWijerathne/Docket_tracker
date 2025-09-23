@@ -74,7 +74,7 @@ class ApiService {
         // Server adds .jpg automatically, so we use the original filename
         final accessFileName = '$fileName.jpg';
         print(
-          'DEBUG: Access URL: http://124.43.136.185:8000/api/fetch-testdocket-image/$subdirectory/$cleanFileName.jpg',
+          'DEBUG: Access URL: http://124.43.181.243:8000/api/fetch-testdocket-image/$subdirectory/$cleanFileName.jpg',
         );
         return true;
       } else {

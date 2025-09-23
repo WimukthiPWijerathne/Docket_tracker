@@ -254,7 +254,10 @@ class WorkLogService {
   }) {
     final now = DateTime.now();
     final formattedDate = DateFormat('yyyyMMdd_HHmmss').format(now);
-    return "${docketSerial}_${kind}_${sequence}_$formattedDate.jpg";
+    final fileName =
+        "${docketSerial}_${kind}_${sequence}_$formattedDate"; // Remove .jpg - let ApiService add it
+    print('DEBUG: Generated filename (no extension): $fileName');
+    return fileName;
   }
 
   /// Compresses an image file before uploading
@@ -355,14 +358,15 @@ class WorkLogService {
           'DEBUG: Photo uploaded successfully to file system using ApiService!',
         );
         print(
-          'DEBUG: Access URL: http://124.43.181.243:8000/api/fetch-testdocket-image/$subdirectory/$fileName',
+          'DEBUG: Access URL: http://124.43.181.243:8000/api/fetch-testdocket-image/$subdirectory/$fileName.jpg',
         );
 
         // Now save the photo metadata to the database
         final workPhoto = await _saveWorkPhotoToDatabase(
           workLogId: workLogId,
           kind: kind,
-          imageName: fileName, // fileName already includes .jpg extension
+          imageName:
+              '$fileName.jpg', // ApiService adds .jpg extension, so we save the full name
           caption: caption,
           sequence: sequence,
           uploadedBy: uploadedBy,
@@ -558,6 +562,18 @@ class WorkLogService {
       return workPhoto.imageName;
     }
 
+    // Clean up image name to fix legacy double extensions
+    String cleanImageName = workPhoto.imageName;
+    if (cleanImageName.endsWith('.jpg.jpg')) {
+      cleanImageName = cleanImageName.substring(
+        0,
+        cleanImageName.length - 4,
+      ); // Remove the extra .jpg
+      print(
+        'DEBUG: Fixed legacy double extension: ${workPhoto.imageName} -> $cleanImageName',
+      );
+    }
+
     // Determine subdirectory based on photo kind
     final subdirectory = workPhoto.kind == 'BEFORE'
         ? '1'
@@ -568,6 +584,9 @@ class WorkLogService {
         : '4';
 
     // Construct full URL
-    return 'http://124.43.181.243:8000/api/fetch-testdocket-image/$subdirectory/${workPhoto.imageName}';
+    final url =
+        'http://124.43.181.243:8000/api/fetch-testdocket-image/$subdirectory/$cleanImageName';
+    print('DEBUG getImageUrl: ${workPhoto.imageName} -> $url');
+    return url;
   }
 }

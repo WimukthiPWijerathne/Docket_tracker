@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../../models/WorkPhoto.dart';
+import '../services/workLogService.dart';
 
 class PhotoGrid extends StatelessWidget {
   final List<WorkPhoto> images;
@@ -116,27 +117,68 @@ class PhotoGrid extends StatelessWidget {
       ),
       itemBuilder: (_, i) {
         final workPhoto = images[i];
-        // Construct the image URL based on the WorkPhoto data
-        // Assuming the imageName contains the filename and we need to construct the full URL
-        final uri = workPhoto.imageName.startsWith('http')
-            ? workPhoto.imageName
-            : 'http://124.43.181.243:8000/api/fetch-testdocket-image/${workPhoto.kind == 'BEFORE'
-                  ? '1'
-                  : workPhoto.kind == 'AFTER'
-                  ? '2'
-                  : workPhoto.kind == 'EXTRA'
-                  ? '3'
-                  : '4'}/${workPhoto.imageName}';
+
+        // Use the official WorkLogService.getImageUrl method for consistency
+        final uri = WorkLogService.getImageUrl(workPhoto);
+
+        // Debug print to see what URL is being used
+        print('DEBUG PhotoGrid: Photo ${i + 1}');
+        print(
+          'DEBUG PhotoGrid: WorkPhoto.imageName = "${workPhoto.imageName}"',
+        );
+        print('DEBUG PhotoGrid: WorkPhoto.kind = "${workPhoto.kind}"');
+        print('DEBUG PhotoGrid: Official getImageUrl URI = "$uri"');
 
         final isNet = uri.startsWith('http://') || uri.startsWith('https://');
         final widget = isNet
             ? Image.network(
                 uri,
                 fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: CircularProgressIndicator(
+                      value: loadingProgress.expectedTotalBytes != null
+                          ? loadingProgress.cumulativeBytesLoaded /
+                                loadingProgress.expectedTotalBytes!
+                          : null,
+                    ),
+                  );
+                },
                 errorBuilder: (context, error, stackTrace) {
+                  print('DEBUG PhotoGrid: Image load error for URI "$uri"');
+                  print('DEBUG PhotoGrid: Error = $error');
+                  print('DEBUG PhotoGrid: StackTrace = $stackTrace');
+
+                  // Try to provide more helpful error information
+                  String errorMsg = 'Load Failed';
+                  if (error.toString().contains('404')) {
+                    errorMsg = 'Not Found';
+                  } else if (error.toString().contains('403')) {
+                    errorMsg = 'Forbidden';
+                  } else if (error.toString().contains('500')) {
+                    errorMsg = 'Server Error';
+                  } else if (error.toString().contains('timeout')) {
+                    errorMsg = 'Timeout';
+                  }
+
                   return Container(
                     color: Colors.grey[300],
-                    child: const Icon(Icons.error, color: Colors.red),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.error, color: Colors.red, size: 24),
+                        const SizedBox(height: 4),
+                        Text(
+                          errorMsg,
+                          style: TextStyle(
+                            color: Colors.red,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
                   );
                 },
               )
