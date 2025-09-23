@@ -60,7 +60,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
   // UI state helpers
   bool get _canAttend => _isAcknowledged && !_isAttending;
 
-  // Test: Acknowledge → Attend → BEFORE photos → Auto start → AFTER photos → Complete
+  // Workflow: Acknowledge → Attend → Start Work (with BEFORE photos) → Complete Work (with AFTER photos)
   // Photo-related getters - Attendance tracking workflow
   bool get _canTakeBeforePhotos =>
       _isAttending && !_isCompleted; // Unlocked after attending
@@ -498,10 +498,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
       // 2) Update Docket row
       final docketUpdated = await DocketUpdateApi.updateFields(
         id: widget.docket.id,
-        fields: {
-          'AssignedTime': '2', // Mark as completed
-          'completedTime': nowStr,
-        },
+        fields: {'completedTime': nowStr},
       );
 
       if (docketUpdated) {
@@ -619,7 +616,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
                   _buildProgressAndActions(),
                   const SizedBox(height: 32),
 
-                  // Photo Sections (Before photos are now integrated in Start Work step)
+                  // Photo Sections (Before photos are now integrated in Start Work step, After photos are now integrated in Complete step)
                   _buildPhotoSection(
                     'Extra Photos',
                     _extraPhotos,
@@ -627,16 +624,6 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
                     _canTakeExtraPhotos,
                     'Add EXTRA Photo',
                     Icons.add_photo_alternate,
-                  ),
-                  const SizedBox(height: 24),
-
-                  _buildPhotoSection(
-                    'After Photos',
-                    _afterPhotos,
-                    PhotoKind.after,
-                    _canTakeAfterPhotos,
-                    'Add AFTER Photo',
-                    Icons.add_a_photo_outlined,
                   ),
                   const SizedBox(height: 32),
 
@@ -770,7 +757,8 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
               isCompleted: _isStarted,
               isActive: _isAttending && !_isCompleted,
               icon: Icons.play_arrow,
-              showPhotoSection: _isAttending && !_isCompleted,
+              showPhotoSection:
+                  _isAttending, // Show photos even after completion for viewing
               photoSectionTitle: 'Before Photos (${_beforePhotos.length})',
               photos: _beforePhotos,
               photoKind: PhotoKind.before,
@@ -782,14 +770,24 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
             // Connector Line
             if (!_isCompleted) _buildConnectorLine(_isStarted),
 
-            // Step 4: Complete Work
-            _buildProgressActionStep(
+            // Step 4: Complete Work (with After Photos)
+            _buildProgressActionStepWithPhotos(
               stepNumber: 4,
               title: 'Complete Assignment',
-              description: 'Finalize work after taking all required photos',
+              description: _isCompleted
+                  ? 'Assignment completed successfully!'
+                  : 'Take AFTER photos to show completed work, then mark assignment as complete',
               isCompleted: _isCompleted,
-              isActive: _canComplete,
+              isActive: _isStarted && !_isCompleted,
               icon: Icons.check_circle,
+              showPhotoSection:
+                  _isStarted, // Show photos even after completion for viewing
+              photoSectionTitle: 'After Photos (${_afterPhotos.length})',
+              photos: _afterPhotos,
+              photoKind: PhotoKind.after,
+              canTakePhoto: _canTakeAfterPhotos,
+              addPhotoButtonText: 'Take AFTER Photo',
+              addPhotoIcon: Icons.add_a_photo_outlined,
               actionButton: _isCompleted
                   ? null
                   : ElevatedButton.icon(
@@ -998,6 +996,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
     required bool canTakePhoto,
     required String addPhotoButtonText,
     required IconData addPhotoIcon,
+    Widget? actionButton,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1109,6 +1108,12 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
             ],
           ),
 
+          // Action Button (if provided)
+          if (actionButton != null) ...[
+            const SizedBox(height: 12),
+            Align(alignment: Alignment.centerRight, child: actionButton),
+          ],
+
           // Photo Section
           if (showPhotoSection) ...[
             const SizedBox(height: 16),
@@ -1165,40 +1170,9 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  if (!canTakePhoto)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: Colors.orange.withOpacity(0.3),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.info_outline,
-                            color: Colors.orange,
-                            size: 18,
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              _getPhotoLockMessage(photoKind),
-                              style: TextStyle(
-                                color: Colors.orange[700],
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else if (photos.isNotEmpty)
+                  if (photos.isNotEmpty)
                     PhotoGrid(images: photos)
-                  else
+                  else if (canTakePhoto)
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -1216,7 +1190,9 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              'No photos taken yet. Take your first BEFORE photo to start work!',
+                              photoKind == PhotoKind.before
+                                  ? 'No photos taken yet. Take your first BEFORE photo to start work!'
+                                  : 'No AFTER photos taken yet. Take photos to show completed work!',
                               style: TextStyle(
                                 color: Colors.blue[700],
                                 fontSize: 13,
@@ -1313,44 +1289,37 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
               ],
             ),
             const SizedBox(height: 8),
-            if (!canTakePhoto)
+            if (photos.isNotEmpty)
+              PhotoGrid(images: photos)
+            else if (canTakePhoto)
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey[300]!),
+                  color: Colors.blue.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.blue.withOpacity(0.2)),
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.lock, color: Colors.grey[600], size: 20),
-                    const SizedBox(width: 8),
+                    Icon(Icons.photo_camera, color: Colors.blue, size: 20),
+                    const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        _getPhotoLockMessage(kind),
-                        style: TextStyle(color: Colors.grey[600]),
+                        'No photos taken yet. Click "${buttonLabel}" to add photos.',
+                        style: TextStyle(
+                          color: Colors.blue[700],
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
                   ],
                 ),
-              )
-            else
-              PhotoGrid(images: photos),
+              ),
           ],
         ),
       ),
     );
-  }
-
-  String _getPhotoLockMessage(PhotoKind kind) {
-    switch (kind) {
-      case PhotoKind.before:
-        return 'Mark as attending to unlock BEFORE photos';
-      case PhotoKind.after:
-        return 'Take BEFORE photos and start work to unlock AFTER photos';
-      case PhotoKind.extra:
-        return 'Mark as attending to unlock EXTRA photos';
-    }
   }
 
   Widget _buildNotesSection() {
