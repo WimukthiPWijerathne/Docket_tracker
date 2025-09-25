@@ -29,6 +29,8 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
   final _assignedDocketSvc = AssignedDocketService();
 
   bool _loading = true;
+  bool _loadingLocationDetails = false;
+  bool _loadingWorkLogs = false;
   String? _error;
 
   /// All dockets (used to render cards)
@@ -47,9 +49,98 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
   String _selectedFilter = 'All';
   final List<String> _filterOptions = ['All', 'Assigned', 'Completed'];
 
+  // ================= CACHING SYSTEM =================
+  static final Map<String, dynamic> _cache = {};
+  static final Map<String, DateTime> _cacheTimestamps = {};
+
+  // Cache TTL (Time To Live) in minutes
+  static const int _docketsCacheTTL = 5;
+  static const int _assignmentsCacheTTL = 3;
+  static const int _locationCacheTTL = 15;
+  static const int _workLogCacheTTL = 2;
+
   static const int _criticalDays = 2;
   static const String docketDetailsApiBase =
       'https://powerprox.sltidc.lk/GETDocketDetails2.php';
+
+  // ================= CACHE HELPER METHODS =================
+
+  /// Check if cached data is still valid
+  bool _isCacheValid(String key, int ttlMinutes) {
+    if (!_cache.containsKey(key) || !_cacheTimestamps.containsKey(key)) {
+      return false;
+    }
+
+    final cacheTime = _cacheTimestamps[key]!;
+    final now = DateTime.now();
+    final diffMinutes = now.difference(cacheTime).inMinutes;
+
+    return diffMinutes < ttlMinutes;
+  }
+
+  /// Store data in cache with timestamp
+  void _setCacheData(String key, dynamic data, int ttlMinutes) {
+    _cache[key] = data;
+    _cacheTimestamps[key] = DateTime.now();
+    debugPrint('[Cache] Stored $key (TTL: ${ttlMinutes}min)');
+  }
+
+  /// Get data from cache if valid
+  T? _getCacheData<T>(String key, int ttlMinutes) {
+    if (_isCacheValid(key, ttlMinutes)) {
+      debugPrint('[Cache] Hit for $key');
+      return _cache[key] as T?;
+    }
+    debugPrint('[Cache] Miss for $key');
+    return null;
+  }
+
+  /// Clear specific cache entry
+  void _clearCache(String key) {
+    _cache.remove(key);
+    _cacheTimestamps.remove(key);
+    debugPrint('[Cache] Cleared $key');
+  }
+
+  // ================= CACHED API METHODS =================
+
+  /// Fetch dockets with caching
+  Future<List<Docket>> _fetchDocketsWithCache() async {
+    const cacheKey = 'dockets';
+
+    // Try to get from cache first
+    final cachedDockets = _getCacheData<List<Docket>>(
+      cacheKey,
+      _docketsCacheTTL,
+    );
+    if (cachedDockets != null) {
+      return cachedDockets;
+    }
+
+    // Fetch from API and cache
+    final dockets = await _docketSvc.fetchDockets();
+    _setCacheData(cacheKey, dockets, _docketsCacheTTL);
+    return dockets;
+  }
+
+  /// Fetch assigned dockets with caching
+  Future<List<AssignedDocket>> _fetchAssignedDocketsWithCache() async {
+    const cacheKey = 'assigned_dockets';
+
+    // Try to get from cache first
+    final cachedAssignments = _getCacheData<List<AssignedDocket>>(
+      cacheKey,
+      _assignmentsCacheTTL,
+    );
+    if (cachedAssignments != null) {
+      return cachedAssignments;
+    }
+
+    // Fetch from API and cache
+    final assignments = await _assignedDocketSvc.fetchAssignedDockets();
+    _setCacheData(cacheKey, assignments, _assignmentsCacheTTL);
+    return assignments;
+  }
 
   // status code sets (strings)
   static const Set<String> _completedCodes = {'2'};
@@ -59,10 +150,11 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 300),
       vsync: this,
+      duration: const Duration(milliseconds: 300),
     );
-    _load();
+    _loadWithOptimizations();
+    _fetchAssignedDockets();
   }
 
   @override
@@ -71,62 +163,104 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
     super.dispose();
   }
 
-  // ---------------- Load ----------------
-  Future<void> _load() async {
+  // Fetch assigned dockets for the current user
+  Future<void> _fetchAssignedDockets() async {
+    try {
+      setState(() {
+        _loading = true;
+      });
+
+      // Replace 'currentUserId' with the actual user ID of the logged-in technician
+      final currentUserId =
+          'current_user_id'; // You need to get this from your auth system
+      final assignedDockets = await _assignedDocketSvc
+          .fetchAssignedDocketsByPerson(currentUserId);
+
+      // Convert the list to a map for easier lookup
+      final assignments = <String, AssignedDocket>{};
+      for (var assignment in assignedDockets) {
+        assignments[assignment.docketID] = assignment;
+      }
+
+      setState(() {
+        _myAssignments.clear();
+        _myAssignments.addAll(assignments);
+      });
+    } catch (e) {
+      print('Error fetching assigned dockets: $e');
+      // Handle error (e.g., show a snackbar or error message)
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load assigned dockets: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  // ---------------- Optimized Load with Parallel API Calls ----------------
+  Future<void> _loadWithOptimizations() async {
     setState(() {
       _loading = true;
       _error = null;
     });
 
     try {
-      // 1) Docket details (for card data)
-      final dockets = await _docketSvc.fetchDockets();
+      // 1) Execute ALL essential API calls in parallel for maximum speed
+      debugPrint('[TechPortal] Starting parallel API calls...');
+      final startTime = DateTime.now();
+
+      final results = await Future.wait([
+        _fetchDocketsWithCache(),
+        _fetchAssignedDocketsWithCache(),
+      ], eagerError: false); // Don't fail all if one fails
+
+      final loadTime = DateTime.now().difference(startTime).inMilliseconds;
+      debugPrint('[TechPortal] Parallel API calls completed in ${loadTime}ms');
+
+      final dockets = results[0] as List<Docket>;
+      final allAssignments = results[1] as List<AssignedDocket>;
+
       debugPrint('[TechPortal] fetched ${dockets.length} dockets');
+      debugPrint('[TechPortal] fetched ${allAssignments.length} assignments');
 
-      // 2) Fetch ALL assignments (do NOT rely on server filter)
-      final allAssignments = await _assignedDocketSvc.fetchAssignedDockets();
-      debugPrint(
-        '[TechPortal] fetched ${allAssignments.length} assignments (unfiltered)',
-      );
-
-      // 3) Index all assignments by docketId (string) - no user filtering
+      // 2) Index assignments quickly using optimized processing
       _myAssignments.clear();
       int assignmentCount = 0;
+
+      // Use a more efficient approach for assignment processing
       for (final a in allAssignments) {
         final k = _normalizeAssignmentDocketId(a);
-        if (k.isEmpty) {
+        if (k.isNotEmpty) {
+          _myAssignments[k] = a;
+          assignmentCount++;
+        } else {
           debugPrint('[TechPortal] WARN: assignment without docketId → $a');
-          continue;
         }
-        _myAssignments[k] = a;
-        assignmentCount++;
       }
       debugPrint('[TechPortal] total assignments indexed → $assignmentCount');
 
+      // 3) Update UI immediately with essential data
       setState(() {
         _allDockets = dockets;
         _loading = false;
       });
 
-      // 4) Fetch location details for assigned dockets
-      await _fetchLocationDetails();
-
-      // 5) Fetch WorkLog data for assigned dockets
-      await _fetchWorkLogs();
-
+      // Start animation for the cards we already have
       _animationController.reset();
       _animationController.forward();
 
-      final totalAssigned = _allDockets.where(_hasAssignment).length;
-      final completedAssigned = _allDockets
-          .where((d) => _hasAssignment(d) && _isCompleted(d))
-          .length;
-      final pendingAssigned = _allDockets
-          .where((d) => _hasAssignment(d) && _isPending(d))
-          .length;
+      // 4) Load additional data in background without blocking UI
+      _loadAdditionalDataInBackground();
 
+      final totalAssigned = _allDockets.where(_hasAssignment).length;
       debugPrint(
-        '[TechPortal] all assigned: total=$totalAssigned, pending=$pendingAssigned, completed=$completedAssigned',
+        '[TechPortal] showing $totalAssigned assigned dockets immediately',
       );
     } catch (e) {
       setState(() {
@@ -140,40 +274,99 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
     }
   }
 
-  // Method to fetch location details for assigned dockets using the same API as AssignedDocketDetailsPage
-  Future<void> _fetchLocationDetails() async {
-    try {
-      debugPrint('🔍 Fetching docket details from: $docketDetailsApiBase');
-      final response = await http.get(Uri.parse(docketDetailsApiBase));
+  // Load additional data without blocking the UI - Fully Parallel
+  Future<void> _loadAdditionalDataInBackground() async {
+    // Get assigned dockets for background loading
+    final assignedDockets = _allDockets.where(_hasAssignment).toList();
 
-      debugPrint('📡 Response status: ${response.statusCode}');
+    if (assignedDockets.isEmpty) {
+      debugPrint(
+        '[TechPortal] No assigned dockets found for background loading',
+      );
+      return;
+    }
+
+    debugPrint(
+      '[TechPortal] Starting background data loading for ${assignedDockets.length} dockets',
+    );
+    final startTime = DateTime.now();
+
+    // Execute location details and work logs loading in FULL PARALLEL
+    final futures = <Future<void>>[];
+
+    // Always load location details in background (even if we have some)
+    futures.add(_fetchLocationDetailsOptimized(assignedDockets));
+
+    // Always load work logs in background (even if we have some)
+    futures.add(_fetchWorkLogsOptimized(assignedDockets));
+
+    try {
+      // Wait for both background operations to complete
+      await Future.wait(futures, eagerError: false);
+
+      final loadTime = DateTime.now().difference(startTime).inMilliseconds;
+      debugPrint(
+        '[TechPortal] ✅ Background data loading completed in ${loadTime}ms',
+      );
+
+      // Single UI update when all background data is loaded
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      debugPrint('[TechPortal] Error in background loading: $e');
+      // Don't block UI even if background loading fails
+    }
+  }
+
+  // Optimized location details fetching
+  Future<void> _fetchLocationDetailsOptimized(
+    List<Docket> assignedDockets,
+  ) async {
+    if (_loadingLocationDetails) return;
+
+    setState(() {
+      _loadingLocationDetails = true;
+    });
+
+    try {
+      debugPrint(
+        '🔍 Fetching location details for ${assignedDockets.length} dockets',
+      );
+
+      final response = await http
+          .get(Uri.parse(docketDetailsApiBase))
+          .timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        debugPrint('🔢 Found ${data.length} docket records');
+        debugPrint('🔢 Found ${data.length} location records');
 
-        // Get assigned dockets that we need location details for
-        final assignedDockets = _allDockets.where(_hasAssignment).toList();
+        // Create a map for faster lookups
+        final Map<String, dynamic> locationMap = {};
+        for (final item in data) {
+          final id = item['ID']?.toString();
+          if (id != null && id.isNotEmpty) {
+            locationMap[id] = item;
+          }
+        }
+
+        // Process assigned dockets with batch updates
+        final Map<String, String> newLocationDetails = {};
 
         for (final docket in assignedDockets) {
           final docketId = docket.id.toString();
+          final record = locationMap[docketId];
 
-          // Find the matching record in the API response
-          try {
-            final record = data.firstWhere((item) {
-              final id = item['ID']?.toString();
-              return id == docketId;
-            }, orElse: () => null);
-
-            if (record != null) {
-              // Parse location details similar to AssignedDocketDetailsPage
+          if (record != null) {
+            try {
               final combinedDetails = record['locationDetails']?.toString();
               if (combinedDetails != null &&
                   combinedDetails.isNotEmpty &&
                   combinedDetails != 'null') {
-                _locationDetails[docketId] = combinedDetails;
+                newLocationDetails[docketId] = combinedDetails;
               } else {
-                // Fallback to individual fields if locationDetails is not available
+                // Fallback to individual fields
                 final transformer = record['Transformer']?.toString() ?? '';
                 final pole = record['Pole']?.toString() ?? '';
                 final meterShift = record['MeterShift']?.toString() ?? '';
@@ -187,82 +380,108 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                   details.add('Meter Shift: $meterShift');
 
                 if (details.isNotEmpty) {
-                  _locationDetails[docketId] = details.join(' • ');
+                  newLocationDetails[docketId] = details.join(' • ');
                 }
               }
-
-              debugPrint(
-                '📍 Location details for docket $docketId: ${_locationDetails[docketId]}',
-              );
+            } catch (e) {
+              debugPrint('❌ Error processing docket $docketId: $e');
             }
-          } catch (e) {
-            debugPrint('❌ Error processing docket $docketId: $e');
           }
         }
 
+        // Batch update location details
+        _locationDetails.addAll(newLocationDetails);
         debugPrint(
-          '[TechPortal] Fetched location details for ${_locationDetails.length} dockets',
+          '[TechPortal] Loaded location details for ${newLocationDetails.length} dockets',
         );
-
-        // Update the UI if we're still on this screen
-        if (mounted) {
-          setState(() {});
-        }
       } else {
         debugPrint(
-          '❌ Failed to fetch docket details. Status: ${response.statusCode}',
+          '❌ Failed to fetch location details. Status: ${response.statusCode}',
         );
       }
     } catch (e) {
       debugPrint('[TechPortal] Error fetching location details: $e');
+    } finally {
+      setState(() {
+        _loadingLocationDetails = false;
+      });
     }
   }
 
-  // Method to fetch WorkLog data for assigned dockets to check completion status
-  Future<void> _fetchWorkLogs() async {
+  // Highly Optimized work logs fetching with parallel processing
+  Future<void> _fetchWorkLogsOptimized(List<Docket> assignedDockets) async {
+    if (_loadingWorkLogs || assignedDockets.isEmpty) return;
+
+    setState(() {
+      _loadingWorkLogs = true;
+    });
+
     try {
-      debugPrint('🔍 Fetching WorkLog data for assigned dockets');
+      debugPrint(
+        '🔍 Fetching WorkLog data for ${assignedDockets.length} dockets in parallel',
+      );
 
-      // Get assigned dockets that we need WorkLog data for
-      final assignedDockets = _allDockets.where(_hasAssignment).toList();
-      _workLogs.clear();
+      final startTime = DateTime.now();
 
-      for (final docket in assignedDockets) {
+      // Create all WorkLog fetch futures at once (fully parallel)
+      final workLogFutures = assignedDockets.map((docket) async {
         try {
           final assignment = _myAssignments[_docketKeyFromDocket(docket)];
-          if (assignment == null) continue;
+          if (assignment == null) return null;
 
-          // Get WorkLog for this docket assignment
           final workLogs = await WorkLogService.getWorkLogs(
             assignmentId: assignment.docketID,
             docketId: docket.id.toString(),
-          );
+          ).timeout(const Duration(seconds: 8));
 
           if (workLogs.isNotEmpty) {
-            // Use the first (most recent) WorkLog
-            final workLog = workLogs.first;
-            _workLogs[docket.id.toString()] = workLog;
-
-            debugPrint(
-              '📋 WorkLog for docket ${docket.id}: completedAt=${workLog.completedAt}',
-            );
+            return MapEntry(docket.id.toString(), workLogs.first);
           }
+          return null;
         } catch (e) {
           debugPrint('❌ Error fetching WorkLog for docket ${docket.id}: $e');
+          return null; // Return null instead of throwing to not break other requests
+        }
+      }).toList();
+
+      // Execute all requests in parallel
+      final results = await Future.wait(workLogFutures);
+
+      // Process results and update map
+      final Map<String, WorkLog> newWorkLogs = {};
+      int successCount = 0;
+
+      for (final result in results) {
+        if (result != null) {
+          newWorkLogs[result.key] = result.value;
+          successCount++;
         }
       }
 
-      debugPrint(
-        '[TechPortal] Fetched WorkLog data for ${_workLogs.length} dockets',
-      );
+      // Single batch update to minimize UI rebuilds
+      _workLogs.addAll(newWorkLogs);
 
-      // Update the UI if we're still on this screen
-      if (mounted) {
-        setState(() {});
-      }
+      final loadTime = DateTime.now().difference(startTime).inMilliseconds;
+      debugPrint(
+        '[TechPortal] ✅ Loaded WorkLog data for $successCount/${assignedDockets.length} dockets in ${loadTime}ms',
+      );
     } catch (e) {
-      debugPrint('[TechPortal] Error fetching WorkLog data: $e');
+      debugPrint('[TechPortal] Error in parallel WorkLog fetch: $e');
+    } finally {
+      setState(() {
+        _loadingWorkLogs = false;
+      });
     }
+  }
+
+  // Original _load method for refresh functionality
+  Future<void> _load() async {
+    // Clear cache on manual refresh to ensure fresh data
+    _clearCache('dockets');
+    _clearCache('assigned_dockets');
+    debugPrint('[TechPortal] Manual refresh - cache cleared');
+
+    await _loadWithOptimizations();
   }
 
   // ---------------- Helpers ----------------
@@ -387,9 +606,26 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
         elevation: 0,
-        title: const Text(
-          'Technician Portal',
-          style: TextStyle(fontWeight: FontWeight.bold),
+        title: Row(
+          children: [
+            const Text(
+              'Technician Portal',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            if (_loadingLocationDetails || _loadingWorkLogs) ...[
+              const SizedBox(width: 12),
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Colors.white.withOpacity(0.7),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
         backgroundColor: const Color(0xFF003366),
         foregroundColor: Colors.white,
@@ -545,7 +781,9 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                         itemCount: filteredDockets.length,
                         itemBuilder: (context, index) {
                           final docket = filteredDockets[index];
-                          final animationDelay = index * 0.1;
+                          final animationDelay =
+                              index *
+                              0.05; // Reduced delay for faster animation
                           final animation = Tween<double>(begin: 0, end: 1)
                               .animate(
                                 CurvedAnimation(
@@ -562,7 +800,10 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                             opacity: animation,
                             child: SlideTransition(
                               position: Tween<Offset>(
-                                begin: const Offset(0, 0.3),
+                                begin: const Offset(
+                                  0,
+                                  0.2,
+                                ), // Reduced slide distance
                                 end: Offset.zero,
                               ).animate(animation),
                               child: _buildDocketCard(docket, index),
@@ -670,6 +911,9 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
     final days = DateTime.now().difference(up).inDays;
     final isOverdue = days >= _criticalDays && !isCompleted;
 
+    // Get assignment info for this docket
+    final assignment = _myAssignments[_docketKeyFromDocket(docket)];
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -745,7 +989,9 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                             ),
                             const SizedBox(width: 4),
                             Text(
-                              docket.docketType,
+                              docket.docketType.isNotEmpty
+                                  ? docket.docketType
+                                  : 'Unknown',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
@@ -820,13 +1066,39 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                   ),
                   const SizedBox(height: 16),
 
-                  // Info rows
-                  _buildInfoRow(Icons.business, 'Depot', docket.depot),
+                  // Status Badge - Shows detailed workflow status
+                  _buildStatusBadge(docket, assignment),
+                  const SizedBox(height: 8),
                   _buildInfoRow(
-                    Icons.numbers,
-                    'Docket ID',
-                    docket.docketSerial,
+                    Icons.business,
+                    'Depot',
+                    docket.depot.isNotEmpty ? docket.depot : 'N/A',
                   ),
+
+                  _buildInfoRow(
+                    Icons.receipt_long,
+                    'Docket ID',
+                    docket.docketSerial.isNotEmpty
+                        ? docket.docketSerial
+                        : docket.id,
+                  ),
+
+                  // Show assigned person info from assignment data
+                  _buildInfoRow(
+                    Icons.person_outline,
+                    'Assigned To',
+                    _getAssignedPersonsDisplay(docket, assignment),
+                  ),
+
+                  // Show overdue time if applicable
+                  if (isOverdue)
+                    _buildInfoRow(
+                      Icons.timer_off,
+                      'Overdue by',
+                      '${DateTime.now().difference(up).inHours} hours',
+                      textColor: Colors.red[700],
+                    ),
+
                   // Show location details if available
                   if (_locationDetails[docket.id.toString()]?.isNotEmpty ??
                       false)
@@ -835,11 +1107,6 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                       'Location',
                       _locationDetails[docket.id.toString()]!,
                     ),
-                  _buildInfoRow(
-                    Icons.person,
-                    'Assigned To',
-                    docket.assignedTo.isNotEmpty ? docket.assignedTo : 'N/A',
-                  ),
 
                   const SizedBox(height: 12),
 
@@ -933,6 +1200,99 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
     );
   }
 
+  // Build status badge showing workflow progress
+  // Build status badge showing detailed workflow progress
+  Widget _buildStatusBadge(Docket docket, AssignedDocket? assignment) {
+    // Default status
+    String status = 'Pending';
+    Color statusColor = Colors.grey;
+    IconData statusIcon = Icons.hourglass_empty;
+
+    // Get work log for this docket if it exists
+    final workLog = _workLogs[docket.docketSerial.toString()];
+
+    // Check workflow states in reverse order (most complete to least complete)
+    if (docket.completedTime.isNotEmpty == true ||
+        workLog?.completedAt?.isNotEmpty == true) {
+      status = 'Completed';
+      statusColor = Colors.green;
+      statusIcon = Icons.check_circle;
+    } else if (workLog?.startedAt?.isNotEmpty == true) {
+      status = 'Started';
+      statusColor = Colors.blue;
+      statusIcon = Icons.build;
+    } else if (workLog?.attendingAt?.isNotEmpty == true) {
+      status = 'Attending';
+      statusColor = Colors.blueAccent;
+      statusIcon = Icons.location_on;
+    } else if (workLog?.acknowledgedAt?.isNotEmpty == true) {
+      status = 'Acknowledged';
+      statusColor = Colors.orange;
+      statusIcon = Icons.thumb_up;
+    } else if (assignment != null) {
+      status = 'Assigned';
+      statusColor = Colors.blueGrey;
+      statusIcon = Icons.assignment_turned_in;
+    } else {
+      status = 'Pending';
+      statusColor = Colors.grey;
+      statusIcon = Icons.assignment_late;
+    }
+
+    // Add overdue indicator if applicable (but don't override completed status)
+    final up = _parseLoose(docket.uploadedTime);
+    final isOverdue =
+        DateTime.now().difference(up).inDays >= _criticalDays &&
+        status != 'Completed';
+
+    if (isOverdue) {
+      status = 'Overdue - $status';
+      statusColor = Colors.red;
+      statusIcon = Icons.warning;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: statusColor, width: 1),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(statusIcon, size: 16, color: statusColor),
+          const SizedBox(width: 6),
+          Text(
+            status,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: statusColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to get assigned persons display
+  String _getAssignedPersonsDisplay(Docket docket, AssignedDocket? assignment) {
+    // First try to get from assignment data (more reliable)
+    if (assignment != null && assignment.assignedPersons.isNotEmpty) {
+      return assignment.assignedPersons;
+    }
+
+    // Fallback to docket data
+    if (docket.assignedTo.isNotEmpty &&
+        docket.assignedTo.toLowerCase() != 'null') {
+      return docket.assignedTo;
+    }
+
+    return 'Not Assigned';
+  }
+
   // Convert AssignedDocket to DocketAssignment for the detail page
   models.DocketAssignment _convertToDetailAssignment(
     AssignedDocket assignedDocket,
@@ -968,31 +1328,36 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
 }
 
 // ---------------- Shared UI ----------------
-Widget _buildInfoRow(IconData icon, String label, String value) {
+Widget _buildInfoRow(
+  IconData icon,
+  String label,
+  String value, {
+  Color? textColor,
+}) {
   return Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
+    padding: const EdgeInsets.symmetric(vertical: 4.0),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Colors.grey[600]),
+        Icon(icon, size: 16, color: textColor ?? Colors.grey[600]),
         const SizedBox(width: 8),
         Text(
           '$label: ',
           style: TextStyle(
-            fontSize: 14,
-            color: Colors.grey[700],
+            fontSize: 12,
+            color: textColor ?? Colors.grey[600],
             fontWeight: FontWeight.w500,
           ),
         ),
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              fontSize: 14,
-              color: Colors.black87,
+            style: TextStyle(
+              fontSize: 12,
               fontWeight: FontWeight.w500,
+              color: textColor ?? Colors.black87,
             ),
-            maxLines: 1,
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
         ),

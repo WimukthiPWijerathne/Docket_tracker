@@ -16,7 +16,8 @@ class AssignedDocketDetailsPage extends StatefulWidget {
   });
 
   @override
-  State<AssignedDocketDetailsPage> createState() => _AssignedDocketDetailsPageState();
+  State<AssignedDocketDetailsPage> createState() =>
+      _AssignedDocketDetailsPageState();
 }
 
 class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
@@ -34,7 +35,8 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   String? detailsError;
 
   static const String httpImageBase = 'http://124.43.181.243:8000';
-  static const String docketDetailsApiBase = 'https://powerprox.sltidc.lk/GETDocketDetails2.php';
+  static const String docketDetailsApiBase =
+      'https://powerprox.sltidc.lk/GETDocketDetails2.php';
 
   String _imageBaseForPlatform() {
     return httpImageBase;
@@ -51,9 +53,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   Future<void> _fetchDocketDetails() async {
     try {
       print('🔍 Fetching docket details from: $docketDetailsApiBase');
-      final response = await http.get(
-        Uri.parse(docketDetailsApiBase),
-      );
+      final response = await http.get(Uri.parse(docketDetailsApiBase));
 
       print('📡 Response status: ${response.statusCode}');
       print('📦 Response body: ${response.body}');
@@ -71,7 +71,9 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
             return id == widget.docket.docketID;
           },
           orElse: () {
-            print('❌ No matching record found for docket ID: ${widget.docket.docketID}');
+            print(
+              '❌ No matching record found for docket ID: ${widget.docket.docketID}',
+            );
             return null;
           },
         );
@@ -95,9 +97,11 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
               final meterShift = record['MeterShift']?.toString() ?? '';
 
               final details = <String>[];
-              if (transformer.isNotEmpty) details.add('Transformer: $transformer');
+              if (transformer.isNotEmpty)
+                details.add('Transformer: $transformer');
               if (pole.isNotEmpty) details.add('Pole: $pole');
-              if (meterShift.isNotEmpty) details.add('Meter Shift: $meterShift');
+              if (meterShift.isNotEmpty)
+                details.add('Meter Shift: $meterShift');
 
               locationDetails = details.join(' • ');
             }
@@ -106,7 +110,9 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
             isLoadingDetails = false;
           });
 
-          debugPrint("📋 Details for docket ${widget.docket.docketID}: $docketType, $docketImageName");
+          debugPrint(
+            "📋 Details for docket ${widget.docket.docketID}: $docketType, $docketImageName",
+          );
           debugPrint("📍 Location details: $locationDetails");
         } else {
           setState(() {
@@ -194,7 +200,10 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
             if (isOverdue) ...[
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.red.shade100,
                   borderRadius: BorderRadius.circular(12),
@@ -225,7 +234,10 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
             ] else if (isInProgress) ...[
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.green.shade100,
                   borderRadius: BorderRadius.circular(12),
@@ -271,7 +283,10 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
             // Location details section
             if (locationDetails != null && locationDetails!.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
@@ -372,7 +387,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                     child: CircularProgressIndicator(
                       value: loadingProgress.expectedTotalBytes != null
                           ? loadingProgress.cumulativeBytesLoaded /
-                              loadingProgress.expectedTotalBytes!
+                                loadingProgress.expectedTotalBytes!
                           : null,
                     ),
                   );
@@ -381,7 +396,11 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.error_outline, color: Colors.white70, size: 48),
+                      Icon(
+                        Icons.error_outline,
+                        color: Colors.white70,
+                        size: 48,
+                      ),
                       SizedBox(height: 16),
                       Text(
                         'Failed to load image',
@@ -431,101 +450,106 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                       SizedBox(height: 12),
                       Text(
                         'Loading image...',
-                        style: TextStyle(
-                          color: Colors.grey,
-                          fontSize: 14,
-                        ),
+                        style: TextStyle(color: Colors.grey, fontSize: 14),
                       ),
                     ],
                   ),
                 )
               : imageError != null || docketImageName == null
-                  ? Container(
-                      color: Colors.grey[100],
-                      child: Center(
+              ? Container(
+                  color: Colors.grey[100],
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.image_not_supported,
+                          size: 48,
+                          color: Colors.grey[400],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          imageError ?? 'No image available',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image.network(
+                      _imageUrlFor(docketType ?? "unknown", docketImageName!),
+                      fit: BoxFit.cover,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        );
+                      },
+                      errorBuilder: (context, error, stackTrace) => Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(
-                              Icons.image_not_supported,
+                            const Icon(
+                              Icons.error_outline,
                               size: 48,
-                              color: Colors.grey[400],
+                              color: Colors.grey,
                             ),
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 8),
                             Text(
-                              imageError ?? 'No image available',
+                              'Failed to load image',
                               style: TextStyle(
-                                color: Colors.grey[600],
+                                color: Colors.grey[700],
                                 fontSize: 14,
                               ),
-                              textAlign: TextAlign.center,
                             ),
                           ],
                         ),
                       ),
-                    )
-                  : Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        Image.network(
-                          _imageUrlFor(docketType ?? "unknown", docketImageName!),
-                          fit: BoxFit.cover,
-                          loadingBuilder: (context, child, loadingProgress) {
-                            if (loadingProgress == null) return child;
-                            return Center(
-                              child: CircularProgressIndicator(
-                                value: loadingProgress.expectedTotalBytes != null
-                                    ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                    : null,
-                              ),
-                            );
-                          },
-                          errorBuilder: (context, error, stackTrace) => Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.error_outline, size: 48, color: Colors.grey),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Failed to load image',
-                                  style: TextStyle(
-                                    color: Colors.grey[700],
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 8,
-                          right: 8,
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.fullscreen, size: 16, color: Colors.white),
-                                SizedBox(width: 4),
-                                Text(
-                                  'View Fullscreen',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
                     ),
+                    Positioned(
+                      bottom: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.black54,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.fullscreen,
+                              size: 16,
+                              color: Colors.white,
+                            ),
+                            SizedBox(width: 4),
+                            Text(
+                              'View Fullscreen',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
         ),
       ),
     );
@@ -576,9 +600,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
-                color: isOverdue
-                    ? Colors.red.shade100
-                    : Colors.green.shade100,
+                color: isOverdue ? Colors.red.shade100 : Colors.green.shade100,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Row(
@@ -675,13 +697,33 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
             ),
           ),
           const SizedBox(height: 16),
-          _buildDetailRow("Assignment ID", widget.docket.assignmentID, Icons.fingerprint),
+          _buildDetailRow(
+            "Assignment ID",
+            widget.docket.assignmentID,
+            Icons.fingerprint,
+          ),
           _buildDetailRow("Docket ID", widget.docket.docketID, Icons.receipt),
-          _buildDetailRow("Uploaded By", widget.docket.uploadedBy, Icons.person),
-          _buildDetailRow("Assigned Time", widget.docket.formattedUploadedTime, Icons.cloud_upload),
-          _buildDetailRow("Reassignment Count", "${widget.docket.reassignmentCount}", Icons.repeat),
+          _buildDetailRow(
+            "Uploaded By",
+            widget.docket.uploadedBy,
+            Icons.person,
+          ),
+          _buildDetailRow(
+            "Assigned Time",
+            widget.docket.formattedUploadedTime,
+            Icons.cloud_upload,
+          ),
+          _buildDetailRow(
+            "Reassignment Count",
+            "${widget.docket.reassignmentCount}",
+            Icons.repeat,
+          ),
           if (widget.docket.isCompleted)
-            _buildDetailRow("Work Duration", widget.docket.formattedWorkDuration, Icons.timer),
+            _buildDetailRow(
+              "Work Duration",
+              widget.docket.formattedWorkDuration,
+              Icons.timer,
+            ),
         ],
       ),
     );
@@ -787,7 +829,9 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
   }) {
     final isOverdue = title == "Overdue";
     final isInProgress = title == "In Progress";
-    final color = isOverdue ? Colors.red : (isCompleted ? Colors.green : Colors.orange);
+    final color = isOverdue
+        ? Colors.red
+        : (isCompleted ? Colors.green : Colors.orange);
 
     return Row(
       children: [
@@ -825,9 +869,14 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                 // Status badge
                 if (isOverdue || isInProgress)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
-                      color: isOverdue ? Colors.red.shade100 : Colors.green.shade100,
+                      color: isOverdue
+                          ? Colors.red.shade100
+                          : Colors.green.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -835,7 +884,9 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.bold,
-                        color: isOverdue ? Colors.red.shade800 : Colors.green.shade800,
+                        color: isOverdue
+                            ? Colors.red.shade800
+                            : Colors.green.shade800,
                       ),
                     ),
                   ),
@@ -851,10 +902,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                 const SizedBox(height: 2),
                 Text(
                   time,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                  ),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
               ],
             ),
@@ -876,9 +924,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isOverdue
-              ? Colors.red.shade300
-              : Colors.green.shade300,
+          color: isOverdue ? Colors.red.shade300 : Colors.green.shade300,
           width: 1.5,
         ),
       ),
@@ -900,7 +946,10 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: isOverdue
                       ? Colors.red.shade100
@@ -931,7 +980,8 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
                   () => _markAsCompleted(),
                 ),
               ),
-              if (!isWorker) ...[ // Only show reassign button if user is not a worker
+              if (!isWorker) ...[
+                // Only show reassign button if user is not a worker
                 const SizedBox(width: 12),
                 Expanded(
                   child: _buildActionButton(
@@ -960,40 +1010,39 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
       icon: Icon(icon, size: 18),
       label: Text(
         text,
-        style: const TextStyle(
-          fontWeight: FontWeight.w500,
-          fontSize: 14,
-        ),
+        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
       ),
       style: ElevatedButton.styleFrom(
         backgroundColor: color,
         foregroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         elevation: 1,
       ),
     );
   }
 
   void _markAsCompleted() {
-  Navigator.of(context).push(
-    MaterialPageRoute(
-      builder: (context) => CompleteAssignmentForm(
-        assignmentId: widget.docket.assignmentID,
-        docketId: widget.docket.docketID,
-      ),
-    ),
-  ).then((success) {
-    if (success == true) {
-      // Refresh the parent screen if needed
-      if (mounted) {
-        Navigator.of(context).pop(true); // Return success to previous screen
-      }
-    }
-  });
-}
+    Navigator.of(context)
+        .push(
+          MaterialPageRoute(
+            builder: (context) => CompleteAssignmentForm(
+              assignmentId: widget.docket.assignmentID,
+              docketId: widget.docket.docketID,
+            ),
+          ),
+        )
+        .then((success) {
+          if (success == true) {
+            // Refresh the parent screen if needed
+            if (mounted) {
+              Navigator.of(
+                context,
+              ).pop(true); // Return success to previous screen
+            }
+          }
+        });
+  }
 
   void _reassignDocket() {
     final TextEditingController personController = TextEditingController();
@@ -1051,17 +1100,17 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return const Center(
-          child: CircularProgressIndicator(),
-        );
+        return const Center(child: CircularProgressIndicator());
       },
     );
 
     try {
-      final success = await _service.markAsCompleted(widget.docket.assignmentID);
-      
+      final success = await _service.markAsCompleted(
+        widget.docket.assignmentID,
+      );
+
       Navigator.of(context).pop(); // Close loading dialog
-      
+
       if (success) {
         _showSnackBar(
           "Assignment marked as completed successfully!",
@@ -1078,11 +1127,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
       }
     } catch (e) {
       Navigator.of(context).pop();
-      _showSnackBar(
-        "Error: $e",
-        Colors.red,
-        Icons.error,
-      );
+      _showSnackBar("Error: $e", Colors.red, Icons.error);
     }
   }
 
@@ -1091,9 +1136,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        return const Center(
-          child: CircularProgressIndicator(),
-        );
+        return const Center(child: CircularProgressIndicator());
       },
     );
 
@@ -1102,9 +1145,9 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
         widget.docket.assignmentID,
         newAssignedPersons,
       );
-      
+
       Navigator.of(context).pop();
-      
+
       if (success) {
         _showSnackBar(
           "Assignment has been reassigned successfully!",
@@ -1121,11 +1164,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
       }
     } catch (e) {
       Navigator.of(context).pop();
-      _showSnackBar(
-        "Error: $e",
-        Colors.red,
-        Icons.error,
-      );
+      _showSnackBar("Error: $e", Colors.red, Icons.error);
     }
   }
 
@@ -1141,9 +1180,7 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
         ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }

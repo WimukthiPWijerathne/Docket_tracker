@@ -63,6 +63,35 @@ class WorkLog {
     };
   }
 
+  // Create a copy of WorkLog with optional parameter updates
+  WorkLog copyWith({
+    String? id,
+    String? assignmentId,
+    String? docketId,
+    String? employeeNo,
+    String? acknowledgedAt,
+    String? attendingAt,
+    String? startedAt,
+    String? completedAt,
+    String? remarks,
+    String? createdAt,
+    String? updatedAt,
+  }) {
+    return WorkLog(
+      id: id ?? this.id,
+      assignmentId: assignmentId ?? this.assignmentId,
+      docketId: docketId ?? this.docketId,
+      employeeNo: employeeNo ?? this.employeeNo,
+      acknowledgedAt: acknowledgedAt ?? this.acknowledgedAt,
+      attendingAt: attendingAt ?? this.attendingAt,
+      startedAt: startedAt ?? this.startedAt,
+      completedAt: completedAt ?? this.completedAt,
+      remarks: remarks ?? this.remarks,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   @override
   String toString() {
     return 'WorkLog{id: $id, assignmentId: $assignmentId, docketId: $docketId, employeeNo: $employeeNo}';

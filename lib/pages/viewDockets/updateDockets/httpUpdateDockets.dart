@@ -108,19 +108,82 @@ class DocketUpdateApi {
 
       debugPrint('[DocketUpdateApi.updateFields] Status: ${resp.statusCode}');
       debugPrint('[DocketUpdateApi.updateFields] Body: ${resp.body}');
+      debugPrint(
+        '[DocketUpdateApi.updateFields] Body length: ${resp.body.length}',
+      );
 
       if (resp.statusCode != 200) return false;
+
+      // If we get here, the HTTP request was successful (200)
+      // Now parse the response to determine if the database operation succeeded
 
       Map<String, dynamic>? decoded;
       try {
         decoded = jsonDecode(resp.body) as Map<String, dynamic>;
       } catch (_) {
-        final bodyLower = resp.body.toLowerCase();
-        if (bodyLower.contains('fatal error')) return false;
+        // Response is not JSON - check for common success/error indicators
+        final bodyLower = resp.body.toLowerCase().trim();
+
+        // Check for explicit error indicators
+        if (bodyLower.contains('fatal error') ||
+            bodyLower.contains('error') ||
+            bodyLower.contains('failed') ||
+            bodyLower.contains('exception')) {
+          return false;
+        }
+
+        // Check for success indicators or assume success if no errors
+        if (bodyLower.contains('success') ||
+            bodyLower.contains('updated') ||
+            bodyLower.contains('complete') ||
+            bodyLower == '1' || // Common success response
+            bodyLower == 'true' ||
+            bodyLower.isEmpty) {
+          // Empty response often means success
+          debugPrint(
+            '[DocketUpdateApi.updateFields] Returning true (non-JSON success indicator found)',
+          );
+          return true;
+        }
+
+        // If we can't determine, assume success since HTTP 200 was returned
+        debugPrint(
+          '[DocketUpdateApi.updateFields] Returning true (non-JSON, no clear error, HTTP 200)',
+        );
         return true;
       }
+
+      // Response is valid JSON - check status field
       final status = (decoded['status'] ?? '').toString().toLowerCase();
-      return status == 'success' || status == 'warning';
+      if (status == 'success' || status == 'warning' || status == 'ok') {
+        debugPrint(
+          '[DocketUpdateApi.updateFields] Returning true (JSON status: $status)',
+        );
+        return true;
+      }
+
+      // Check for error indicators in JSON response
+      if (status == 'error' || status == 'failed') {
+        debugPrint(
+          '[DocketUpdateApi.updateFields] Returning false (JSON status: $status)',
+        );
+        return false;
+      }
+
+      // If status field doesn't exist or is unclear, check other fields
+      final message = (decoded['message'] ?? '').toString().toLowerCase();
+      if (message.contains('success') || message.contains('updated')) {
+        debugPrint(
+          '[DocketUpdateApi.updateFields] Returning true (JSON message indicates success)',
+        );
+        return true;
+      }
+
+      // If we still can't determine and got HTTP 200, assume success
+      debugPrint(
+        '[DocketUpdateApi.updateFields] Returning true (assumed success from HTTP 200)',
+      );
+      return true;
     } catch (e) {
       debugPrint('[DocketUpdateApi.updateFields] Exception: $e');
       return false;
