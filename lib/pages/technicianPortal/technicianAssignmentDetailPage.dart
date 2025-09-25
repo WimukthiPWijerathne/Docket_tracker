@@ -145,7 +145,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
       // Try to get existing work log
       final existingLogs = await WorkLogService.getWorkLogs(
         assignmentId: widget.assignment.docketId,
-        docketId: '${widget.docket.id}',
+        docketId: widget.docket.id,
         employeeNo: _effectiveEmployeeNo,
       );
 
@@ -163,7 +163,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
 
         // CRITICAL: Validate that the work log matches current assignment
         if (_workLog!.assignmentId != widget.assignment.docketId ||
-            _workLog!.docketId != '${widget.docket.id}' ||
+            _workLog!.docketId != widget.docket.id ||
             _workLog!.employeeNo != _effectiveEmployeeNo) {
           print('DEBUG: WARNING - Work log data mismatch!');
           print(
@@ -190,7 +190,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
           // Always create work log when assignment is opened (if it doesn't exist)
           _workLog = await WorkLogService.createWorkLog(
             assignmentId: widget.assignment.docketId,
-            docketId: '${widget.docket.id}',
+            docketId: widget.docket.id,
             employeeNo: _effectiveEmployeeNo,
           );
           print('DEBUG: Successfully created new work log: $_workLog');
@@ -205,7 +205,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
           try {
             final existingLogs = await WorkLogService.getWorkLogs(
               assignmentId: widget.assignment.docketId,
-              docketId: '${widget.docket.id}',
+              docketId: widget.docket.id,
               employeeNo: _effectiveEmployeeNo,
             );
 
@@ -221,7 +221,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
               if (createError.toString().contains('Server Error: 500')) {
                 throw 'Server temporarily unavailable. Please try again.';
               }
-              throw createError; // Re-throw original error
+              rethrow; // Re-throw original error
             }
           } catch (reloadError) {
             print('DEBUG: Failed to reload work logs: $reloadError');
@@ -289,15 +289,15 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
 
     try {
       final beforePhotos = await WorkLogService.getWorkPhotosByKind(
-        workLogId: _workLog!.id!,
+        workLogId: _workLog!.id,
         kind: PhotoKind.before,
       );
       final afterPhotos = await WorkLogService.getWorkPhotosByKind(
-        workLogId: _workLog!.id!,
+        workLogId: _workLog!.id,
         kind: PhotoKind.after,
       );
       final extraPhotos = await WorkLogService.getWorkPhotosByKind(
-        workLogId: _workLog!.id!,
+        workLogId: _workLog!.id,
         kind: PhotoKind.extra,
       );
 
@@ -371,7 +371,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
     setState(() => _saving = true);
     try {
       _workLog = await WorkLogService.updateWorkLog(
-        workLogId: _workLog!.id!,
+        workLogId: _workLog!.id,
         attendingAt: _now(),
       );
 
@@ -402,7 +402,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
 
     try {
       _workLog = await WorkLogService.updateWorkLog(
-        workLogId: _workLog!.id!,
+        workLogId: _workLog!.id,
         startedAt: _now(),
       );
 
@@ -445,7 +445,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
       final caption = _generateCaption(kind);
 
       final workPhoto = await WorkLogService.uploadWorkPhotoWithKind(
-        workLogId: _workLog!.id!,
+        workLogId: _workLog!.id,
         kind: kind,
         filePath: image.path,
         sequence: sequence,
@@ -518,7 +518,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
 
       // 1) Mark WorkLog as completed
       _workLog = await WorkLogService.updateWorkLog(
-        workLogId: _workLog!.id!,
+        workLogId: _workLog!.id,
         completedAt: nowStr,
         remarks: _notesController.text.trim(),
       );
@@ -681,11 +681,11 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
 
     switch (kind) {
       case PhotoKind.before:
-        return 'BEFORE_${serial}_${formattedDate}';
+        return 'BEFORE_${serial}_$formattedDate';
       case PhotoKind.after:
-        return 'AFTER_${serial}_${formattedDate}';
+        return 'AFTER_${serial}_$formattedDate';
       case PhotoKind.extra:
-        return 'EXTRA_${serial}_${formattedDate}';
+        return 'EXTRA_${serial}_$formattedDate';
     }
   }
 
@@ -1638,7 +1638,7 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        'No photos taken yet. Click "${buttonLabel}" to add photos.',
+                        'No photos taken yet. Click "$buttonLabel" to add photos.',
                         style: TextStyle(
                           color: Colors.blue[700],
                           fontSize: 13,
@@ -1667,30 +1667,65 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _notesController,
-              minLines: 3,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                hintText: 'Add any notes about this assignment...',
-                border: OutlineInputBorder(),
+            // Show read-only view if assignment is completed
+            if (_isCompleted && _notesController.text.trim().isNotEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(4),
+                  color: Colors.grey.shade50,
+                ),
+                child: Text(
+                  _notesController.text,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              )
+            else
+              // Show editable field if assignment is not completed yet
+              TextField(
+                controller: _notesController,
+                minLines: 3,
+                maxLines: 5,
+                decoration: const InputDecoration(
+                  hintText: 'Add any notes about this assignment...',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
             const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton.icon(
-                onPressed: _saving ? null : _saveNotes,
-                icon: _saving
-                    ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.save_alt),
-                label: Text(_saving ? 'Saving...' : 'Save Notes'),
+            // Only show save button if assignment is not completed yet
+            if (!_isCompleted)
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: _saving ? null : _saveNotes,
+                  icon: _saving
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.save_alt),
+                  label: Text(_saving ? 'Saving...' : 'Save Notes'),
+                ),
+              )
+            else
+              // Show completion indicator
+              Row(
+                children: [
+                  Icon(Icons.lock, color: Colors.orange.shade600, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Assignment completed - Notes locked',
+                    style: TextStyle(
+                      color: Colors.orange.shade600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
-            ),
           ],
         ),
       ),
