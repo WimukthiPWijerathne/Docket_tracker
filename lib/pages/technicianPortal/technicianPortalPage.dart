@@ -36,8 +36,8 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
   /// All dockets (used to render cards)
   List<Docket> _allDockets = [];
 
-  /// Map<docketId, AssignedDocket> for all assignments
-  final Map<String, AssignedDocket> _myAssignments = {};
+  /// Map<docketId, List<AssignedDocket>> for all assignments (supports multiple assignments per docket)
+  final Map<String, List<AssignedDocket>> _myAssignments = {};
 
   /// Map to store location details for each docket ID
   final Map<String, String> _locationDetails = {};
@@ -180,15 +180,17 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
       final assignedDockets = await _assignedDocketSvc
           .fetchAssignedDocketsByPerson(currentUserId);
 
-      // Convert the list to a map for easier lookup
-      final assignments = <String, AssignedDocket>{};
-      for (var assignment in assignedDockets) {
-        assignments[assignment.docketID] = assignment;
-      }
-
       setState(() {
         _myAssignments.clear();
-        _myAssignments.addAll(assignments);
+
+        // Process assignments (supporting multiple assignments per docket)
+        for (var assignment in assignedDockets) {
+          final k = assignment.docketID;
+          if (_myAssignments[k] == null) {
+            _myAssignments[k] = [];
+          }
+          _myAssignments[k]!.add(assignment);
+        }
       });
     } catch (e) {
       print('Error fetching assigned dockets: $e');
@@ -237,11 +239,14 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
       _myAssignments.clear();
       int assignmentCount = 0;
 
-      // Use a more efficient approach for assignment processing
+      // Use a more efficient approach for assignment processing (supporting multiple assignments per docket)
       for (final a in allAssignments) {
         final k = _normalizeAssignmentDocketId(a);
         if (k.isNotEmpty) {
-          _myAssignments[k] = a;
+          if (_myAssignments[k] == null) {
+            _myAssignments[k] = [];
+          }
+          _myAssignments[k]!.add(a);
           assignmentCount++;
         } else {
           debugPrint('[TechPortal] WARN: assignment without docketId → $a');
@@ -430,11 +435,13 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
       // Create all WorkLog fetch futures at once (fully parallel)
       final workLogFutures = assignedDockets.map((docket) async {
         try {
-          final assignment = _myAssignments[_docketKeyFromDocket(docket)];
-          if (assignment == null) return null;
+          final assignments = _myAssignments[_docketKeyFromDocket(docket)];
+          if (assignments == null || assignments.isEmpty) return null;
 
+          // Use the first assignment for WorkLog fetching
+          final firstAssignment = assignments.first;
           final workLogs = await WorkLogService.getWorkLogs(
-            assignmentId: assignment.docketID,
+            assignmentId: firstAssignment.docketID,
             docketId: docket.id.toString(),
           ).timeout(const Duration(seconds: 8));
 
@@ -541,11 +548,14 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
     // Fallback to old status code logic if no WorkLog data available
     final s = d.assignTime.trim();
     if (_completedCodes.contains(s)) return true;
-    final a = _myAssignments[_docketKeyFromDocket(d)];
-    if (a != null) {
-      final Map<String, dynamic> m = _safeToJson(a);
-      final r = (m['reassigned'] ?? '').toString().trim();
-      if (_completedCodes.contains(r)) return true;
+    final assignments = _myAssignments[_docketKeyFromDocket(d)];
+    if (assignments != null && assignments.isNotEmpty) {
+      // Check if any assignment has a completed reassigned status
+      for (final assignment in assignments) {
+        final Map<String, dynamic> m = _safeToJson(assignment);
+        final r = (m['reassigned'] ?? '').toString().trim();
+        if (_completedCodes.contains(r)) return true;
+      }
     }
     return false;
   }
@@ -927,8 +937,8 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
     final days = DateTime.now().difference(up).inDays;
     final isOverdue = days >= _criticalDays && !isCompleted;
 
-    // Get assignment info for this docket
-    final assignment = _myAssignments[_docketKeyFromDocket(docket)];
+    // Get assignment info for this docket (list of assignments)
+    final assignments = _myAssignments[_docketKeyFromDocket(docket)];
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -940,7 +950,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
           borderRadius: BorderRadius.circular(16),
           onTap: () => _openDetail(
             docket,
-            _myAssignments[_docketKeyFromDocket(docket)]!,
+            _myAssignments[_docketKeyFromDocket(docket)]!.first,
           ),
           child: Container(
             decoration: BoxDecoration(
@@ -1011,7 +1021,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 12,
+                                fontSize: 13,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -1066,7 +1076,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                                   ? "OVERDUE (${DateTime.now().difference(up).inHours}h)"
                                   : "PENDING",
                               style: TextStyle(
-                                fontSize: 10,
+                                fontSize: 11,
                                 fontWeight: FontWeight.bold,
                                 color: isCompleted
                                     ? Colors.green[700]
@@ -1080,6 +1090,10 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                       ),
                     ],
                   ),
+
+                  // Workflow Status Indicator
+                  _buildWorkflowStatusIndicator(docket),
+
                   const SizedBox(height: 16),
                   _buildInfoRow(
                     Icons.business,
@@ -1099,7 +1113,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                   _buildInfoRow(
                     Icons.person_outline,
                     'Assigned To',
-                    _getAssignedPersonsDisplay(docket, assignment),
+                    _getAssignedPersonsDisplay(docket, assignments),
                   ),
 
                   // Show location details if available
@@ -1148,7 +1162,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                               Text(
                                 "Completed",
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   color: Colors.grey[500],
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1157,7 +1171,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                               Text(
                                 _pretty(_parseLoose(docket.completedTime)),
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: Colors.green[700],
                                 ),
@@ -1173,7 +1187,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                               Text(
                                 "Duration",
                                 style: TextStyle(
-                                  fontSize: 11,
+                                  fontSize: 12,
                                   color: Colors.grey[500],
                                   fontWeight: FontWeight.w500,
                                 ),
@@ -1182,7 +1196,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                               Text(
                                 '$days ${days == 1 ? 'day' : 'days'}',
                                 style: TextStyle(
-                                  fontSize: 12,
+                                  fontSize: 13,
                                   fontWeight: FontWeight.w600,
                                   color: isOverdue
                                       ? Colors.red[700]
@@ -1203,14 +1217,120 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
     );
   }
 
-  // Build status badge showing workflow progress
-  // Build status badge showing detailed workflow progress
+  // Build workflow status indicator
+  Widget _buildWorkflowStatusIndicator(Docket docket) {
+    final workLog = _workLogs[docket.id.toString()];
+    final workflowStatus = _getWorkflowStatus(workLog);
 
-  // Helper method to get assigned persons display
-  String _getAssignedPersonsDisplay(Docket docket, AssignedDocket? assignment) {
+    if (workflowStatus == 'Not Started') {
+      return const SizedBox.shrink(); // Don't show anything if not started
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _getWorkflowStatusColor(workflowStatus).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: _getWorkflowStatusColor(workflowStatus).withOpacity(0.3),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _getWorkflowStatusIcon(workflowStatus),
+                  size: 12,
+                  color: _getWorkflowStatusColor(workflowStatus),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  workflowStatus.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: _getWorkflowStatusColor(workflowStatus),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Helper method to determine workflow status from WorkLog
+  String _getWorkflowStatus(WorkLog? workLog) {
+    if (workLog == null) return 'Not Started';
+
+    // Skip completed status since it's already shown in top-right corner
+    if (workLog.completedAt != null) return 'Not Started';
+    if (workLog.startedAt != null) return 'Started';
+    if (workLog.attendingAt != null) return 'Attending';
+    if (workLog.acknowledgedAt != null) return 'Acknowledged';
+
+    return 'Not Started';
+  }
+
+  // Helper method to get workflow status color
+  Color _getWorkflowStatusColor(String status) {
+    switch (status) {
+      case 'Acknowledged':
+        return Colors.blue;
+      case 'Attending':
+        return Colors.orange;
+      case 'Started':
+        return Colors.purple;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  // Helper method to get workflow status icon
+  IconData _getWorkflowStatusIcon(String status) {
+    switch (status) {
+      case 'Acknowledged':
+        return Icons.visibility;
+      case 'Attending':
+        return Icons.directions_walk;
+      case 'Started':
+        return Icons.build;
+      default:
+        return Icons.help_outline;
+    }
+  }
+
+  // Helper method to get assigned persons display (supports multiple assignments)
+  String _getAssignedPersonsDisplay(
+    Docket docket,
+    List<AssignedDocket>? assignments,
+  ) {
     // First try to get from assignment data (more reliable)
-    if (assignment != null && assignment.assignedPersons.isNotEmpty) {
-      return assignment.assignedPersons;
+    if (assignments != null && assignments.isNotEmpty) {
+      // Collect all assigned persons from all assignments for this docket
+      final assignedPersons = <String>[];
+      for (final assignment in assignments) {
+        if (assignment.assignedPersons.isNotEmpty) {
+          // Split by comma in case single assignment has multiple persons
+          final persons = assignment.assignedPersons
+              .split(',')
+              .map((e) => e.trim())
+              .toList();
+          assignedPersons.addAll(persons);
+        }
+      }
+
+      // Remove duplicates and return comma-separated list
+      if (assignedPersons.isNotEmpty) {
+        final uniquePersons = assignedPersons.toSet().toList();
+        return uniquePersons.join(', ');
+      }
     }
 
     // Fallback to docket data
@@ -1273,7 +1393,7 @@ Widget _buildInfoRow(
         Text(
           '$label: ',
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 13,
             color: textColor ?? Colors.grey[600],
             fontWeight: FontWeight.w500,
           ),
@@ -1282,7 +1402,7 @@ Widget _buildInfoRow(
           child: Text(
             value,
             style: TextStyle(
-              fontSize: 12,
+              fontSize: 13,
               fontWeight: FontWeight.w500,
               color: textColor ?? Colors.black87,
             ),
