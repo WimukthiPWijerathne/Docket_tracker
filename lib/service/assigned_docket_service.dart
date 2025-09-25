@@ -3,17 +3,15 @@ import 'package:http/http.dart' as http;
 import '../models/assigned_docket.dart';
 
 class AssignedDocketService {
-  final String baseUrl = "https://powerprox.sltidc.lk/GETDocketAssignment2.php"; // Update with your actual endpoint
-   
+  final String baseUrl =
+      "https://powerprox.sltidc.lk/GETDocketAssignment2.php"; // Update with your actual endpoint
 
   // Fetch all assigned dockets
   Future<List<AssignedDocket>> fetchAssignedDockets() async {
     try {
       final response = await http.get(
         Uri.parse(baseUrl),
-        headers: {
-          'Accept': 'application/json',
-        },
+        headers: {'Accept': 'application/json'},
       );
 
       print('Assigned Dockets Response status: ${response.statusCode}');
@@ -21,39 +19,49 @@ class AssignedDocketService {
 
       if (response.statusCode == 200) {
         final String responseBody = response.body;
-        
+
         if (responseBody.isEmpty) {
           print('Empty response body for assigned dockets');
           return [];
         }
 
         dynamic jsonData = json.decode(responseBody);
-        
+
         // Handle both array and object responses
-       if (jsonData is List) {
-  return jsonData
-      .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
-      .toList();
-} else if (jsonData is Map<String, dynamic>) {
-  if (jsonData.containsKey('data') && jsonData['data'] is List) {
-    List dataList = jsonData['data'];
-    return dataList
-        .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
-        .toList();
-  } else if (jsonData.containsKey('assignedDockets') && jsonData['assignedDockets'] is List) {
-    List assignedDocketsList = jsonData['assignedDockets'];
-    return assignedDocketsList
-        .map<AssignedDocket>((json) => AssignedDocket.fromJson(json as Map<String, dynamic>))
-        .toList();
-  } else {
-    return [AssignedDocket.fromJson(jsonData)];
-  }
-}
- else {
+        if (jsonData is List) {
+          return jsonData
+              .map<AssignedDocket>(
+                (json) => AssignedDocket.fromJson(json as Map<String, dynamic>),
+              )
+              .toList();
+        } else if (jsonData is Map<String, dynamic>) {
+          if (jsonData.containsKey('data') && jsonData['data'] is List) {
+            List dataList = jsonData['data'];
+            return dataList
+                .map<AssignedDocket>(
+                  (json) =>
+                      AssignedDocket.fromJson(json as Map<String, dynamic>),
+                )
+                .toList();
+          } else if (jsonData.containsKey('assignedDockets') &&
+              jsonData['assignedDockets'] is List) {
+            List assignedDocketsList = jsonData['assignedDockets'];
+            return assignedDocketsList
+                .map<AssignedDocket>(
+                  (json) =>
+                      AssignedDocket.fromJson(json as Map<String, dynamic>),
+                )
+                .toList();
+          } else {
+            return [AssignedDocket.fromJson(jsonData)];
+          }
+        } else {
           throw Exception('Unexpected response format for assigned dockets');
         }
       } else {
-        throw Exception('Failed to load assigned dockets. Status code: ${response.statusCode}');
+        throw Exception(
+          'Failed to load assigned dockets. Status code: ${response.statusCode}',
+        );
       }
     } catch (e) {
       print('Error in fetchAssignedDockets: $e');
@@ -61,16 +69,34 @@ class AssignedDocketService {
     }
   }
 
-  // Fetch assigned dockets by person ID
-  Future<List<AssignedDocket>> fetchAssignedDocketsByPerson(String personId) async {
+  // Fetch assigned dockets by person ID with pagination and filtering
+  Future<List<AssignedDocket>> fetchAssignedDocketsByPerson(
+    String personId, {
+    int page = 1,
+    int limit = 50,
+    String? status,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
     try {
-      final response = await http.get(
-        Uri.parse('$baseUrl?personId=$personId'),
-        headers: {'Accept': 'application/json'},
-      );
+      Map<String, String> queryParams = {
+        'personId': personId,
+        'page': page.toString(),
+        'limit': limit.toString(),
+      };
+
+      if (status != null) queryParams['status'] = status;
+      if (fromDate != null)
+        queryParams['fromDate'] = fromDate.toIso8601String();
+      if (toDate != null) queryParams['toDate'] = toDate.toIso8601String();
+
+      final uri = Uri.parse(baseUrl).replace(queryParameters: queryParams);
+      final response = await http
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 10));
 
       print('Fetch assigned dockets by person status: ${response.statusCode}');
-      
+
       if (response.statusCode == 200) {
         final responseBody = response.body;
         if (responseBody.isEmpty) {
@@ -79,13 +105,22 @@ class AssignedDocketService {
         }
 
         dynamic jsonData = json.decode(responseBody);
-        
+
         if (jsonData is List) {
-          return jsonData.map((json) => AssignedDocket.fromJson(json as Map<String, dynamic>)).toList();
+          return jsonData
+              .map(
+                (json) => AssignedDocket.fromJson(json as Map<String, dynamic>),
+              )
+              .toList();
         } else if (jsonData is Map<String, dynamic>) {
           if (jsonData.containsKey('data') && jsonData['data'] is List) {
             List dataList = jsonData['data'];
-            return dataList.map((json) => AssignedDocket.fromJson(json as Map<String, dynamic>)).toList();
+            return dataList
+                .map(
+                  (json) =>
+                      AssignedDocket.fromJson(json as Map<String, dynamic>),
+                )
+                .toList();
           } else {
             return [AssignedDocket.fromJson(jsonData)];
           }
@@ -98,6 +133,13 @@ class AssignedDocketService {
     }
   }
 
+  // Fetch assigned dockets by person ID (original method - kept for backward compatibility)
+  Future<List<AssignedDocket>> fetchAssignedDocketsByPersonLegacy(
+    String personId,
+  ) async {
+    return fetchAssignedDocketsByPerson(personId);
+  }
+
   // Fetch a single assigned docket by assignment ID
   Future<AssignedDocket?> fetchAssignedDocketById(String assignmentId) async {
     try {
@@ -107,7 +149,7 @@ class AssignedDocketService {
       );
 
       print('Fetch assigned docket by ID status: ${response.statusCode}');
-      
+
       if (response.statusCode == 200) {
         final responseBody = response.body;
         if (responseBody.isEmpty) {
@@ -116,9 +158,11 @@ class AssignedDocketService {
         }
 
         dynamic jsonData = json.decode(responseBody);
-        
+
         if (jsonData is List) {
-          return jsonData.isNotEmpty ? AssignedDocket.fromJson(jsonData.first) : null;
+          return jsonData.isNotEmpty
+              ? AssignedDocket.fromJson(jsonData.first)
+              : null;
         } else if (jsonData is Map<String, dynamic>) {
           return AssignedDocket.fromJson(jsonData);
         }
@@ -132,63 +176,72 @@ class AssignedDocketService {
 
   // Mark assigned docket as completed
   // Mark assigned docket as completed
-Future<bool> markAsCompleted(
-  String assignmentId, {
-  String? remarks,
-  String? completionImageUrl,
-  String? completedTime,
-}) async {
-  try {
-    final response = await http.post(
-      Uri.parse(baseUrl.replaceAll('GETDocketAssignment2.php', 'UPDATEDocketAssignment2.php')),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({
-        'assignmentID': assignmentId, // Make sure this matches what API expects
-        'completedTime': completedTime ?? DateTime.now().toIso8601String(),
-        if (remarks != null && remarks.isNotEmpty) 'remarks': remarks,
-        if (completionImageUrl != null && completionImageUrl.isNotEmpty) 'completionImageUrl': completionImageUrl,
-      }),
-    );
-
-    print('Mark as completed status: ${response.statusCode}');
-    print('Request body: ${json.encode({
-      'assignmentID': assignmentId,
-      'completedTime': completedTime ?? DateTime.now().toIso8601String(),
-      if (remarks != null && remarks.isNotEmpty) 'remarks': remarks,
-      if (completionImageUrl != null && completionImageUrl.isNotEmpty) 'completionImageUrl': completionImageUrl,
-    })}');
-    print('Response body: ${response.body}');
-
-    if (response.statusCode == 200) {
-      try {
-        final responseData = json.decode(response.body);
-        return responseData['success'] == true || responseData['status'] == 'success';
-      } catch (e) {
-        print('Error parsing response: $e');
-        // If response is not JSON, check if it contains success indicators
-        return response.body.toLowerCase().contains('success');
-      }
-    } else {
-      throw Exception('Failed to mark docket as completed. Status code: ${response.statusCode}');
-    }
-  } catch (e) {
-    print('Error in markAsCompleted: $e');
-    rethrow;
-  }
-}
-
-  // Reassign docket
-  Future<bool> reassignDocket(String assignmentId, String newAssignedPersons) async {
+  Future<bool> markAsCompleted(
+    String assignmentId, {
+    String? remarks,
+    String? completionImageUrl,
+    String? completedTime,
+  }) async {
     try {
       final response = await http.post(
-        Uri.parse(baseUrl.replaceAll('GETDocketAssignment2.php', 'ReassignDocket.php')),
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        Uri.parse(
+          baseUrl.replaceAll(
+            'GETDocketAssignment2.php',
+            'UPDATEDocketAssignment2.php',
+          ),
+        ),
+        headers: {'Content-Type': 'application/json'},
         body: json.encode({
-          'assignmentID': assignmentId,  // Changed from assignmentId to assignmentID
+          'assignmentID':
+              assignmentId, // Make sure this matches what API expects
+          'completedTime': completedTime ?? DateTime.now().toIso8601String(),
+          if (remarks != null && remarks.isNotEmpty) 'remarks': remarks,
+          if (completionImageUrl != null && completionImageUrl.isNotEmpty)
+            'completionImageUrl': completionImageUrl,
+        }),
+      );
+
+      print('Mark as completed status: ${response.statusCode}');
+      print(
+        'Request body: ${json.encode({'assignmentID': assignmentId, 'completedTime': completedTime ?? DateTime.now().toIso8601String(), if (remarks != null && remarks.isNotEmpty) 'remarks': remarks, if (completionImageUrl != null && completionImageUrl.isNotEmpty) 'completionImageUrl': completionImageUrl})}',
+      );
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        try {
+          final responseData = json.decode(response.body);
+          return responseData['success'] == true ||
+              responseData['status'] == 'success';
+        } catch (e) {
+          print('Error parsing response: $e');
+          // If response is not JSON, check if it contains success indicators
+          return response.body.toLowerCase().contains('success');
+        }
+      } else {
+        throw Exception(
+          'Failed to mark docket as completed. Status code: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      print('Error in markAsCompleted: $e');
+      rethrow;
+    }
+  }
+
+  // Reassign docket
+  Future<bool> reassignDocket(
+    String assignmentId,
+    String newAssignedPersons,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+          baseUrl.replaceAll('GETDocketAssignment2.php', 'ReassignDocket.php'),
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'assignmentID':
+              assignmentId, // Changed from assignmentId to assignmentID
           'newAssignedPersons': newAssignedPersons,
           'reassignedTime': DateTime.now().toIso8601String(),
         }),
@@ -200,7 +253,9 @@ Future<bool> markAsCompleted(
         final responseData = json.decode(response.body);
         return responseData['success'] == true;
       } else {
-        throw Exception('Failed to reassign docket. Status code: ${response.statusCode}');
+        throw Exception(
+          'Failed to reassign docket. Status code: ${response.statusCode}',
+        );
       }
     } catch (e) {
       print('Error in reassignDocket: $e');
@@ -212,23 +267,18 @@ Future<bool> markAsCompleted(
   Future<Map<String, int>> getAssignmentStatistics() async {
     try {
       final assignedDockets = await fetchAssignedDockets();
-      
+
       final stats = <String, int>{
         'total': assignedDockets.length,
         'completed': assignedDockets.where((d) => d.isCompleted).length,
         'ongoing': assignedDockets.where((d) => d.isOngoing).length,
         'reassigned': assignedDockets.where((d) => d.hasBeenReassigned).length,
       };
-      
+
       return stats;
     } catch (e) {
       print('Error in getAssignmentStatistics: $e');
-      return {
-        'total': 0,
-        'completed': 0,
-        'ongoing': 0,
-        'reassigned': 0,
-      };
+      return {'total': 0, 'completed': 0, 'ongoing': 0, 'reassigned': 0};
     }
   }
 }

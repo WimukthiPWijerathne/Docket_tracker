@@ -47,7 +47,12 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
 
   late AnimationController _animationController;
   String _selectedFilter = 'All';
-  final List<String> _filterOptions = ['All', 'Assigned', 'Completed'];
+  final List<String> _filterOptions = [
+    'All',
+    'Pending',
+    'Overdue',
+    'Completed',
+  ];
 
   // ================= CACHING SYSTEM =================
   static final Map<String, dynamic> _cache = {};
@@ -144,7 +149,6 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
 
   // status code sets (strings)
   static const Set<String> _completedCodes = {'2'};
-  static const Set<String> _pendingCodes = {'0', '1', '4', '', 'null'};
 
   @override
   void initState() {
@@ -547,23 +551,35 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
   }
 
   bool _isPending(Docket d) {
-    final s = d.assignTime.trim();
-    if (_pendingCodes.contains(s)) return true;
-    final a = _myAssignments[_docketKeyFromDocket(d)];
-    if (a != null) {
-      final Map<String, dynamic> m = _safeToJson(a);
-      final r = (m['reassigned'] ?? '').toString().trim();
-      if (_pendingCodes.contains(r)) return true;
-    }
-    return false;
+    // A docket is pending if it's assigned but NOT completed
+    if (_isCompleted(d)) return false; // If completed, it's not pending
+
+    // Check if it has assignment (if assigned, it's pending unless completed)
+    return _hasAssignment(d);
+  }
+
+  bool _isOverdue(Docket d) {
+    // A docket is overdue if it's assigned, not completed, and past the critical days
+    if (_isCompleted(d)) return false;
+    if (!_hasAssignment(d)) return false;
+
+    final up = _parseLoose(d.uploadedTime);
+    final days = DateTime.now().difference(up).inDays;
+    return days >= _criticalDays;
   }
 
   List<Docket> _getFilteredDockets() {
     final assignedDockets = _allDockets.where(_hasAssignment).toList();
 
     switch (_selectedFilter) {
-      case 'Assigned':
+      case 'Pending':
         return assignedDockets.where(_isPending).toList()..sort(
+          (a, b) => _parseLoose(
+            a.uploadedTime,
+          ).compareTo(_parseLoose(b.uploadedTime)),
+        );
+      case 'Overdue':
+        return assignedDockets.where(_isOverdue).toList()..sort(
           (a, b) => _parseLoose(
             a.uploadedTime,
           ).compareTo(_parseLoose(b.uploadedTime)),
@@ -760,7 +776,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                           Text(
                             _selectedFilter == 'Completed'
                                 ? "No completed assignments"
-                                : _selectedFilter == 'Assigned'
+                                : _selectedFilter == 'Pending'
                                 ? "No pending assignments"
                                 : "No assignments found",
                             style: TextStyle(
@@ -835,7 +851,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
         const SizedBox(width: 12),
         Expanded(
           child: _buildSummaryCard(
-            title: "Assigned",
+            title: "Pending",
             count: summary.pending,
             icon: Icons.schedule,
             color: Colors.orange,
@@ -1047,7 +1063,7 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                               isCompleted
                                   ? "COMPLETED"
                                   : isOverdue
-                                  ? "OVERDUE"
+                                  ? "OVERDUE (${DateTime.now().difference(up).inHours}h)"
                                   : "PENDING",
                               style: TextStyle(
                                 fontSize: 10,
@@ -1065,10 +1081,6 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                     ],
                   ),
                   const SizedBox(height: 16),
-
-                  // Status Badge - Shows detailed workflow status
-                  _buildStatusBadge(docket, assignment),
-                  const SizedBox(height: 8),
                   _buildInfoRow(
                     Icons.business,
                     'Depot',
@@ -1089,15 +1101,6 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                     'Assigned To',
                     _getAssignedPersonsDisplay(docket, assignment),
                   ),
-
-                  // Show overdue time if applicable
-                  if (isOverdue)
-                    _buildInfoRow(
-                      Icons.timer_off,
-                      'Overdue by',
-                      '${DateTime.now().difference(up).inHours} hours',
-                      textColor: Colors.red[700],
-                    ),
 
                   // Show location details if available
                   if (_locationDetails[docket.id.toString()]?.isNotEmpty ??
@@ -1202,80 +1205,6 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
 
   // Build status badge showing workflow progress
   // Build status badge showing detailed workflow progress
-  Widget _buildStatusBadge(Docket docket, AssignedDocket? assignment) {
-    // Default status
-    String status = 'Pending';
-    Color statusColor = Colors.grey;
-    IconData statusIcon = Icons.hourglass_empty;
-
-    // Get work log for this docket if it exists
-    final workLog = _workLogs[docket.docketSerial.toString()];
-
-    // Check workflow states in reverse order (most complete to least complete)
-    if (docket.completedTime.isNotEmpty == true ||
-        workLog?.completedAt?.isNotEmpty == true) {
-      status = 'Completed';
-      statusColor = Colors.green;
-      statusIcon = Icons.check_circle;
-    } else if (workLog?.startedAt?.isNotEmpty == true) {
-      status = 'Started';
-      statusColor = Colors.blue;
-      statusIcon = Icons.build;
-    } else if (workLog?.attendingAt?.isNotEmpty == true) {
-      status = 'Attending';
-      statusColor = Colors.blueAccent;
-      statusIcon = Icons.location_on;
-    } else if (workLog?.acknowledgedAt?.isNotEmpty == true) {
-      status = 'Acknowledged';
-      statusColor = Colors.orange;
-      statusIcon = Icons.thumb_up;
-    } else if (assignment != null) {
-      status = 'Assigned';
-      statusColor = Colors.blueGrey;
-      statusIcon = Icons.assignment_turned_in;
-    } else {
-      status = 'Pending';
-      statusColor = Colors.grey;
-      statusIcon = Icons.assignment_late;
-    }
-
-    // Add overdue indicator if applicable (but don't override completed status)
-    final up = _parseLoose(docket.uploadedTime);
-    final isOverdue =
-        DateTime.now().difference(up).inDays >= _criticalDays &&
-        status != 'Completed';
-
-    if (isOverdue) {
-      status = 'Overdue - $status';
-      statusColor = Colors.red;
-      statusIcon = Icons.warning;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: statusColor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: statusColor, width: 1),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(statusIcon, size: 16, color: statusColor),
-          const SizedBox(width: 6),
-          Text(
-            status,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: statusColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   // Helper method to get assigned persons display
   String _getAssignedPersonsDisplay(Docket docket, AssignedDocket? assignment) {
