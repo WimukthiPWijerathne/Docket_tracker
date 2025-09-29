@@ -96,17 +96,17 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
 
   /// Sends form-encoded data to your existing PHP API
   static Future<bool> _uploadDocketDetailsToDatabase(
-      String docketType,
-      String imageName, {
-      String? locationDetails,
-      String? docketSerial,
-      }) async {
+    String docketType,
+    String imageName, {
+    String? locationDetails,
+    String? docketSerial,
+  }) async {
     try {
       final now = DateTime.now();
       final uploadedTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
 
       final Map<String, String> postData = {
-        'Depot': 'Paliyagoda',
+        'Depot': 'Dalugama',
         'DocketType': docketType,
         'ImageName': imageName,
         'UploadedBy': 'CSE001',
@@ -122,11 +122,13 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
         postData['DocketSerial'] = docketSerial;
       }
 
-      final response = await http.post(
-        Uri.parse('https://powerprox.sltidc.lk/POSTDocketDetails2.php'),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: postData.map((key, value) => MapEntry(key, value.toString())),
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .post(
+            Uri.parse('https://powerprox.sltidc.lk/POSTDocketDetails2.php'),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: postData.map((key, value) => MapEntry(key, value.toString())),
+          )
+          .timeout(const Duration(seconds: 30));
 
       debugPrint('DB INSERT - Response ${response.statusCode}');
       debugPrint('DB INSERT - Response body: ${response.body}');

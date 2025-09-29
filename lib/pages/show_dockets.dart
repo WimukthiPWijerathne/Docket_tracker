@@ -30,7 +30,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
   final ScrollController _scrollController = ScrollController();
   late AnimationController _fabAnimationController;
   late Animation<double> _fabScaleAnimation;
-  bool _isSearchExpanded = false;
+  final bool _isSearchExpanded = false;
 
   // API bases
   static const String httpImageBase = 'http://124.43.181.243:8000';
@@ -40,7 +40,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
     super.initState();
     _loadDockets();
     _searchController.addListener(_onSearchChanged);
-    
+
     _fabAnimationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -57,14 +57,14 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
     _fabAnimationController.dispose();
     super.dispose();
   }
-  
+
   void _onSearchChanged() {
     final query = _searchController.text.toLowerCase();
     setState(() {
       filteredDockets = dockets.where((docket) {
         return docket.docketType.toLowerCase().contains(query) ||
-               docket.depot.toLowerCase().contains(query) ||
-               docket.docketSerial.toLowerCase().contains(query);
+            docket.depot.toLowerCase().contains(query) ||
+            docket.docketSerial.toLowerCase().contains(query);
       }).toList();
       // Reset status array when search results change
       status = List<bool>.filled(filteredDockets.length, false);
@@ -144,7 +144,9 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
           isLoading = false;
           isRefreshing = false;
           dockets = _generateDummyDockets();
-          filteredDockets = dockets.where((docket) => docket.docketType == widget.title).toList();
+          filteredDockets = dockets
+              .where((docket) => docket.docketType == widget.title)
+              .toList();
           status = List<bool>.filled(filteredDockets.length, false);
         });
       }
@@ -188,18 +190,17 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
       return;
     }
 
-    final selectedDockets =
-        selectedIndices.map((i) => filteredDockets[i]).toList();
+    final selectedDockets = selectedIndices
+        .map((i) => filteredDockets[i])
+        .toList();
 
     if (!mounted) return;
 
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => AssignPage(
-          dockets: selectedDockets,
-          depot: 'All',
-        ),
+        builder: (context) =>
+            AssignPage(dockets: selectedDockets, depot: 'All'),
       ),
     );
 
@@ -296,17 +297,17 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
               Text(
                 'Unable to load dockets',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.grey[800],
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: Colors.grey[800],
+                  fontWeight: FontWeight.w600,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 'Please check your connection and try again',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
@@ -317,7 +318,10 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF003366),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -355,18 +359,18 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
               Text(
                 'No dockets found',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.grey[700],
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: Colors.grey[700],
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 _searchController.text.isNotEmpty
                     ? 'Try adjusting your search terms'
                     : 'New dockets will appear here when available',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[500],
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[500]),
                 textAlign: TextAlign.center,
               ),
             ],
@@ -379,7 +383,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
   Widget _buildDocketCard(Docket docket, int index) {
     final bool isSelected = status[index];
     final formattedDate = _formatDate(docket.uploadedTime);
-    
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       curve: Curves.easeOut,
@@ -393,7 +397,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
         ),
         boxShadow: [
           BoxShadow(
-            color: isSelected 
+            color: isSelected
                 ? const Color(0xFF003366).withOpacity(0.15)
                 : Colors.black.withOpacity(0.06),
             blurRadius: isSelected ? 12 : 6,
@@ -431,20 +435,28 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
                       width: 24,
                       height: 24,
                       decoration: BoxDecoration(
-                        color: isSelected ? const Color(0xFF003366) : Colors.white,
+                        color: isSelected
+                            ? const Color(0xFF003366)
+                            : Colors.white,
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(
-                          color: isSelected ? const Color(0xFF003366) : Colors.grey[400]!,
+                          color: isSelected
+                              ? const Color(0xFF003366)
+                              : Colors.grey[400]!,
                           width: 2,
                         ),
                       ),
                       child: isSelected
-                          ? const Icon(Icons.check, size: 16, color: Colors.white)
+                          ? const Icon(
+                              Icons.check,
+                              size: 16,
+                              color: Colors.white,
+                            )
                           : null,
                     ),
-                    
+
                     const SizedBox(width: 12),
-                    
+
                     // Docket number
                     Expanded(
                       child: Text(
@@ -457,14 +469,14 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
                         ),
                       ),
                     ),
-                    
+
                     // Status badge
                     _buildStatusBadge(docket.assignedTo),
                   ],
                 ),
-                
+
                 const SizedBox(height: 12),
-                
+
                 // Location with icon
                 Row(
                   children: [
@@ -493,9 +505,9 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
                     ),
                   ],
                 ),
-                
+
                 const SizedBox(height: 12),
-                
+
                 // Bottom row with date and actions
                 Row(
                   children: [
@@ -522,9 +534,9 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
                         ),
                       ),
                     ),
-                    
+
                     // Image preview button
-                    if (docket.imageName != null && docket.imageName!.isNotEmpty)
+                    if (docket.imageName.isNotEmpty)
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.green[50],
@@ -557,7 +569,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
     final color = isAssigned ? Colors.green : Colors.orange;
     final text = isAssigned ? 'Assigned' : 'Pending';
     final icon = isAssigned ? Icons.assignment_turned_in : Icons.schedule;
-    
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -596,7 +608,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
       final date = DateTime.parse(dateString);
       final now = DateTime.now();
       final difference = now.difference(date).inDays;
-      
+
       if (difference == 0) {
         return 'Today • ${DateFormat('hh:mm a').format(date)}';
       } else if (difference == 1) {
@@ -612,10 +624,10 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
   }
 
   void _showImagePreview(Docket docket) {
-    if (docket.imageName == null || docket.imageName!.isEmpty) return;
-    
-    final imageUrl = _imageUrlFor(docket.docketType, docket.imageName!);
-    
+    if (docket.imageName.isEmpty) return;
+
+    final imageUrl = _imageUrlFor(docket.docketType, docket.imageName);
+
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -639,22 +651,21 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
                     maxScale: 4,
                     child: CachedNetworkImage(
                       imageUrl: imageUrl,
-                      placeholder: (context, url) => Container(
+                      placeholder: (context, url) => SizedBox(
                         height: 300,
                         child: const Center(
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                          ),
+                          child: CircularProgressIndicator(color: Colors.white),
                         ),
                       ),
-                      errorWidget: (context, url, error) => Container(
+                      errorWidget: (context, url, error) => SizedBox(
                         height: 300,
                         child: const Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.error_outline, 
-                                color: Colors.white, 
+                              Icon(
+                                Icons.error_outline,
+                                color: Colors.white,
                                 size: 48,
                               ),
                               SizedBox(height: 16),
@@ -680,7 +691,11 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white, size: 24),
+                    icon: const Icon(
+                      Icons.close_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
                 ),
@@ -695,7 +710,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
   @override
   Widget build(BuildContext context) {
     final selectedCount = status.where((s) => s).length;
-    
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -776,23 +791,34 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
                 decoration: InputDecoration(
                   hintText: 'Search by docket number, location...',
                   hintStyle: TextStyle(color: Colors.grey[500], fontSize: 15),
-                  prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[600], size: 22),
+                  prefixIcon: Icon(
+                    Icons.search_rounded,
+                    color: Colors.grey[600],
+                    size: 22,
+                  ),
                   suffixIcon: _searchController.text.isNotEmpty
                       ? IconButton(
-                          icon: Icon(Icons.clear_rounded, color: Colors.grey[600], size: 20),
+                          icon: Icon(
+                            Icons.clear_rounded,
+                            color: Colors.grey[600],
+                            size: 20,
+                          ),
                           onPressed: () {
                             _searchController.clear();
                           },
                         )
                       : null,
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 20,
+                  ),
                   isDense: true,
                 ),
               ),
             ),
           ),
-          
+
           // Selection summary bar
           if (selectedCount > 0)
             AnimatedContainer(
@@ -818,7 +844,11 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
                       color: Colors.blue[600],
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.checklist, color: Colors.white, size: 16),
+                    child: const Icon(
+                      Icons.checklist,
+                      color: Colors.white,
+                      size: 16,
+                    ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -843,7 +873,7 @@ class _ShowDocketsPageState extends State<ShowDocketsPage>
                 ],
               ),
             ),
-          
+
           // Main content
           Expanded(
             child: Builder(

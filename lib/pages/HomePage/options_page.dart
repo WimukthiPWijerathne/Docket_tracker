@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import '../loginScreen/login_page.dart';
 import '../addDocket/docket_type_selection_page.dart';
 import '../docket_selection_page.dart';
-import '../assign.dart';
 import '../workersProfile/workersProfile.dart';
 // Create a new page for Assigned Dockets
-import '../AssignedDockets/assigned_dockets_page.dart'; 
+import '../AssignedDockets/assigned_dockets_page.dart';
 // 🔹 Import Workers Summary page (you can create this later)
 import '../../pages/workersSummey/workers_summery_page.dart';
 import '../../pages/staffManagement/staffHomePage.dart';
 import '../../pages/technicianPortal/technicianPortalPage.dart';
+import '../seeAssignments/options.dart';
 
 class OptionsPage extends StatefulWidget {
   final String role; // role parameter
@@ -31,9 +31,7 @@ class _OptionsPageState extends State<OptionsPage> {
             icon: const Icon(Icons.logout),
             onPressed: () {
               Navigator.of(context).pushReplacement(
-                MaterialPageRoute(
-                  builder: (context) => const LoginPage(),
-                ),
+                MaterialPageRoute(builder: (context) => const LoginPage()),
               );
             },
           ),
@@ -49,9 +47,9 @@ class _OptionsPageState extends State<OptionsPage> {
               Text(
                 'Welcome ${widget.role.toUpperCase()}!',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: Theme.of(context).colorScheme.primary,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  color: Theme.of(context).colorScheme.primary,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
@@ -111,7 +109,8 @@ class _OptionsPageState extends State<OptionsPage> {
                         () {
                           Navigator.of(context).push(
                             MaterialPageRoute(
-                              builder: (_) => WorkerListPage(loggedInRole: widget.role),
+                              builder: (_) =>
+                                  WorkerListPage(loggedInRole: widget.role),
                             ),
                           );
                         },
@@ -142,9 +141,7 @@ class _OptionsPageState extends State<OptionsPage> {
                         const Color(0xFFFFD700),
                         () {
                           Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (_) => StaffHomePage(),
-                            ),
+                            MaterialPageRoute(builder: (_) => StaffHomePage()),
                           );
                         },
                       ),
@@ -173,7 +170,23 @@ class _OptionsPageState extends State<OptionsPage> {
                       () {
                         Navigator.of(context).push(
                           MaterialPageRoute(
-                            builder: (_) => AssignedDocketsPage(userRole: widget.role),
+                            builder: (_) =>
+                                AssignedDocketsPage(userRole: widget.role),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ---- See Assignments (All Roles) ----
+                    _buildOptionCard(
+                      context,
+                      'See Assignments',
+                      Icons.visibility,
+                      const Color(0xFFFFD700),
+                      () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const SeeAssignmentsOptionsPage(),
                           ),
                         );
                       },
@@ -199,9 +212,7 @@ class _OptionsPageState extends State<OptionsPage> {
     return Card(
       elevation: 2,
       color: Theme.of(context).cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),

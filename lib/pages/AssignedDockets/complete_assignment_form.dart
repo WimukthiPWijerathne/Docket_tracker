@@ -23,10 +23,10 @@ class CompleteAssignmentForm extends StatefulWidget {
   final String docketId;
 
   const CompleteAssignmentForm({
-    Key? key,
+    super.key,
     required this.assignmentId,
     required this.docketId,
-  }) : super(key: key);
+  });
 
   @override
   _CompleteAssignmentFormState createState() => _CompleteAssignmentFormState();
@@ -53,9 +53,9 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error taking picture: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error taking picture: $e')));
     }
   }
 
@@ -66,38 +66,40 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
 
     try {
       String? uploadedImageUrl;
-      
+
       // Upload image if captured
       if (_imageFile != null) {
         // First save locally
         final localImagePath = await _saveImageLocally(_imageFile!);
         if (localImagePath != null) {
           print('Image saved locally at: $localImagePath');
-          
+
           // Upload to server
           // Get docket type from parent widget or use a default
           final docketType = 'assignment';
           final imageFile = File(localImagePath);
-          
+
           // Show uploading indicator
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Uploading image...')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Uploading image...')));
           }
-          
+
           // Upload the image using ApiService
-          final fileName = '${widget.assignmentId}_${docketType}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}_a';
+          final fileName =
+              '${widget.assignmentId}_${docketType}_${DateFormat('yyyyMMdd_HHmmss').format(DateTime.now())}_a';
           final success = await ApiService.uploadDocketImage(
             imageFile,
             fileName,
-            4,  // Subdirectory 4 for assignments
+            4, // Subdirectory 4 for assignments
           );
-          
+
           if (success) {
-            uploadedImageUrl = 'http://124.43.181.243:8000/api/fetch-testdocket-image/4/$fileName.jpg';
+            uploadedImageUrl =
+                'http://124.43.181.243:8000/api/fetch-testdocket-image/4/$fileName.jpg';
           }
-          
+
           if (uploadedImageUrl != null) {
             print('Image uploaded successfully: $uploadedImageUrl');
           } else {
@@ -110,17 +112,17 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
           }
         }
       }
-      
+
       // Get remarks if entered
       String? remarks;
       if (_remarksController.text.trim().isNotEmpty) {
         remarks = _remarksController.text.trim();
         print('Remarks: $remarks');
       }
-      
+
       // Mark as completed with current timestamp
       final completedTime = DateTime.now().toIso8601String();
-      
+
       // For now, we're just showing a success message without updating the database
       print('Would mark as completed with:');
       print('Assignment ID: ${widget.assignmentId}');
@@ -147,8 +149,8 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                       style: TextStyle(fontWeight: FontWeight.bold),
                     ),
                     Text('Assignment ID: ${widget.assignmentId}'),
-                    if (uploadedImageUrl != null) 
-                      Text('Image URL: ${Uri.parse(uploadedImageUrl!).host}...'),
+                    if (uploadedImageUrl != null)
+                      Text('Image URL: ${Uri.parse(uploadedImageUrl).host}...'),
                   ],
                 ),
               ),
@@ -158,7 +160,7 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
           duration: const Duration(seconds: 5),
         ),
       );
-      
+
       // Return success to previous screen
       Navigator.of(context).pop(true);
     } catch (e) {
@@ -189,15 +191,17 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
     try {
       // Get app storage directory
       final folderPath = await getAppStoragePath();
-      final fileName = 'completion_${widget.assignmentId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final fileName =
+          'completion_${widget.assignmentId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       final targetPath = "$folderPath/$fileName";
 
       // Compress and save the image
-      final XFile? compressedXFile = await FlutterImageCompress.compressAndGetFile(
-        imageFile.path,
-        targetPath,
-        quality: 20, // Reduced quality for smaller file size
-      );
+      final XFile? compressedXFile =
+          await FlutterImageCompress.compressAndGetFile(
+            imageFile.path,
+            targetPath,
+            quality: 20, // Reduced quality for smaller file size
+          );
 
       if (compressedXFile != null) {
         return compressedXFile.path;
@@ -210,41 +214,51 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
   }
 
   // Upload image to server using the same pattern as ApiService.uploadDocketImage
-  Future<String?> _uploadImage(File imageFile, String assignmentId, String docketType) async {
+  Future<String?> _uploadImage(
+    File imageFile,
+    String assignmentId,
+    String docketType,
+  ) async {
     try {
       final now = DateTime.now();
       final dateStr = DateFormat('yyyyMMdd').format(now);
       final timeStr = DateFormat('HHmmss').format(now);
-      final cleanDocketType = docketType.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
-      
+      final cleanDocketType = docketType.toLowerCase().replaceAll(
+        RegExp(r'[^a-z0-9]'),
+        '_',
+      );
+
       // Format the filename as assignmentid_dockettype_date_time_a
-      final fileName = '${assignmentId}_${cleanDocketType}_${dateStr}_${timeStr}_a';
-      
-      print('DEBUG: Starting upload of ${imageFile.path} as $fileName to subdirectory 4');
-      
+      final fileName =
+          '${assignmentId}_${cleanDocketType}_${dateStr}_${timeStr}_a';
+
+      print(
+        'DEBUG: Starting upload of ${imageFile.path} as $fileName to subdirectory 4',
+      );
+
       if (!await imageFile.exists()) {
         print('ERROR: File does not exist at path: ${imageFile.path}');
         return null;
       }
-      
+
       var uri = Uri.parse('http://124.43.181.243:8000/api/upload-testdocket');
       print('DEBUG: Uploading to URL: $uri');
-      
+
       var request = http.MultipartRequest('POST', uri);
-      
+
       // Add the image file with the correct field name
       var multipartFile = await http.MultipartFile.fromPath(
-        'images',  // Field name should match server expectation
+        'images', // Field name should match server expectation
         imageFile.path,
       );
       request.files.add(multipartFile);
-      
+
       // Add other fields as per server requirements
       request.fields['id'] = fileName; // Without .jpg extension
       request.fields['subdirectory'] = '4'; // Subdirectory 4 for "All other"
-      
+
       print('DEBUG: Sending request with fields: ${request.fields}');
-      
+
       // Send the request with timeout
       var response = await request.send().timeout(
         const Duration(seconds: 30),
@@ -253,18 +267,19 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
           throw TimeoutException('Upload timed out');
         },
       );
-      
+
       final responseBody = await response.stream.bytesToString();
       final statusCode = response.statusCode;
-      
+
       print('DEBUG: Server response status: $statusCode');
       print('DEBUG: Server response: $responseBody');
-      
+
       if (statusCode == 200) {
         print('DEBUG: File uploaded successfully!');
         // Server adds .jpg automatically
         final accessFileName = '$fileName.jpg';
-        final accessUrl = 'http://124.43.181.243:8000/api/fetch-testdocket-image/4/$fileName.jpg';
+        final accessUrl =
+            'http://124.43.181.243:8000/api/fetch-testdocket-image/4/$fileName.jpg';
         print('DEBUG: Access URL: $accessUrl');
         return accessUrl;
       } else {
@@ -339,16 +354,13 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                     const SizedBox(height: 8),
                     Text(
                       'Please provide details of the completed work',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 14,
-                      ),
+                      style: TextStyle(color: Colors.grey[600], fontSize: 14),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Photo Section
               Container(
                 padding: const EdgeInsets.all(16),
@@ -373,7 +385,10 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.orange.shade100,
                             borderRadius: BorderRadius.circular(10),
@@ -403,7 +418,11 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                             ? Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.camera_alt, size: 40, color: Colors.grey[400]),
+                                  Icon(
+                                    Icons.camera_alt,
+                                    size: 40,
+                                    color: Colors.grey[400],
+                                  ),
                                   const SizedBox(height: 8),
                                   Text(
                                     'Tap to take photo',
@@ -454,7 +473,7 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Remarks Section
               Container(
                 padding: const EdgeInsets.all(16),
@@ -479,7 +498,10 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.orange.shade100,
                             borderRadius: BorderRadius.circular(10),
@@ -500,7 +522,8 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                       controller: _remarksController,
                       maxLines: 4,
                       decoration: InputDecoration(
-                        hintText: 'Enter any remarks about the completed work...',
+                        hintText:
+                            'Enter any remarks about the completed work...',
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
@@ -518,7 +541,7 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                 ),
               ),
               const SizedBox(height: 32),
-              
+
               // Submit Button
               ElevatedButton(
                 onPressed: _isSubmitting ? null : _submitForm,
@@ -539,7 +562,9 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                             height: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -565,7 +590,7 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                       ),
               ),
               const SizedBox(height: 16),
-              
+
               // Info text
               Container(
                 padding: const EdgeInsets.all(12),
@@ -576,7 +601,11 @@ class _CompleteAssignmentFormState extends State<CompleteAssignmentForm> {
                 ),
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: Colors.blue.shade700, size: 16),
+                    Icon(
+                      Icons.info_outline,
+                      color: Colors.blue.shade700,
+                      size: 16,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
