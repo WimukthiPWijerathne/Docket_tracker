@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'DayAnalytics/DayAnalytics.dart' as daily_assignments;
 import 'TechnicianSummery/TechnicianSummery.dart';
 import 'depotwiseSummary/depotwiseSummary.dart';
-import 'JobLogs/JobLogs.dart';
+import 'JobCostings/JobCostings.dart';
 import 'monthlyProgress/monthlyProgress.dart';
 
 class SeeAssignmentsOptionsPage extends StatelessWidget {
@@ -15,7 +15,7 @@ class SeeAssignmentsOptionsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Assignments'),
+        title: const Text('Analytics'),
         backgroundColor: _primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -68,12 +68,12 @@ class SeeAssignmentsOptionsPage extends StatelessWidget {
             const SizedBox(height: 16),
             _OptionCard(
               icon: Icons.work_history,
-              title: 'Job Logs',
-              subtitle: 'View detailed job logs and work history',
+              title: 'Job Costings',
+              subtitle: 'View detailed job costings and work history',
               onTap: () {
-                Navigator.of(
-                  context,
-                ).push(MaterialPageRoute(builder: (_) => const JobLogsPage()));
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const JobCostingsPage()),
+                );
               },
             ),
             const SizedBox(height: 16),
