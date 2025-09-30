@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
-import 'daily assignments/seeAssignment.dart' as daily_assignments;
-import 'workersSummery/WorkersSummery.dart';
+import 'DayAnalytics/DayAnalytics.dart' as daily_assignments;
+import 'TechnicianSummery/TechnicianSummery.dart';
 import 'depotwiseSummary/depotwiseSummary.dart';
+import 'JobLogs/JobLogs.dart';
+import 'monthlyProgress/monthlyProgress.dart';
 
 class SeeAssignmentsOptionsPage extends StatelessWidget {
   const SeeAssignmentsOptionsPage({super.key});
@@ -26,7 +28,7 @@ class SeeAssignmentsOptionsPage extends StatelessWidget {
           children: [
             _OptionCard(
               icon: Icons.today,
-              title: 'Daily Assignments',
+              title: 'Day Analytics',
               subtitle: 'View today\'s assignments with filters and charts',
               onTap: () {
                 Navigator.of(context).push(
@@ -40,11 +42,13 @@ class SeeAssignmentsOptionsPage extends StatelessWidget {
             const SizedBox(height: 16),
             _OptionCard(
               icon: Icons.groups,
-              title: 'Workers Summary',
+              title: 'Technician Summary',
               subtitle: 'See worker-wise assignment summary',
               onTap: () {
                 Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const WorkersSummeryPage()),
+                  MaterialPageRoute(
+                    builder: (_) => const TechnicianSummaryPage(),
+                  ),
                 );
               },
             ),
@@ -57,6 +61,30 @@ class SeeAssignmentsOptionsPage extends StatelessWidget {
                 Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (_) => const DepotWiseSummaryPage(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+            _OptionCard(
+              icon: Icons.work_history,
+              title: 'Job Logs',
+              subtitle: 'View detailed job logs and work history',
+              onTap: () {
+                Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const JobLogsPage()));
+              },
+            ),
+            const SizedBox(height: 16),
+            _OptionCard(
+              icon: Icons.trending_up,
+              title: 'Monthly Progress',
+              subtitle: 'View last 3 months docket progress and trends',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (_) => const MonthlyProgressPage(),
                   ),
                 );
               },

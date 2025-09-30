@@ -106,7 +106,7 @@ class _HttpPostDocketDetailsState extends State<HttpPostDocketDetails> {
       final uploadedTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
 
       final Map<String, String> postData = {
-        'Depot': 'Dalugama',
+        'Depot': 'Wattala',
         'DocketType': docketType,
         'ImageName': imageName,
         'UploadedBy': 'CSE001',

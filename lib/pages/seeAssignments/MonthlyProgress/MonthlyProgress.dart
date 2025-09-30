@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 // --- Models
 import '../../../models/assigned_docket.dart';
 import '../../../models/dockets.dart';
+import '../../../models/WorkLog.dart';
 
 // --- Services
 import '../../../service/assigned_docket_service.dart';
@@ -83,14 +86,14 @@ const Map<String, List<String>> kBranchDepots = {
   'Other': ['All', 'Other'],
 };
 
-class SeeAssignmentsPage extends StatefulWidget {
-  const SeeAssignmentsPage({super.key});
+class MonthlyProgressPage extends StatefulWidget {
+  const MonthlyProgressPage({super.key});
 
   @override
-  State<SeeAssignmentsPage> createState() => _SeeAssignmentsPageState();
+  State<MonthlyProgressPage> createState() => _MonthlyProgressPageState();
 }
 
-class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
+class _MonthlyProgressPageState extends State<MonthlyProgressPage>
     with TickerProviderStateMixin {
   final _assignedDocketSvc = AssignedDocketService();
   final _docketSvc = dockey.DocketService();
@@ -101,17 +104,12 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
   // Data
   List<AssignedDocket> _allAssignments = [];
   List<Docket> _allDockets = [];
+  List<WorkLog> _allWorkLogs = [];
   final Map<String, Docket> _docketsMap = {};
+  final Map<String, WorkLog> _workLogsMap = {};
 
   // UI State
   late AnimationController _animationController;
-  String _selectedFilter = 'All';
-  final List<String> _filterOptions = [
-    'All',
-    'Assigned',
-    'Completed',
-    'Overdue',
-  ];
   String _searchQuery = '';
 
   // Separate filter states for branch and depot
@@ -139,6 +137,37 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
     super.dispose();
   }
 
+  // Method to fetch work logs
+  Future<List<WorkLog>> _fetchWorkLogs() async {
+    try {
+      final response = await http
+          .get(
+            Uri.parse('https://powerprox.sltidc.lk/GETDocketWorkLog.php'),
+            headers: {'Content-Type': 'application/json'},
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final String responseBody = response.body;
+        if (responseBody.isEmpty) return [];
+
+        final dynamic jsonData = json.decode(responseBody);
+        if (jsonData is List) {
+          return jsonData
+              .map<WorkLog>((item) => WorkLog.fromJson(item))
+              .toList();
+        } else if (jsonData is Map<String, dynamic>) {
+          return [WorkLog.fromJson(jsonData)];
+        }
+        return [];
+      }
+      return [];
+    } catch (e) {
+      print('Error fetching work logs: $e');
+      return [];
+    }
+  }
+
   Future<void> _loadData() async {
     setState(() {
       _loading = true;
@@ -146,19 +175,27 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
     });
 
     try {
-      // Load data in parallel
+      // Load data in parallel - including work logs
       final results = await Future.wait([
         _assignedDocketSvc.fetchAssignedDockets(),
         _docketSvc.fetchDockets(),
+        _fetchWorkLogs(),
       ]);
 
       final assignments = results[0] as List<AssignedDocket>;
       final dockets = results[1] as List<Docket>;
+      final workLogs = results[2] as List<WorkLog>;
 
-      // Create docket lookup map
+      // Create lookup maps
       _docketsMap.clear();
+      _workLogsMap.clear();
+
       for (final docket in dockets) {
         _docketsMap[docket.id] = docket;
+      }
+
+      for (final workLog in workLogs) {
+        _workLogsMap[workLog.docketId] = workLog;
       }
 
       // Populate filter options
@@ -168,6 +205,7 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
       setState(() {
         _allAssignments = assignments;
         _allDockets = dockets;
+        _allWorkLogs = workLogs;
         _loading = false;
       });
 
@@ -180,7 +218,9 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
         _loading = false;
         _allAssignments = [];
         _allDockets = [];
+        _allWorkLogs = [];
         _docketsMap.clear();
+        _workLogsMap.clear();
       });
     }
   }
@@ -190,6 +230,17 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
     final lower = value.trim().toLowerCase();
     // remove all non-alphanumeric characters
     return lower.replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
+
+  // Check if assignment is completed using WorkLog data (same logic as depot summary)
+  bool _isAssignmentCompleted(AssignedDocket assignment) {
+    final workLog = _workLogsMap[assignment.docketID];
+    if (workLog == null) return false;
+
+    return workLog.completedAt != null &&
+        workLog.completedAt!.isNotEmpty &&
+        workLog.completedAt != '0' &&
+        workLog.completedAt!.toLowerCase() != 'null';
   }
 
   // Get filtered assignments based on search and filter
@@ -244,19 +295,6 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
       }).toList();
     }
 
-    // Apply status filter
-    switch (_selectedFilter) {
-      case 'Assigned':
-        filtered = filtered.where((a) => a.isOngoing).toList();
-        break;
-      case 'Completed':
-        filtered = filtered.where((a) => a.isCompleted).toList();
-        break;
-      case 'Overdue':
-        filtered = filtered.where((a) => a.isOverdue()).toList();
-        break;
-    }
-
     return filtered;
   }
 
@@ -286,7 +324,7 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
 
       final totalDockets = monthAssignments.length;
       final completedDockets = monthAssignments
-          .where((a) => a.isCompleted)
+          .where((a) => _isAssignmentCompleted(a))
           .length;
 
       months.add((
@@ -297,42 +335,6 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
     }
 
     return months;
-  }
-
-  // Get assignment statistics (filtered)
-  ({int total, int completed, int ongoing, int overdue}) _getStatistics() {
-    final assignments = _getFilteredAssignments();
-    return (
-      total: assignments.length,
-      completed: assignments.where((a) => a.isCompleted).length,
-      ongoing: assignments.where((a) => a.isOngoing).length,
-      overdue: assignments.where((a) => a.isOverdue()).length,
-    );
-  }
-
-  // Get daily assignment statistics
-  ({int total, int completed, int ongoing, int overdue}) _getDailyStatistics() {
-    final today = DateTime.now();
-    final base = _getFilteredAssignments();
-    final todayAssignments = base.where((assignment) {
-      try {
-        final assignedTime = DateTime.parse(
-          assignment.assignedTime.replaceAll('/', '-'),
-        );
-        return assignedTime.year == today.year &&
-            assignedTime.month == today.month &&
-            assignedTime.day == today.day;
-      } catch (_) {
-        return false;
-      }
-    }).toList();
-
-    return (
-      total: todayAssignments.length,
-      completed: todayAssignments.where((a) => a.isCompleted).length,
-      ongoing: todayAssignments.where((a) => a.isOngoing).length,
-      overdue: todayAssignments.where((a) => a.isOverdue()).length,
-    );
   }
 
   double _getMaxYValue(
@@ -374,7 +376,7 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
       appBar: AppBar(
         elevation: 0,
         title: const Text(
-          'Assignment Overview',
+          'Monthly Progress',
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         backgroundColor: _primaryColor,
@@ -397,7 +399,7 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
                   ),
                   SizedBox(height: 24),
                   Text(
-                    "Loading assignments...",
+                    "Loading monthly progress...",
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey,
@@ -414,7 +416,6 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
   }
 
   Widget _buildMainContent() {
-    final stats = _getStatistics();
     final isMobile = MediaQuery.of(context).size.width < 600;
     final isPortrait =
         MediaQuery.of(context).orientation == Orientation.portrait;
@@ -426,11 +427,7 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
         physics: const AlwaysScrollableScrollPhysics(),
         child: Column(
           children: [
-            // Summary Statistics Cards at the top
-            Container(
-              margin: const EdgeInsets.all(16),
-              child: _buildSummaryCards(stats),
-            ),
+            const SizedBox(height: 16),
 
             // Search Bar
             Container(
@@ -461,56 +458,12 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
 
             const SizedBox(height: 16),
 
-            // Filter Chips (Status)
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              height: 40,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: _filterOptions.length,
-                itemBuilder: (context, index) {
-                  final filter = _filterOptions[index];
-                  final isSelected = _selectedFilter == filter;
-                  return Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    child: FilterChip(
-                      label: Text(filter),
-                      selected: isSelected,
-                      onSelected: (selected) {
-                        setState(() {
-                          _selectedFilter = filter;
-                        });
-                      },
-                      selectedColor: _primaryColor.withOpacity(0.1),
-                      checkmarkColor: _primaryColor,
-                      labelStyle: TextStyle(
-                        color: isSelected ? _primaryColor : Colors.grey[700],
-                        fontWeight: isSelected
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            // Filter Section (similar to staff page)
+            // Filter Section
             Padding(
               padding: EdgeInsets.fromLTRB(16, 0, 16, isMobile ? 8 : 10),
               child: isMobile && isPortrait
                   ? _buildMobileFilters()
                   : _buildDesktopFilters(),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Pie Chart Section - Today's assignments
-            Container(
-              margin: const EdgeInsets.all(16),
-              child: _buildPieChartSection(),
             ),
 
             const SizedBox(height: 24),
@@ -733,110 +686,6 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
     );
   }
 
-  Widget _buildPieChartSection() {
-    // Get daily statistics instead of filtered statistics
-    final dailyStats = _getDailyStatistics();
-
-    // Calculate total for pie chart (only ongoing and completed)
-    final chartTotal = dailyStats.ongoing + dailyStats.completed;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          const Text(
-            'Today\'s Assignment Progress',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: _primaryColor,
-            ),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 200,
-            child: chartTotal > 0
-                ? PieChart(
-                    PieChartData(
-                      sections: [
-                        if (dailyStats.completed > 0)
-                          PieChartSectionData(
-                            value: dailyStats.completed.toDouble(),
-                            title: 'Completed\n${dailyStats.completed}',
-                            color: Colors.green,
-                            radius: 60,
-                            titleStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        if (dailyStats.ongoing > 0)
-                          PieChartSectionData(
-                            value: dailyStats.ongoing.toDouble(),
-                            title: 'Ongoing\n${dailyStats.ongoing}',
-                            color: Colors.orange,
-                            radius: 60,
-                            titleStyle: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                      ],
-                      sectionsSpace: 2,
-                      centerSpaceRadius: 40,
-                    ),
-                  )
-                : Container(
-                    height: 200,
-                    alignment: Alignment.center,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.pie_chart_outline,
-                          size: 48,
-                          color: Colors.grey[400],
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'No assignments today',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _buildLegendItem(Colors.green, 'Completed'),
-              const SizedBox(width: 16),
-              _buildLegendItem(Colors.orange, 'Ongoing'),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildBarChartSection() {
     final monthlyStats = _getLastThreeMonthsDocketStats();
 
@@ -1041,134 +890,6 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
         const SizedBox(width: 4),
         Text(text, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
-    );
-  }
-
-  Widget _buildSummaryCards(
-    ({int total, int completed, int ongoing, int overdue}) stats,
-  ) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(Icons.analytics_outlined, color: _primaryColor, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                'Summary Statistics',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: _primaryColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  title: "Total",
-                  count: stats.total,
-                  icon: Icons.assignment,
-                  color: _primaryColor,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildStatCard(
-                  title: "Ongoing",
-                  count: stats.ongoing,
-                  icon: Icons.schedule,
-                  color: Colors.orange,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildStatCard(
-                  title: "Completed",
-                  count: stats.completed,
-                  icon: Icons.check_circle,
-                  color: Colors.green,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _buildStatCard(
-                  title: "Overdue",
-                  count: stats.overdue,
-                  icon: Icons.warning,
-                  color: Colors.red,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatCard({
-    required String title,
-    required int count,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
-        boxShadow: [
-          BoxShadow(
-            color: color.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Icon(icon, color: color, size: 20),
-          const SizedBox(height: 6),
-          Text(
-            "$count",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 10,
-              color: color.withOpacity(0.8),
-              fontWeight: FontWeight.w500,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
     );
   }
 }

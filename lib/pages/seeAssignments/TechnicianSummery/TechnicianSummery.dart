@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class WorkersSummeryPage extends StatelessWidget {
-  const WorkersSummeryPage({super.key});
+class TechnicianSummaryPage extends StatelessWidget {
+  const TechnicianSummaryPage({super.key});
 
   static const Color _primaryColor = Color(0xFF003366);
 
@@ -9,7 +9,7 @@ class WorkersSummeryPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Workers Summary'),
+        title: const Text('Technician Summary'),
         backgroundColor: _primaryColor,
         foregroundColor: Colors.white,
         elevation: 0,
@@ -21,15 +21,15 @@ class WorkersSummeryPage extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: const [
-              Icon(Icons.groups, size: 64, color: Colors.blueGrey),
+              Icon(Icons.engineering, size: 64, color: Colors.blueGrey),
               SizedBox(height: 16),
               Text(
-                'Workers Summary View',
+                'Technician Summary View',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
               Text(
-                'This is a placeholder. Show worker-wise stats here (counts, completed, ongoing, etc.).',
+                'This is a placeholder. Show technician-wise stats here (counts, completed, ongoing, etc.).',
                 textAlign: TextAlign.center,
               ),
             ],
@@ -39,4 +39,3 @@ class WorkersSummeryPage extends StatelessWidget {
     );
   }
 }
-
