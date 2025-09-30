@@ -103,8 +103,6 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
 
   // Data
   List<AssignedDocket> _allAssignments = [];
-  List<Docket> _allDockets = [];
-  List<WorkLog> _allWorkLogs = [];
   final Map<String, Docket> _docketsMap = {};
   final Map<String, WorkLog> _workLogsMap = {};
 
@@ -204,8 +202,6 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
       // Update state
       setState(() {
         _allAssignments = assignments;
-        _allDockets = dockets;
-        _allWorkLogs = workLogs;
         _loading = false;
       });
 
@@ -217,8 +213,6 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
         _error = 'Failed to load assignments: $e';
         _loading = false;
         _allAssignments = [];
-        _allDockets = [];
-        _allWorkLogs = [];
         _docketsMap.clear();
         _workLogsMap.clear();
       });
@@ -350,6 +344,77 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
     return (maxValue + 2).toDouble(); // Add some padding
   }
 
+  // Get dominant docket type trends over the last 3 months
+  List<({String month, String dominantType, int count})>
+  _getDominantDocketTypeTrends() {
+    final now = DateTime.now();
+    final base = _getFilteredAssignments();
+    final List<({String month, String dominantType, int count})>
+    dominantTrends = [];
+
+    for (int i = 2; i >= 0; i--) {
+      final monthDate = DateTime(now.year, now.month - i, 1);
+      final monthName = DateFormat('MMM').format(monthDate);
+
+      // Filter assignments for this month
+      final monthAssignments = base.where((assignment) {
+        try {
+          final assignedTime = DateTime.parse(
+            assignment.assignedTime.replaceAll('/', '-'),
+          );
+          return assignedTime.year == monthDate.year &&
+              assignedTime.month == monthDate.month;
+        } catch (_) {
+          return false;
+        }
+      });
+
+      // Count docket types for this month
+      final Map<String, int> monthDocketTypes = {};
+      for (final assignment in monthAssignments) {
+        final docket = _docketsMap[assignment.docketID];
+        if (docket != null && docket.docketType.trim().isNotEmpty) {
+          final docketType = docket.docketType.trim();
+          monthDocketTypes[docketType] =
+              (monthDocketTypes[docketType] ?? 0) + 1;
+        }
+      }
+
+      // Find the dominant docket type (highest count) for this month
+      String dominantType = 'No Data';
+      int maxCount = 0;
+
+      if (monthDocketTypes.isNotEmpty) {
+        for (final entry in monthDocketTypes.entries) {
+          if (entry.value > maxCount) {
+            maxCount = entry.value;
+            dominantType = entry.key;
+          }
+        }
+      }
+
+      dominantTrends.add((
+        month: monthName,
+        dominantType: dominantType,
+        count: maxCount,
+      ));
+    }
+
+    return dominantTrends;
+  }
+
+  double _getMaxDominantValue(
+    List<({String month, String dominantType, int count})> trends,
+  ) {
+    if (trends.isEmpty) return 10.0;
+
+    int maxValue = 0;
+    for (final trend in trends) {
+      if (trend.count > maxValue) maxValue = trend.count;
+    }
+    return (maxValue + 2).toDouble(); // Add some padding
+  }
+
   void _populateFilterOptions(List<AssignedDocket> assignments) {
     final Set<String> workers = {'All'};
 
@@ -416,72 +481,166 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
   }
 
   Widget _buildMainContent() {
-    final isMobile = MediaQuery.of(context).size.width < 600;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+    final isTablet = screenWidth >= 600 && screenWidth < 1200;
     final isPortrait =
         MediaQuery.of(context).orientation == Orientation.portrait;
+
+    // Dynamic padding based on screen size
+    final horizontalPadding = isMobile
+        ? 16.0
+        : isTablet
+        ? 24.0
+        : 32.0;
+    final sectionSpacing = isMobile ? 20.0 : 28.0;
 
     return RefreshIndicator(
       onRefresh: _loadData,
       color: _primaryColor,
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Top spacing
+              SizedBox(height: isMobile ? 16 : 24),
 
-            // Search Bar
-            Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              child: TextField(
-                onChanged: (value) => setState(() => _searchQuery = value),
-                decoration: InputDecoration(
-                  hintText: 'Search by ID, person, type, or depot...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: _searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: const Icon(Icons.clear),
-                          onPressed: () => setState(() => _searchQuery = ''),
-                        )
-                      : null,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+              // Search Bar with enhanced styling
+              Container(
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: TextField(
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                  decoration: InputDecoration(
+                    hintText: 'Search by ID, person, type, or depot...',
+                    hintStyle: TextStyle(
+                      color: Colors.grey[500],
+                      fontSize: isMobile ? 14 : 16,
+                    ),
+                    prefixIcon: Icon(
+                      Icons.search_rounded,
+                      color: Colors.grey[600],
+                      size: isMobile ? 20 : 24,
+                    ),
+                    suffixIcon: _searchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: Icon(
+                              Icons.clear_rounded,
+                              size: isMobile ? 20 : 24,
+                            ),
+                            onPressed: () => setState(() => _searchQuery = ''),
+                          )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: Colors.grey[300]!),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide(color: _primaryColor, width: 2),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: isMobile ? 16 : 18,
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
                   ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  filled: true,
-                  fillColor: Colors.white,
                 ),
               ),
-            ),
 
-            const SizedBox(height: 16),
+              SizedBox(height: sectionSpacing),
 
-            // Filter Section
-            Padding(
-              padding: EdgeInsets.fromLTRB(16, 0, 16, isMobile ? 8 : 10),
-              child: isMobile && isPortrait
-                  ? _buildMobileFilters()
-                  : _buildDesktopFilters(),
-            ),
+              // Filter Section with improved styling
+              Container(
+                padding: EdgeInsets.all(isMobile ? 16 : 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Filter Options',
+                      style: TextStyle(
+                        fontSize: isMobile ? 16 : 18,
+                        fontWeight: FontWeight.bold,
+                        color: _primaryColor,
+                      ),
+                    ),
+                    SizedBox(height: isMobile ? 12 : 16),
+                    isMobile && isPortrait
+                        ? _buildMobileFilters()
+                        : _buildDesktopFilters(),
+                  ],
+                ),
+              ),
 
-            const SizedBox(height: 24),
+              SizedBox(height: sectionSpacing),
 
-            // Bar Chart Section - Last 3 Months Dockets
-            Container(
-              margin: const EdgeInsets.all(16),
-              child: _buildBarChartSection(),
-            ),
+              // Charts Section with responsive layout
+              if (isMobile)
+                // Mobile: Stack charts vertically
+                Column(
+                  children: [
+                    _buildBarChartSection(),
+                    SizedBox(height: sectionSpacing),
+                    _buildDocketTypeTrendsSection(),
+                  ],
+                )
+              else
+                // Desktop/Tablet: Show charts side by side or stacked based on available space
+                isTablet && isPortrait
+                    ? Column(
+                        children: [
+                          _buildBarChartSection(),
+                          SizedBox(height: sectionSpacing),
+                          _buildDocketTypeTrendsSection(),
+                        ],
+                      )
+                    : Column(
+                        children: [
+                          _buildBarChartSection(),
+                          SizedBox(height: sectionSpacing),
+                          _buildDocketTypeTrendsSection(),
+                        ],
+                      ),
 
-            const SizedBox(height: 32),
-          ],
+              // Bottom spacing
+              SizedBox(height: sectionSpacing + 16),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildMobileFilters() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
     // Get available depots based on selected branch
     final availableDepots = _selectedBranch == 'All'
         ? kDepots
@@ -493,87 +652,145 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
-                initialValue: _selectedBranch,
-                items: kBranches
-                    .map(
-                      (branch) => DropdownMenuItem(
-                        value: branch,
-                        child: Text(branch, overflow: TextOverflow.ellipsis),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  setState(() {
-                    _selectedBranch = v ?? 'All';
-                    // Reset depot when branch changes
-                    _selectedDepot = 'All';
-                  });
-                },
-                decoration: const InputDecoration(
-                  labelText: 'Branch',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                  color: Colors.grey[50],
                 ),
-                isExpanded: true,
+                child: DropdownButtonFormField<String>(
+                  value: _selectedBranch,
+                  items: kBranches
+                      .map(
+                        (branch) => DropdownMenuItem(
+                          value: branch,
+                          child: Text(
+                            branch,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: isMobile ? 14 : 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) {
+                    setState(() {
+                      _selectedBranch = v ?? 'All';
+                      // Reset depot when branch changes
+                      _selectedDepot = 'All';
+                    });
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Branch',
+                    labelStyle: TextStyle(
+                      color: _primaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: isMobile ? 12 : 14,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: isMobile ? 12 : 14,
+                    ),
+                  ),
+                  isExpanded: true,
+                ),
               ),
             ),
-            const SizedBox(width: 12),
+            SizedBox(width: isMobile ? 12 : 16),
             Expanded(
-              child: DropdownButtonFormField<String>(
-                initialValue: availableDepots.contains(_selectedDepot)
-                    ? _selectedDepot
-                    : 'All',
-                items: availableDepots
-                    .map(
-                      (depot) => DropdownMenuItem(
-                        value: depot,
-                        child: Text(depot, overflow: TextOverflow.ellipsis),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedDepot = v ?? 'All'),
-                decoration: const InputDecoration(
-                  labelText: 'Depot',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                  color: Colors.grey[50],
                 ),
-                isExpanded: true,
+                child: DropdownButtonFormField<String>(
+                  value: availableDepots.contains(_selectedDepot)
+                      ? _selectedDepot
+                      : 'All',
+                  items: availableDepots
+                      .map(
+                        (depot) => DropdownMenuItem(
+                          value: depot,
+                          child: Text(
+                            depot,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: isMobile ? 14 : 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) => setState(() => _selectedDepot = v ?? 'All'),
+                  decoration: InputDecoration(
+                    labelText: 'Depot',
+                    labelStyle: TextStyle(
+                      color: _primaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: isMobile ? 12 : 14,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: isMobile ? 12 : 14,
+                    ),
+                  ),
+                  isExpanded: true,
+                ),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: isMobile ? 12 : 16),
         // Second row: Worker
         Row(
           children: [
             Expanded(
-              child: DropdownButtonFormField<String>(
-                initialValue: _selectedWorker,
-                items: _availableWorkers
-                    .map(
-                      (worker) => DropdownMenuItem(
-                        value: worker,
-                        child: Text(worker, overflow: TextOverflow.ellipsis),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => _selectedWorker = v ?? 'All'),
-                decoration: const InputDecoration(
-                  labelText: 'Worker',
-                  border: OutlineInputBorder(),
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey[300]!),
+                  color: Colors.grey[50],
                 ),
-                isExpanded: true,
+                child: DropdownButtonFormField<String>(
+                  value: _selectedWorker,
+                  items: _availableWorkers
+                      .map(
+                        (worker) => DropdownMenuItem(
+                          value: worker,
+                          child: Text(
+                            worker,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: isMobile ? 14 : 16,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (v) =>
+                      setState(() => _selectedWorker = v ?? 'All'),
+                  decoration: InputDecoration(
+                    labelText: 'Worker',
+                    labelStyle: TextStyle(
+                      color: _primaryColor,
+                      fontWeight: FontWeight.w600,
+                      fontSize: isMobile ? 12 : 14,
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: isMobile ? 12 : 14,
+                    ),
+                  ),
+                  isExpanded: true,
+                ),
               ),
             ),
           ],
@@ -583,103 +800,158 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
   }
 
   Widget _buildDesktopFilters() {
-    final isTablet =
-        MediaQuery.of(context).size.width >= 600 &&
-        MediaQuery.of(context).size.width < 1200;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth >= 600 && screenWidth < 1200;
 
     // Get available depots based on selected branch
     final availableDepots = _selectedBranch == 'All'
         ? kDepots
         : (kBranchDepots[_selectedBranch] ?? ['All']);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return Wrap(
+      spacing: 16,
+      runSpacing: 12,
       children: [
         // Branch Dropdown
         SizedBox(
           width: isTablet ? 180 : 200,
-          child: DropdownButtonFormField<String>(
-            initialValue: _selectedBranch,
-            items: kBranches
-                .map(
-                  (branch) => DropdownMenuItem(
-                    value: branch,
-                    child: Text(branch, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(),
-            onChanged: (v) {
-              setState(() {
-                _selectedBranch = v ?? 'All';
-                // Reset depot when branch changes
-                _selectedDepot = 'All';
-              });
-            },
-            decoration: const InputDecoration(
-              labelText: 'Branch',
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
+              color: Colors.grey[50],
             ),
-            isExpanded: true,
+            child: DropdownButtonFormField<String>(
+              value: _selectedBranch,
+              items: kBranches
+                  .map(
+                    (branch) => DropdownMenuItem(
+                      value: branch,
+                      child: Text(
+                        branch,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) {
+                setState(() {
+                  _selectedBranch = v ?? 'All';
+                  // Reset depot when branch changes
+                  _selectedDepot = 'All';
+                });
+              },
+              decoration: InputDecoration(
+                labelText: 'Branch',
+                labelStyle: TextStyle(
+                  color: _primaryColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              isExpanded: true,
+            ),
           ),
         ),
-        const SizedBox(width: 12),
 
         // Depot Dropdown
         SizedBox(
           width: isTablet ? 180 : 200,
-          child: DropdownButtonFormField<String>(
-            initialValue: availableDepots.contains(_selectedDepot)
-                ? _selectedDepot
-                : 'All',
-            items: availableDepots
-                .map(
-                  (depot) => DropdownMenuItem(
-                    value: depot,
-                    child: Text(depot, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(),
-            onChanged: (v) => setState(() => _selectedDepot = v ?? 'All'),
-            decoration: const InputDecoration(
-              labelText: 'Depot',
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
+              color: Colors.grey[50],
             ),
-            isExpanded: true,
+            child: DropdownButtonFormField<String>(
+              value: availableDepots.contains(_selectedDepot)
+                  ? _selectedDepot
+                  : 'All',
+              items: availableDepots
+                  .map(
+                    (depot) => DropdownMenuItem(
+                      value: depot,
+                      child: Text(
+                        depot,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedDepot = v ?? 'All'),
+              decoration: InputDecoration(
+                labelText: 'Depot',
+                labelStyle: TextStyle(
+                  color: _primaryColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              isExpanded: true,
+            ),
           ),
         ),
-        const SizedBox(width: 12),
 
         // Worker Dropdown
         SizedBox(
           width: isTablet ? 160 : 180,
-          child: DropdownButtonFormField<String>(
-            initialValue: _selectedWorker,
-            items: _availableWorkers
-                .map(
-                  (worker) => DropdownMenuItem(
-                    value: worker,
-                    child: Text(worker, overflow: TextOverflow.ellipsis),
-                  ),
-                )
-                .toList(),
-            onChanged: (v) => setState(() => _selectedWorker = v ?? 'All'),
-            decoration: const InputDecoration(
-              labelText: 'Worker',
-              border: OutlineInputBorder(),
-              contentPadding: EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
-              ),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey[300]!),
+              color: Colors.grey[50],
             ),
-            isExpanded: true,
+            child: DropdownButtonFormField<String>(
+              value: _selectedWorker,
+              items: _availableWorkers
+                  .map(
+                    (worker) => DropdownMenuItem(
+                      value: worker,
+                      child: Text(
+                        worker,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(),
+              onChanged: (v) => setState(() => _selectedWorker = v ?? 'All'),
+              decoration: InputDecoration(
+                labelText: 'Worker',
+                labelStyle: TextStyle(
+                  color: _primaryColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+              ),
+              isExpanded: true,
+            ),
           ),
         ),
       ],
@@ -688,20 +960,37 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
 
   Widget _buildBarChartSection() {
     final monthlyStats = _getLastThreeMonthsDocketStats();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
 
     if (monthlyStats.isEmpty) {
       return Container(
-        height: 200,
+        height: isMobile ? 180 : 200,
         alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.bar_chart_outlined, size: 48, color: Colors.grey[400]),
-            const SizedBox(height: 8),
+            Icon(
+              Icons.bar_chart_outlined,
+              size: isMobile ? 40 : 48,
+              color: Colors.grey[400],
+            ),
+            SizedBox(height: isMobile ? 6 : 8),
             Text(
               'No monthly data available',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: isMobile ? 14 : 16,
                 color: Colors.grey[600],
                 fontWeight: FontWeight.w500,
               ),
@@ -712,29 +1001,68 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
     }
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isMobile ? 16 : 20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
           ),
         ],
+        border: Border.all(color: Colors.grey[100]!, width: 1),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Last 3 Months Docket Overview',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              color: _primaryColor,
-            ),
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.bar_chart,
+                  color: _primaryColor,
+                  size: isMobile ? 20 : 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Last 3 Months Docket Overview',
+                      style: TextStyle(
+                        fontSize: isMobile ? 16 : 18,
+                        fontWeight: FontWeight.bold,
+                        color: _primaryColor,
+                      ),
+                    ),
+                    Text(
+                      'Monthly performance comparison',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: isMobile ? 16 : 20),
           SizedBox(
             height: 250,
             child: BarChart(
@@ -890,6 +1218,281 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
         const SizedBox(width: 4),
         Text(text, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
       ],
+    );
+  }
+
+  Widget _buildDocketTypeTrendsSection() {
+    final dominantTrends = _getDominantDocketTypeTrends();
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 600;
+
+    if (dominantTrends.isEmpty ||
+        dominantTrends.every((trend) => trend.count == 0)) {
+      return Container(
+        padding: EdgeInsets.all(isMobile ? 24 : 32),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.trending_up,
+              size: isMobile ? 40 : 48,
+              color: Colors.grey[400],
+            ),
+            SizedBox(height: isMobile ? 6 : 8),
+            Text(
+              'No dominant docket type trends available',
+              style: TextStyle(
+                fontSize: isMobile ? 14 : 16,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Define colors for different docket types
+
+    return Container(
+      padding: EdgeInsets.all(isMobile ? 16 : 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 4,
+            offset: const Offset(0, 1),
+          ),
+        ],
+        border: Border.all(color: Colors.grey[100]!, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.trending_up,
+                  color: _primaryColor,
+                  size: isMobile ? 20 : 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Dominant Docket Type Trends',
+                      style: TextStyle(
+                        fontSize: isMobile ? 16 : 18,
+                        fontWeight: FontWeight.bold,
+                        color: _primaryColor,
+                      ),
+                    ),
+                    Text(
+                      'Last 3 months comparison',
+                      style: TextStyle(
+                        fontSize: isMobile ? 12 : 14,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: isMobile ? 16 : 20),
+          SizedBox(
+            height: 250,
+            child: LineChart(
+              LineChartData(
+                maxY: _getMaxDominantValue(dominantTrends),
+                minY: 0,
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: dominantTrends.asMap().entries.map((entry) {
+                      return FlSpot(
+                        entry.key.toDouble(),
+                        entry.value.count.toDouble(),
+                      );
+                    }).toList(),
+                    isCurved: true,
+                    color: _primaryColor,
+                    barWidth: 3,
+                    isStrokeCapRound: true,
+                    belowBarData: BarAreaData(
+                      show: true,
+                      color: _primaryColor.withOpacity(0.1),
+                    ),
+                    dotData: FlDotData(
+                      show: true,
+                      getDotPainter: (spot, percent, barData, index) {
+                        return FlDotCirclePainter(
+                          radius: 4,
+                          color: _primaryColor,
+                          strokeWidth: 2,
+                          strokeColor: Colors.white,
+                        );
+                      },
+                    ),
+                  ),
+                ],
+                titlesData: FlTitlesData(
+                  show: true,
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        if (value >= 0 && value < dominantTrends.length) {
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: Text(
+                              dominantTrends[value.toInt()].month,
+                              style: TextStyle(
+                                color: Colors.grey[600],
+                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                              ),
+                            ),
+                          );
+                        }
+                        return const Text('');
+                      },
+                      reservedSize: 32,
+                    ),
+                  ),
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 40,
+                      getTitlesWidget: (value, meta) {
+                        return Text(
+                          value.toInt().toString(),
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 10,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawHorizontalLine: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: _getMaxDominantValue(dominantTrends) / 5,
+                  getDrawingHorizontalLine: (value) {
+                    return FlLine(color: Colors.grey[300]!, strokeWidth: 1);
+                  },
+                ),
+                borderData: FlBorderData(
+                  show: true,
+                  border: Border.all(color: Colors.grey[300]!, width: 1),
+                ),
+                lineTouchData: LineTouchData(
+                  enabled: true,
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipColor: (touchedSpot) => Colors.grey[800]!,
+                    tooltipRoundedRadius: 8,
+                    fitInsideHorizontally: true,
+                    fitInsideVertically: true,
+                    getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
+                      return touchedBarSpots.map((barSpot) {
+                        final trend = dominantTrends[barSpot.x.toInt()];
+                        return LineTooltipItem(
+                          '${trend.dominantType}\n${trend.month}: ${barSpot.y.toInt()} dockets',
+                          const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        );
+                      }).toList();
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          // Legend for dominant docket types
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 16,
+            runSpacing: 8,
+            children: dominantTrends.map((trend) {
+              return _buildTrendLegendItem(
+                _primaryColor.withOpacity(0.7),
+                '${trend.month}: ${trend.dominantType} (${trend.count})',
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTrendLegendItem(Color color, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
+          const SizedBox(width: 6),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
