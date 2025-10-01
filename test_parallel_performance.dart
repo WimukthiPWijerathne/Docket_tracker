@@ -8,7 +8,7 @@ Future<void> main() async {
 
   // Test data
   List<String> testDepots = ['Depot A', 'Depot B', 'Depot C'];
-  String? testDocketType = null;
+  String? testDocketType;
 
   print('\nTesting original method (now with parallel API calls)...');
 

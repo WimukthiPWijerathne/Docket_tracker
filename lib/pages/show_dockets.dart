@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:cached_network_image/cached_network_image.dart';
@@ -6,7 +5,6 @@ import '../service/dockey_service.dart';
 import '../models/dockets.dart';
 import '../pages/assign.dart';
 import 'package:shimmer/shimmer.dart';
-import 'dart:io' show Platform;
 
 class ShowDocketsPage extends StatefulWidget {
   final String title;

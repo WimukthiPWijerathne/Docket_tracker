@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
 
 class DocketAssignmentService {
   static const String baseUrl = 'https://powerprox.sltidc.lk';
@@ -17,7 +16,7 @@ class DocketAssignmentService {
   }) async {
     try {
       final url = Uri.parse('$baseUrl$assignmentEndpoint');
-      
+
       // Format the request body to match the database schema
       final requestBody = {
         'docketID': docketId,
@@ -46,27 +45,31 @@ class DocketAssignmentService {
       if (response.statusCode >= 200 && response.statusCode < 300) {
         try {
           final responseData = jsonDecode(response.body);
-          
+
           // Handle different success response formats
           if (responseData is Map<String, dynamic>) {
             if ((responseData['success'] == true) ||
                 (responseData['status'] == 'success') ||
-                (responseData['message']?.toString().toLowerCase().contains('success') == true)) {
+                (responseData['message']?.toString().toLowerCase().contains(
+                      'success',
+                    ) ==
+                    true)) {
               print('✅ Successfully assigned worker to docket');
               return true;
             }
-            
+
             // Check for database errors in the response
             if (responseData['error'] != null) {
               print('❌ Database error: ${responseData['error']}');
               return false;
             }
           }
-          
+
           // If we can't determine success from the response, log a warning but assume success
-          print('⚠️ Could not determine success from response, but received status ${response.statusCode}');
+          print(
+            '⚠️ Could not determine success from response, but received status ${response.statusCode}',
+          );
           return true;
-          
         } catch (e) {
           print('❌ Error parsing response JSON: $e');
           return false;
@@ -106,19 +109,23 @@ class DocketAssignmentService {
             uploadedTime: uploadedTime,
           );
 
-          results.add(AssignmentResult(
-            docketId: docketId,
-            worker: worker,
-            isSuccess: success,
-            errorMessage: success ? null : 'Assignment failed',
-          ));
+          results.add(
+            AssignmentResult(
+              docketId: docketId,
+              worker: worker,
+              isSuccess: success,
+              errorMessage: success ? null : 'Assignment failed',
+            ),
+          );
         } catch (e) {
-          results.add(AssignmentResult(
-            docketId: docketId,
-            worker: worker,
-            isSuccess: false,
-            errorMessage: e.toString(),
-          ));
+          results.add(
+            AssignmentResult(
+              docketId: docketId,
+              worker: worker,
+              isSuccess: false,
+              errorMessage: e.toString(),
+            ),
+          );
         }
       }
     }

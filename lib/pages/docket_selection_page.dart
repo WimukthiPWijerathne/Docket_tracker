@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'show_dockets.dart';
 import '../service/dockey_service.dart';
-import '../models/dockets.dart';
 
 enum DocketFilter { all, assigned, unassigned, completed }
 
@@ -12,11 +11,11 @@ class DocketSelectionPage extends StatefulWidget {
   State<DocketSelectionPage> createState() => _DocketSelectionPageState();
 }
 
-class _DocketSelectionPageState extends State<DocketSelectionPage> 
+class _DocketSelectionPageState extends State<DocketSelectionPage>
     with TickerProviderStateMixin {
   final DocketService _docketService = DocketService();
   final TextEditingController _searchController = TextEditingController();
-  
+
   Map<String, int> _docketCounts = {};
   Map<String, Map<DocketFilter, int>> _docketFilterCounts = {};
   bool _isLoading = true;
@@ -35,7 +34,7 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
         _query = _searchController.text.trim().toLowerCase();
       });
     });
-    
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -53,15 +52,15 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
       });
 
       final dockets = await _docketService.fetchDockets();
-      
+
       // Count dockets by type
       final Map<String, int> counts = {};
       final Map<String, Map<DocketFilter, int>> filterCounts = {};
-      
+
       for (final docket in dockets) {
         if (docket.docketType.isNotEmpty) {
           counts[docket.docketType] = (counts[docket.docketType] ?? 0) + 1;
-          
+
           // Initialize filter counts for this docket type if not exists
           if (!filterCounts.containsKey(docket.docketType)) {
             filterCounts[docket.docketType] = {
@@ -71,23 +70,28 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
               DocketFilter.completed: 0,
             };
           }
-          
+
           // Count all
-          filterCounts[docket.docketType]![DocketFilter.all] = 
+          filterCounts[docket.docketType]![DocketFilter.all] =
               (filterCounts[docket.docketType]![DocketFilter.all] ?? 0) + 1;
-          
+
           // Count by status
           if (docket.completedTime.isNotEmpty) {
-            filterCounts[docket.docketType]![DocketFilter.completed] = 
-                (filterCounts[docket.docketType]![DocketFilter.completed] ?? 0) + 1;
+            filterCounts[docket.docketType]![DocketFilter.completed] =
+                (filterCounts[docket.docketType]![DocketFilter.completed] ??
+                    0) +
+                1;
           } else if (docket.assignedTo.isNotEmpty) {
             // If assignedPersons is not empty, it's assigned
-            filterCounts[docket.docketType]![DocketFilter.assigned] = 
-                (filterCounts[docket.docketType]![DocketFilter.assigned] ?? 0) + 1;
+            filterCounts[docket.docketType]![DocketFilter.assigned] =
+                (filterCounts[docket.docketType]![DocketFilter.assigned] ?? 0) +
+                1;
           } else {
             // If assignedPersons is empty and not completed, it's unassigned
-            filterCounts[docket.docketType]![DocketFilter.unassigned] = 
-                (filterCounts[docket.docketType]![DocketFilter.unassigned] ?? 0) + 1;
+            filterCounts[docket.docketType]![DocketFilter.unassigned] =
+                (filterCounts[docket.docketType]![DocketFilter.unassigned] ??
+                    0) +
+                1;
           }
         }
       }
@@ -110,7 +114,7 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
     if (_selectedFilter == DocketFilter.all) {
       return _docketCounts;
     }
-    
+
     final Map<String, int> filtered = {};
     _docketFilterCounts.forEach((type, counts) {
       final count = counts[_selectedFilter] ?? 0;
@@ -137,7 +141,7 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
           children: DocketFilter.values.map((filter) {
             final isSelected = _selectedFilter == filter;
             final totalCount = _getTotalCountForFilter(filter);
-            
+
             return Container(
               margin: const EdgeInsets.only(right: 12),
               child: FilterChip(
@@ -155,15 +159,20 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
                       style: TextStyle(
                         fontWeight: FontWeight.w600,
                         fontSize: 13,
-                        color: isSelected ? Colors.white : const Color(0xFF003366),
+                        color: isSelected
+                            ? Colors.white
+                            : const Color(0xFF003366),
                       ),
                     ),
                     if (totalCount > 0) ...[
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
-                          color: isSelected 
+                          color: isSelected
                               ? Colors.white.withOpacity(0.3)
                               : const Color(0xFF003366).withOpacity(0.1),
                           borderRadius: BorderRadius.circular(10),
@@ -173,7 +182,9 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
-                            color: isSelected ? Colors.white : const Color(0xFF003366),
+                            color: isSelected
+                                ? Colors.white
+                                : const Color(0xFF003366),
                           ),
                         ),
                       ),
@@ -184,7 +195,7 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
                 selectedColor: const Color(0xFF003366),
                 checkmarkColor: Colors.white,
                 side: BorderSide(
-                  color: isSelected 
+                  color: isSelected
                       ? const Color(0xFF003366)
                       : const Color(0xFF003366).withOpacity(0.2),
                   width: 1.5,
@@ -203,7 +214,7 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
     if (filter == DocketFilter.all) {
       return _docketCounts.values.fold(0, (sum, count) => sum + count);
     }
-    
+
     int total = 0;
     _docketFilterCounts.forEach((type, counts) {
       total += counts[filter] ?? 0;
@@ -302,17 +313,17 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
               Text(
                 'Unable to Load Dockets',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.grey[800],
-                      fontWeight: FontWeight.w600,
-                    ),
+                  color: Colors.grey[800],
+                  fontWeight: FontWeight.w600,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
                 'Please check your connection and try again',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
@@ -323,7 +334,10 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF003366),
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -340,13 +354,12 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
   Widget _buildCompactTopDockets() {
     final currentCounts = _filteredDocketCounts;
     if (currentCounts.isEmpty) return const SizedBox.shrink();
-    
+
     // Get top 3 most common docket types for current filter
-    final List<MapEntry<String, int>> topThree = currentCounts.entries
-        .toList()
-        ..sort((a, b) => b.value.compareTo(a.value));
+    final List<MapEntry<String, int>> topThree = currentCounts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
     final topThreeList = topThree.take(3).toList();
-    
+
     if (topThreeList.isEmpty) return const SizedBox.shrink();
 
     return Container(
@@ -354,10 +367,7 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [
-            const Color(0xFF003366).withOpacity(0.03),
-            Colors.white,
-          ],
+          colors: [const Color(0xFF003366).withOpacity(0.03), Colors.white],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -427,7 +437,8 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => ShowDocketsPage(title: docketEntry.key),
+                          builder: (context) =>
+                              ShowDocketsPage(title: docketEntry.key),
                         ),
                       );
                     },
@@ -460,10 +471,13 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
     final int crossAxisCount = width >= 900
         ? 4
         : width >= 600
-            ? 3
-            : 2;
+        ? 3
+        : 2;
 
-    final int totalDockets = currentCounts.values.fold(0, (sum, count) => sum + count);
+    final int totalDockets = currentCounts.values.fold(
+      0,
+      (sum, count) => sum + count,
+    );
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -579,13 +593,13 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Filter chips
                   _buildFilterChips(),
-                  
+
                   // Compact Top 3 Most Active Dockets
                   _buildCompactTopDockets(),
-                  
+
                   // Enhanced search section
                   Container(
                     padding: const EdgeInsets.all(20),
@@ -634,17 +648,26 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
                             decoration: InputDecoration(
                               hintText: 'Search by docket type name...',
                               hintStyle: TextStyle(color: Colors.grey[500]),
-                              prefixIcon: Icon(Icons.search_rounded, color: Colors.grey[500]),
+                              prefixIcon: Icon(
+                                Icons.search_rounded,
+                                color: Colors.grey[500],
+                              ),
                               suffixIcon: _query.isEmpty
                                   ? null
                                   : IconButton(
-                                      icon: Icon(Icons.clear_rounded, color: Colors.grey[500]),
+                                      icon: Icon(
+                                        Icons.clear_rounded,
+                                        color: Colors.grey[500],
+                                      ),
                                       onPressed: () {
                                         _searchController.clear();
                                       },
                                     ),
                               border: InputBorder.none,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
+                              contentPadding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                                horizontal: 16,
+                              ),
                             ),
                           ),
                         ),
@@ -661,7 +684,7 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Grid of docket cards or empty state
                   filtered.isEmpty
                       ? Container(
@@ -677,7 +700,9 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
                                   shape: BoxShape.circle,
                                 ),
                                 child: Icon(
-                                  _query.isEmpty ? Icons.inventory_2_outlined : Icons.search_off_rounded,
+                                  _query.isEmpty
+                                      ? Icons.inventory_2_outlined
+                                      : Icons.search_off_rounded,
                                   size: 48,
                                   color: Colors.grey[400],
                                 ),
@@ -715,21 +740,24 @@ class _DocketSelectionPageState extends State<DocketSelectionPage>
                           mainAxisSpacing: 16,
                           childAspectRatio: 0.85,
                           children: filtered
-                              .map((entry) => _DocketCard(
-                                    title: entry.key,
-                                    count: entry.value,
-                                    icon: _iconFor(entry.key),
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) => ShowDocketsPage(title: entry.key),
-                                        ),
-                                      );
-                                    },
-                                  ))
+                              .map(
+                                (entry) => _DocketCard(
+                                  title: entry.key,
+                                  count: entry.value,
+                                  icon: _iconFor(entry.key),
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            ShowDocketsPage(title: entry.key),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              )
                               .toList(),
                         ),
-                  
+
                   const SizedBox(height: 32),
                 ],
               ),
@@ -810,11 +838,7 @@ class _DocketCard extends StatelessWidget {
                     color: const Color(0xFF003366).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: Icon(
-                    icon,
-                    size: 32,
-                    color: const Color(0xFF003366),
-                  ),
+                  child: Icon(icon, size: 32, color: const Color(0xFF003366)),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -831,7 +855,10 @@ class _DocketCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
@@ -885,8 +912,8 @@ class _CompactTopDocketCard extends StatelessWidget {
     final Color rankColor = rank == 1
         ? const Color(0xFFFFD700)
         : rank == 2
-            ? const Color(0xFF78909C)
-            : const Color(0xFFFF8A65);
+        ? const Color(0xFF78909C)
+        : const Color(0xFFFF8A65);
 
     return Material(
       color: Colors.transparent,
@@ -898,10 +925,7 @@ class _CompactTopDocketCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: rankColor.withOpacity(0.3),
-              width: 1,
-            ),
+            border: Border.all(color: rankColor.withOpacity(0.3), width: 1),
             boxShadow: [
               BoxShadow(
                 color: rankColor.withOpacity(0.1),
@@ -944,10 +968,7 @@ class _CompactTopDocketCard extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF003366),
-                      const Color(0xFF004080),
-                    ],
+                    colors: [const Color(0xFF003366), const Color(0xFF004080)],
                   ),
                   borderRadius: BorderRadius.circular(12),
                 ),

@@ -129,7 +129,7 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
 
               // Depot dropdown
               DropdownButtonFormField<String>(
-                value: selectedDepot,
+                initialValue: selectedDepot,
                 decoration: const InputDecoration(
                   labelText: "Select Depot",
                   border: OutlineInputBorder(),

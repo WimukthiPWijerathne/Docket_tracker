@@ -5,10 +5,10 @@ class SummaryPage extends StatelessWidget {
   final List<String> assignedWorkers;
 
   const SummaryPage({
-    Key? key,
+    super.key,
     required this.dockets,
     required this.assignedWorkers,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -47,33 +47,53 @@ class SummaryPage extends StatelessWidget {
                     const SizedBox(height: 20),
                     const Text(
                       'Assigned Dockets:',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 8),
-                    ...dockets.map((docket) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 2),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.assignment, size: 16, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          Text(docket, style: const TextStyle(fontSize: 16)),
-                        ],
+                    ...dockets.map(
+                      (docket) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.assignment,
+                              size: 16,
+                              color: Colors.blue,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(docket, style: const TextStyle(fontSize: 16)),
+                          ],
+                        ),
                       ),
-                    )).toList(),
+                    ),
                     const SizedBox(height: 16),
                     const Text(
                       'Assigned Workers:',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: assignedWorkers.map((worker) => Chip(
-                        label: Text(worker),
-                        backgroundColor: Colors.green[100],
-                        avatar: const Icon(Icons.person, size: 16, color: Colors.green),
-                      )).toList(),
+                      children: assignedWorkers
+                          .map(
+                            (worker) => Chip(
+                              label: Text(worker),
+                              backgroundColor: Colors.green[100],
+                              avatar: const Icon(
+                                Icons.person,
+                                size: 16,
+                                color: Colors.green,
+                              ),
+                            ),
+                          )
+                          .toList(),
                     ),
                   ],
                 ),

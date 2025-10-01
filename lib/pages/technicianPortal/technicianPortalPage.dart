@@ -381,12 +381,15 @@ class _TechnicianPortalPageState extends State<TechnicianPortalPage>
                 final meterShift = record['MeterShift']?.toString() ?? '';
 
                 final details = <String>[];
-                if (transformer.isNotEmpty && transformer != 'null')
+                if (transformer.isNotEmpty && transformer != 'null') {
                   details.add('Transformer: $transformer');
-                if (pole.isNotEmpty && pole != 'null')
+                }
+                if (pole.isNotEmpty && pole != 'null') {
                   details.add('Pole: $pole');
-                if (meterShift.isNotEmpty && meterShift != 'null')
+                }
+                if (meterShift.isNotEmpty && meterShift != 'null') {
                   details.add('Meter Shift: $meterShift');
+                }
 
                 if (details.isNotEmpty) {
                   newLocationDetails[docketId] = details.join(' • ');

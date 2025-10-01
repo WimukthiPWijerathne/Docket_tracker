@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../model/person.dart';
 import '../model/httpServicePeople.dart';
 
 class PersonDetailPage extends StatefulWidget {
   final Person person;
-  
+
   const PersonDetailPage({super.key, required this.person});
 
   @override
@@ -17,7 +16,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   final _svc = PeopleService();
   late Person _person;
   bool _loading = false;
-  
+
   late AnimationController _fadeController;
   late AnimationController _slideController;
   late Animation<double> _fadeAnimation;
@@ -27,7 +26,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   void initState() {
     super.initState();
     _person = widget.person;
-    
+
     // Initialize animations
     _fadeController = AnimationController(
       duration: const Duration(milliseconds: 600),
@@ -37,23 +36,16 @@ class _PersonDetailPageState extends State<PersonDetailPage>
       duration: const Duration(milliseconds: 500),
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _fadeController,
-      curve: Curves.easeInOut,
-    ));
-    
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.2),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _slideController,
-      curve: Curves.easeOutCubic,
-    ));
-    
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+
+    _slideAnimation =
+        Tween<Offset>(begin: const Offset(0, 0.2), end: Offset.zero).animate(
+          CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
+        );
+
     // Start animations
     _fadeController.forward();
     _slideController.forward();
@@ -84,8 +76,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           verticalPadding: 16.0,
           cardSpacing: 12.0,
           avatarRadius: 32.0,
-          titleFontSize: 20.0,  
-          subtitleFontSize: 16.0, 
+          titleFontSize: 20.0,
+          subtitleFontSize: 16.0,
           gridCrossAxisCount: 1,
           maxContentWidth: double.infinity,
           useCompactLayout: true,
@@ -96,8 +88,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           verticalPadding: 20.0,
           cardSpacing: 16.0,
           avatarRadius: 40.0,
-          titleFontSize: 24.0,  
-          subtitleFontSize: 18.0, 
+          titleFontSize: 24.0,
+          subtitleFontSize: 18.0,
           gridCrossAxisCount: 2,
           maxContentWidth: 800.0,
           useCompactLayout: false,
@@ -108,8 +100,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           verticalPadding: 24.0,
           cardSpacing: 16.0,
           avatarRadius: 48.0,
-          titleFontSize: 26.0,  
-          subtitleFontSize: 20.0, 
+          titleFontSize: 26.0,
+          subtitleFontSize: 20.0,
           gridCrossAxisCount: 2,
           maxContentWidth: 1100.0,
           useCompactLayout: false,
@@ -120,8 +112,8 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           verticalPadding: 32.0,
           cardSpacing: 20.0,
           avatarRadius: 52.0,
-          titleFontSize: 28.0,  
-          subtitleFontSize: 22.0, 
+          titleFontSize: 28.0,
+          subtitleFontSize: 22.0,
           gridCrossAxisCount: 2,
           maxContentWidth: 1300.0,
           useCompactLayout: false,
@@ -133,18 +125,18 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     // Extract first name and remove common titles
     String firstName = _person.firstName.trim();
     final ln = _person.lastName.trim();
-    
+
     // Remove common titles from first name
     final titles = ['mr', 'mrs', 'ms'];
     final nameParts = firstName.split(' ');
-    
+
     // If first part is a title, use the next part as first name
     if (nameParts.length > 1 && titles.contains(nameParts[0].toLowerCase())) {
       firstName = nameParts[1];
     } else {
       firstName = nameParts[0];
     }
-    
+
     final a = firstName.isNotEmpty ? firstName[0] : '';
     final b = ln.isNotEmpty ? ln[0] : '';
     return (a + b).toUpperCase();
@@ -164,10 +156,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  const Color(0xFFF8FAFC),
-                ],
+                colors: [Colors.white, const Color(0xFFF8FAFC)],
               ),
               boxShadow: [
                 BoxShadow(
@@ -176,7 +165,11 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                   offset: const Offset(0, 10),
                 ),
                 BoxShadow(
-                  color: (_person.isActive ? Colors.orange.shade100 : Colors.green.shade100).withOpacity(0.3),
+                  color:
+                      (_person.isActive
+                              ? Colors.orange.shade100
+                              : Colors.green.shade100)
+                          .withOpacity(0.3),
                   blurRadius: 30,
                   offset: const Offset(0, 5),
                 ),
@@ -201,38 +194,59 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                             shape: BoxShape.circle,
                             gradient: RadialGradient(
                               colors: [
-                                (_person.isActive ? Colors.orange.shade100 : Colors.green.shade100).withOpacity(0.3),
-                                (_person.isActive ? Colors.orange.shade200 : Colors.green.shade200).withOpacity(0.1),
+                                (_person.isActive
+                                        ? Colors.orange.shade100
+                                        : Colors.green.shade100)
+                                    .withOpacity(0.3),
+                                (_person.isActive
+                                        ? Colors.orange.shade200
+                                        : Colors.green.shade200)
+                                    .withOpacity(0.1),
                               ],
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: (_person.isActive ? Colors.orange.shade300 : Colors.green.shade300).withOpacity(0.4),
+                                color:
+                                    (_person.isActive
+                                            ? Colors.orange.shade300
+                                            : Colors.green.shade300)
+                                        .withOpacity(0.4),
                                 blurRadius: 15,
                                 spreadRadius: 2,
                               ),
                             ],
                           ),
                           child: Icon(
-                            _person.isActive ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                            _person.isActive
+                                ? Icons.visibility_off_rounded
+                                : Icons.visibility_rounded,
                             size: 40,
-                            color: _person.isActive ? Colors.orange.shade700 : Colors.green.shade700,
+                            color: _person.isActive
+                                ? Colors.orange.shade700
+                                : Colors.green.shade700,
                           ),
                         ),
                       );
                     },
                   ),
-                  
+
                   const SizedBox(height: 20),
-                  
+
                   // Title with enhanced styling
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      color: (_person.isActive ? Colors.orange.shade50 : Colors.green.shade50),
+                      color: (_person.isActive
+                          ? Colors.orange.shade50
+                          : Colors.green.shade50),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: (_person.isActive ? Colors.orange.shade200 : Colors.green.shade200),
+                        color: (_person.isActive
+                            ? Colors.orange.shade200
+                            : Colors.green.shade200),
                         width: 1,
                       ),
                     ),
@@ -241,15 +255,17 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w700,
-                        color: _person.isActive ? Colors.orange.shade800 : Colors.green.shade800,
+                        color: _person.isActive
+                            ? Colors.orange.shade800
+                            : Colors.green.shade800,
                         letterSpacing: 0.5,
                       ),
                       textAlign: TextAlign.center,
                     ),
                   ),
-                  
+
                   const SizedBox(height: 16),
-                  
+
                   // Content with better styling
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -271,11 +287,16 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                         ),
                         const SizedBox(height: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF003366).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFF003366).withOpacity(0.2)),
+                            border: Border.all(
+                              color: const Color(0xFF003366).withOpacity(0.2),
+                            ),
                           ),
                           child: Text(
                             _person.fullName,
@@ -300,9 +321,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Action buttons with enhanced styling
                   Row(
                     children: [
@@ -310,7 +331,10 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade300, width: 2),
+                            border: Border.all(
+                              color: Colors.grey.shade300,
+                              width: 2,
+                            ),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.grey.shade200,
@@ -326,7 +350,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                               onTap: () => Navigator.of(context).pop(false),
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
@@ -352,9 +378,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                           ),
                         ),
                       ),
-                      
+
                       const SizedBox(width: 16),
-                      
+
                       Expanded(
                         child: Container(
                           decoration: BoxDecoration(
@@ -363,12 +389,22 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                               begin: Alignment.topLeft,
                               end: Alignment.bottomRight,
                               colors: _person.isActive
-                                  ? [Colors.orange.shade500, Colors.orange.shade700]
-                                  : [Colors.green.shade500, Colors.green.shade700],
+                                  ? [
+                                      Colors.orange.shade500,
+                                      Colors.orange.shade700,
+                                    ]
+                                  : [
+                                      Colors.green.shade500,
+                                      Colors.green.shade700,
+                                    ],
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: (_person.isActive ? Colors.orange.shade400 : Colors.green.shade400).withOpacity(0.4),
+                                color:
+                                    (_person.isActive
+                                            ? Colors.orange.shade400
+                                            : Colors.green.shade400)
+                                        .withOpacity(0.4),
                                 blurRadius: 12,
                                 offset: const Offset(0, 4),
                               ),
@@ -381,18 +417,24 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                               onTap: () => Navigator.of(context).pop(true),
                               borderRadius: BorderRadius.circular(12),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Icon(
-                                      _person.isActive ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                      _person.isActive
+                                          ? Icons.visibility_off_rounded
+                                          : Icons.visibility_rounded,
                                       color: Colors.white,
                                       size: 20,
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      _person.isActive ? 'DEACTIVATE' : 'ACTIVATE',
+                                      _person.isActive
+                                          ? 'DEACTIVATE'
+                                          : 'ACTIVATE',
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w700,
@@ -424,131 +466,146 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 
   Future<void> _toggleActive() async {
     setState(() => _loading = true);
-    
+
     final ok = await _svc.setAvailability(
-      personID: _person.personID, 
-      active: !_person.isActive
+      personID: _person.personID,
+      active: !_person.isActive,
     );
-    
+
     if (ok) {
       setState(() {
         _person = _person.copyWith(available: _person.isActive ? 'No' : 'Yes');
         _loading = false;
       });
-      
+
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  _person.isActive
+                      ? Icons.check_circle_rounded
+                      : Icons.cancel_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
-              child: Icon(
-                _person.isActive ? Icons.check_circle_rounded : Icons.cancel_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Status Updated!',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Status Updated!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                  Text(
-                    '${_person.fullName} marked ${_person.isActive ? "Active" : "Inactive"}',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 12,
+                    Text(
+                      '${_person.fullName} marked ${_person.isActive ? "Active" : "Inactive"}',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          backgroundColor: _person.isActive
+              ? Colors.green.shade700
+              : Colors.orange.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 4),
+          elevation: 8,
         ),
-        backgroundColor: _person.isActive ? Colors.green.shade700 : Colors.orange.shade700,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 4),
-        elevation: 8,
-      ));
+      );
     } else {
       setState(() => _loading = false);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(8),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.error_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
-              child: const Icon(
-                Icons.error_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Update Failed!',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Update Failed!',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                  Text(
-                    'Unable to update ${_person.fullName} status',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: 12,
+                    Text(
+                      'Unable to update ${_person.fullName} status',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 12,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
+          backgroundColor: Colors.red.shade700,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 4),
+          elevation: 8,
         ),
-        backgroundColor: Colors.red.shade700,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        margin: const EdgeInsets.all(16),
-        duration: const Duration(seconds: 4),
-        elevation: 8,
-      ));
+      );
     }
   }
 
-  Widget _buildDetailCard(String title, String? value, IconData icon, ResponsiveValues values, {bool isFlexible = false}) {
+  Widget _buildDetailCard(
+    String title,
+    String? value,
+    IconData icon,
+    ResponsiveValues values, {
+    bool isFlexible = false,
+  }) {
     return AnimatedBuilder(
       animation: _fadeAnimation,
       builder: (context, child) {
         return Transform.translate(
           offset: Offset(0, (1 - _fadeAnimation.value) * 10),
-          child: Opacity(
-            opacity: _fadeAnimation.value,
-            child: child,
-          ),
+          child: Opacity(opacity: _fadeAnimation.value, child: child),
         );
       },
       child: Card(
@@ -618,10 +675,14 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                           style: TextStyle(
                             fontSize: values.useCompactLayout ? 12 : 14,
                             fontWeight: FontWeight.w600,
-                            color: value != null ? const Color(0xFF003366) : Colors.grey.shade400,
+                            color: value != null
+                                ? const Color(0xFF003366)
+                                : Colors.grey.shade400,
                             letterSpacing: 0.1,
                           ),
-                          maxLines: isFlexible ? null : (values.useCompactLayout ? 1 : 2),
+                          maxLines: isFlexible
+                              ? null
+                              : (values.useCompactLayout ? 1 : 2),
                           overflow: isFlexible ? null : TextOverflow.ellipsis,
                           softWrap: isFlexible,
                         ),
@@ -638,8 +699,12 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   }
 
   Widget _buildProfileHeader(ResponsiveValues values) {
-    final activeColor = _person.isActive ? Colors.green.shade700 : Colors.red.shade700;
-    final activeBg = _person.isActive ? Colors.green.shade50 : Colors.red.shade50;
+    final activeColor = _person.isActive
+        ? Colors.green.shade700
+        : Colors.red.shade700;
+    final activeBg = _person.isActive
+        ? Colors.green.shade50
+        : Colors.red.shade50;
 
     return SlideTransition(
       position: _slideAnimation,
@@ -648,17 +713,16 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         child: Card(
           elevation: values.useCompactLayout ? 2 : 4,
           shadowColor: Colors.black.withOpacity(0.12),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
           child: Container(
             padding: EdgeInsets.all(values.useCompactLayout ? 16 : 24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  Colors.white,
-                  const Color(0xFFF0F7FF),
-                ],
+                colors: [Colors.white, const Color(0xFFF0F7FF)],
               ),
               borderRadius: BorderRadius.circular(20),
             ),
@@ -711,7 +775,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                           radius: values.avatarRadius * 0.25,
                           backgroundColor: activeBg,
                           child: Icon(
-                            _person.isActive ? Icons.check_circle : Icons.cancel,
+                            _person.isActive
+                                ? Icons.check_circle
+                                : Icons.cancel,
                             size: values.avatarRadius * 0.3,
                             color: activeColor,
                           ),
@@ -744,7 +810,10 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                       colors: [activeBg, activeColor.withOpacity(0.1)],
                     ),
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: activeColor.withOpacity(0.3), width: 1),
+                    border: Border.all(
+                      color: activeColor.withOpacity(0.3),
+                      width: 1,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: activeColor.withOpacity(0.15),
@@ -757,7 +826,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        _person.isActive ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                        _person.isActive
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
                         color: activeColor,
                         size: values.useCompactLayout ? 14 : 16,
                       ),
@@ -798,7 +869,11 @@ class _PersonDetailPageState extends State<PersonDetailPage>
           ),
           boxShadow: [
             BoxShadow(
-              color: (_person.isActive ? Colors.orange.shade400 : Colors.green.shade400).withOpacity(0.25),
+              color:
+                  (_person.isActive
+                          ? Colors.orange.shade400
+                          : Colors.green.shade400)
+                      .withOpacity(0.25),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -828,7 +903,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                     )
                   else
                     Icon(
-                      _person.isActive ? Icons.visibility_off : Icons.visibility,
+                      _person.isActive
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                       color: Colors.white,
                       size: values.useCompactLayout ? 16 : 20,
                     ),
@@ -837,7 +914,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                     child: Text(
                       _loading
                           ? 'Updating...'
-                          : (_person.isActive ? 'Mark as Inactive' : 'Mark as Active'),
+                          : (_person.isActive
+                                ? 'Mark as Inactive'
+                                : 'Mark as Active'),
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: values.useCompactLayout ? 12 : 14,
@@ -866,23 +945,50 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     );
   }
 
-  List<Widget> _getDetailCards(ResponsiveValues values, {bool isFlexible = false}) {
+  List<Widget> _getDetailCards(
+    ResponsiveValues values, {
+    bool isFlexible = false,
+  }) {
     final details = [
-      {'title': 'Employee Number', 'value': _person.employeeNo, 'icon': Icons.badge_outlined},
-      {'title': 'Name', 'value': '${_person.firstName} ${_person.lastName}'.trim(), 'icon': Icons.person_outline},
+      {
+        'title': 'Employee Number',
+        'value': _person.employeeNo,
+        'icon': Icons.badge_outlined,
+      },
+      {
+        'title': 'Name',
+        'value': '${_person.firstName} ${_person.lastName}'.trim(),
+        'icon': Icons.person_outline,
+      },
       {'title': 'Branch', 'value': 'Kelaniya', 'icon': Icons.business_outlined},
-      {'title': 'Depot', 'value': _person.depot, 'icon': Icons.location_on_outlined},
-      {'title': 'Designation', 'value': _person.designation, 'icon': Icons.work_outline},
-      {'title': 'Access Level', 'value': _person.accessLevel, 'icon': Icons.security_outlined},
-      {'title': 'Person ID', 'value': _person.personID, 'icon': Icons.fingerprint_outlined},
+      {
+        'title': 'Depot',
+        'value': _person.depot,
+        'icon': Icons.location_on_outlined,
+      },
+      {
+        'title': 'Designation',
+        'value': _person.designation,
+        'icon': Icons.work_outline,
+      },
+      {
+        'title': 'Access Level',
+        'value': _person.accessLevel,
+        'icon': Icons.security_outlined,
+      },
+      {
+        'title': 'Person ID',
+        'value': _person.personID,
+        'icon': Icons.fingerprint_outlined,
+      },
     ];
 
     return details.map((detail) {
       if (isFlexible) {
         return SizedBox(
-          width: (MediaQuery.of(context).size.width > 1200) ? 
-                 (MediaQuery.of(context).size.width - 200) * 0.4 / 2 : 
-                 (MediaQuery.of(context).size.width - 150) * 0.5 / 2,
+          width: (MediaQuery.of(context).size.width > 1200)
+              ? (MediaQuery.of(context).size.width - 200) * 0.4 / 2
+              : (MediaQuery.of(context).size.width - 150) * 0.5 / 2,
           child: _buildDetailCard(
             detail['title'] as String,
             detail['value'] as String?,
@@ -907,7 +1013,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
     final screenType = _getScreenType(context);
     final values = _getResponsiveValues(screenType);
     final screenWidth = MediaQuery.of(context).size.width;
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
         // Mobile layout
@@ -919,7 +1025,9 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                 left: values.horizontalPadding,
                 right: values.horizontalPadding,
                 top: values.verticalPadding,
-                bottom: values.verticalPadding + 80, // Add extra bottom padding for the floating button
+                bottom:
+                    values.verticalPadding +
+                    80, // Add extra bottom padding for the floating button
               ),
               child: Column(
                 children: [
@@ -938,23 +1046,20 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                       ),
                     ),
                   ),
-                                            ..._getDetailCards(values),
+                  ..._getDetailCards(values),
                   SizedBox(height: values.verticalPadding),
                 ],
               ),
             ),
           );
         }
-        
         // Tablet layout
         else if (screenType == ScreenType.tablet) {
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
             child: Center(
               child: Container(
-                constraints: BoxConstraints(
-                  maxWidth: values.maxContentWidth,
-                ),
+                constraints: BoxConstraints(maxWidth: values.maxContentWidth),
                 padding: EdgeInsets.symmetric(
                   horizontal: values.horizontalPadding,
                   vertical: values.verticalPadding,
@@ -994,7 +1099,6 @@ class _PersonDetailPageState extends State<PersonDetailPage>
             ),
           );
         }
-        
         // Desktop and Large Desktop layout
         else {
           // Always use split layout for desktop/web view
@@ -1011,16 +1115,13 @@ class _PersonDetailPageState extends State<PersonDetailPage>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Left column - Profile
-                    if (screenWidth > 1024 || screenType == ScreenType.mobile) ...[
+                    if (screenWidth > 1024 ||
+                        screenType == ScreenType.mobile) ...[
                       if (screenType != ScreenType.mobile)
                         SizedBox(width: values.cardSpacing * 2),
                       Expanded(
                         flex: screenWidth > 1200 ? 2 : 3,
-                        child: Column(
-                          children: [
-                            _buildProfileHeader(values),
-                          ],
-                        ),
+                        child: Column(children: [_buildProfileHeader(values)]),
                       ),
                     ],
                     SizedBox(width: values.cardSpacing * 2),
@@ -1059,7 +1160,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
   Widget build(BuildContext context) {
     final screenType = _getScreenType(context);
     final values = _getResponsiveValues(screenType);
-    
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -1090,10 +1191,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF003366),
-                const Color(0xFF004080),
-              ],
+              colors: [const Color(0xFF003366), const Color(0xFF004080)],
             ),
           ),
         ),
@@ -1102,9 +1200,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
         children: [
           Container(
             color: const Color(0xFFF8FAFC),
-            child: SafeArea(
-              child: _buildResponsiveLayout(context),
-            ),
+            child: SafeArea(child: _buildResponsiveLayout(context)),
           ),
           // Floating action button at bottom
           Positioned(
@@ -1126,12 +1222,7 @@ class _PersonDetailPageState extends State<PersonDetailPage>
 }
 
 // Enums and helper classes for responsive design
-enum ScreenType {
-  mobile,
-  tablet,
-  desktop,
-  largeDesktop,
-}
+enum ScreenType { mobile, tablet, desktop, largeDesktop }
 
 class ResponsiveValues {
   final double horizontalPadding;

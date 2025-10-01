@@ -86,8 +86,9 @@ class AssignedDocketService {
       };
 
       if (status != null) queryParams['status'] = status;
-      if (fromDate != null)
+      if (fromDate != null) {
         queryParams['fromDate'] = fromDate.toIso8601String();
+      }
       if (toDate != null) queryParams['toDate'] = toDate.toIso8601String();
 
       final uri = Uri.parse(baseUrl).replace(queryParameters: queryParams);

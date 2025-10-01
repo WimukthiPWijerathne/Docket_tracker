@@ -7,7 +7,6 @@ import 'package:flutter_image_compress/flutter_image_compress.dart';
 
 import '../../services/api_service.dart';
 import '../../utils/file_helper.dart';
-import '../addDocket/docket_type_selection_page.dart';
 import 'http_post_docket_details.dart';
 
 class ImagePreviewPage extends StatefulWidget {

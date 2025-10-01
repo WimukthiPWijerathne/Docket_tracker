@@ -47,18 +47,17 @@ class WorkLogService {
       String url = getWorkLogUrl;
       Map<String, String> queryParams = {};
 
-      if (assignmentId != null)
+      if (assignmentId != null) {
         queryParams['assignmentID'] = assignmentId; // Use capital ID
-      if (docketId != null)
+      }
+      if (docketId != null) {
         queryParams['docketID'] = docketId; // Use capital ID
+      }
       if (employeeNo != null) queryParams['employeeNo'] = employeeNo;
 
       if (queryParams.isNotEmpty) {
         url +=
-            '?' +
-            queryParams.entries
-                .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-                .join('&');
+            '?${queryParams.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}';
       }
 
       final response = await http.get(
@@ -101,8 +100,9 @@ class WorkLogService {
         'employeeNo': employeeNo,
       };
 
-      if (acknowledgedAt != null)
+      if (acknowledgedAt != null) {
         requestBody['acknowledgedAt'] = acknowledgedAt;
+      }
       if (attendingAt != null) requestBody['attendingAt'] = attendingAt;
       if (startedAt != null) requestBody['startedAt'] = startedAt;
       if (completedAt != null) requestBody['completedAt'] = completedAt;
@@ -171,13 +171,16 @@ class WorkLogService {
     try {
       final requestBody = {'id': workLogId};
 
-      if (assignmentId != null)
+      if (assignmentId != null) {
         requestBody['assignmentID'] = assignmentId; // Use capital ID
-      if (docketId != null)
+      }
+      if (docketId != null) {
         requestBody['docketID'] = docketId; // Use capital ID
+      }
       if (employeeNo != null) requestBody['employeeNo'] = employeeNo;
-      if (acknowledgedAt != null)
+      if (acknowledgedAt != null) {
         requestBody['acknowledgedAt'] = acknowledgedAt;
+      }
       if (attendingAt != null) requestBody['attendingAt'] = attendingAt;
       if (startedAt != null) requestBody['startedAt'] = startedAt;
       if (completedAt != null) requestBody['completedAt'] = completedAt;
@@ -246,10 +249,7 @@ class WorkLogService {
 
       if (queryParams.isNotEmpty) {
         url +=
-            '?' +
-            queryParams.entries
-                .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-                .join('&');
+            '?${queryParams.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}';
       }
 
       final response = await http.get(

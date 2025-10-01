@@ -97,11 +97,13 @@ class _AssignedDocketDetailsPageState extends State<AssignedDocketDetailsPage> {
               final meterShift = record['MeterShift']?.toString() ?? '';
 
               final details = <String>[];
-              if (transformer.isNotEmpty)
+              if (transformer.isNotEmpty) {
                 details.add('Transformer: $transformer');
+              }
               if (pole.isNotEmpty) details.add('Pole: $pole');
-              if (meterShift.isNotEmpty)
+              if (meterShift.isNotEmpty) {
                 details.add('Meter Shift: $meterShift');
+              }
 
               locationDetails = details.join(' • ');
             }

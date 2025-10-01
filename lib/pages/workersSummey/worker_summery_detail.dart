@@ -24,13 +24,13 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
   List<Map<String, dynamic>> filteredDockets = [];
   Map<String, dynamic> docketDetailsMap = {}; // store docket details by ID
   double totalSalary = 0.0;
-  
+
   // Date selection and view type
   DateTime selectedDate = DateTime.now();
   String selectedMonth = '';
   String selectedYear = '';
   String selectedViewType = 'Monthly'; // Daily, Weekly, Monthly
-  
+
   // For weekly view
   DateTime? weekStartDate;
   DateTime? weekEndDate;
@@ -60,14 +60,16 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
   // 🔹 Calculate week start and end dates
   void _calculateWeekRange() {
     int weekday = selectedDate.weekday;
-    weekStartDate = selectedDate.subtract(Duration(days: weekday - 1)); // Monday
+    weekStartDate = selectedDate.subtract(
+      Duration(days: weekday - 1),
+    ); // Monday
     weekEndDate = weekStartDate!.add(const Duration(days: 6)); // Sunday
   }
 
   // 🔹 Date parsing helper function
   DateTime? parseDate(String? dateStr) {
     if (dateStr == null || dateStr.isEmpty || dateStr == "-") return null;
-    
+
     try {
       // Try different date formats
       List<DateFormat> formats = [
@@ -78,7 +80,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
         DateFormat('MM/dd/yyyy HH:mm:ss'),
         DateFormat('MM/dd/yyyy'),
       ];
-      
+
       for (DateFormat format in formats) {
         try {
           return format.parse(dateStr);
@@ -95,19 +97,19 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
   // 🔹 Check if a date falls within the selected period
   bool isInSelectedPeriod(String? dateStr) {
     if (dateStr == null) return false;
-    
+
     DateTime? date = parseDate(dateStr);
     if (date == null) return false;
-    
+
     switch (selectedViewType) {
       case 'Daily':
-        return DateFormat('yyyy-MM-dd').format(date) == 
-               DateFormat('yyyy-MM-dd').format(selectedDate);
-      
+        return DateFormat('yyyy-MM-dd').format(date) ==
+            DateFormat('yyyy-MM-dd').format(selectedDate);
+
       case 'Weekly':
         return date.isAfter(weekStartDate!.subtract(const Duration(days: 1))) &&
-               date.isBefore(weekEndDate!.add(const Duration(days: 1)));
-      
+            date.isBefore(weekEndDate!.add(const Duration(days: 1)));
+
       case 'Monthly':
       default:
         String dateMonth = DateFormat('MM').format(date);
@@ -120,7 +122,9 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
     setState(() => _isLoading = true);
     try {
       // 🔹 Step 1: Fetch all docket assignments
-      final url = Uri.parse('https://powerprox.sltidc.lk/GETDocketAssignment2.php');
+      final url = Uri.parse(
+        'https://powerprox.sltidc.lk/GETDocketAssignment2.php',
+      );
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -129,35 +133,39 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
         if (result['status'] == 'success') {
           final List data = result['data'];
 
-          assignedDockets = data.where((assignment) {
-            // Check if this assignment belongs to the current worker
-            final assignedPersons = (assignment['assignedPersons'] ?? "").toString();
-            
-            return assignedPersons.contains(widget.workerId) || 
-                   assignedPersons.contains(widget.workerName);
-          }).map<Map<String, dynamic>>((a) {
-            return {
-              "assignmentID": a["assignmentID"],
-              "docketID": a["docketID"],
-              "assignedPersons": a["assignedPersons"],
-              "assignedTime": a["assignedTime"],
-              "uploadedBy": a["uploadedBy"],
-              "uploadedTime": a["uploadedTime"],
-              "completedTime": a["completedTime"],
-            };
-          }).toList();
+          assignedDockets = data
+              .where((assignment) {
+                // Check if this assignment belongs to the current worker
+                final assignedPersons = (assignment['assignedPersons'] ?? "")
+                    .toString();
+
+                return assignedPersons.contains(widget.workerId) ||
+                    assignedPersons.contains(widget.workerName);
+              })
+              .map<Map<String, dynamic>>((a) {
+                return {
+                  "assignmentID": a["assignmentID"],
+                  "docketID": a["docketID"],
+                  "assignedPersons": a["assignedPersons"],
+                  "assignedTime": a["assignedTime"],
+                  "uploadedBy": a["uploadedBy"],
+                  "uploadedTime": a["uploadedTime"],
+                  "completedTime": a["completedTime"],
+                };
+              })
+              .toList();
 
           // 🔹 Step 2: Fetch docket details & calculate salaries
           await fetchDocketDetails();
-          
+
           // 🔹 Step 3: Filter by selected period
           filterByPeriod();
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -165,7 +173,9 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
 
   Future<void> fetchDocketDetails() async {
     try {
-      final url = Uri.parse('https://powerprox.sltidc.lk/GETDocketDetails2.php');
+      final url = Uri.parse(
+        'https://powerprox.sltidc.lk/GETDocketDetails2.php',
+      );
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -180,7 +190,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
         for (var docket in assignedDockets) {
           final docketId = docket["docketID"].toString();
           final details = docketDetailsMap[docketId];
-          
+
           if (details != null) {
             final type = details["DocketType"] ?? "Unknown";
             final salary = salaryRates[type] ?? 50.0;
@@ -205,7 +215,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
       // Check both assignedTime and completedTime to include work done in the period
       bool assignedInPeriod = isInSelectedPeriod(docket["assignedTime"]);
       bool completedInPeriod = isInSelectedPeriod(docket["completedTime"]);
-      
+
       // Include if either assigned or completed in the selected period
       return assignedInPeriod || completedInPeriod;
     }).toList();
@@ -248,7 +258,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
           });
         }
         break;
-        
+
       case 'Weekly':
         final DateTime? picked = await showDatePicker(
           context: context,
@@ -265,7 +275,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
           });
         }
         break;
-        
+
       case 'Monthly':
       default:
         _selectMonthYear();
@@ -278,8 +288,11 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        DateTime tempDate = DateTime(int.parse(selectedYear), int.parse(selectedMonth));
-        
+        DateTime tempDate = DateTime(
+          int.parse(selectedYear),
+          int.parse(selectedMonth),
+        );
+
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
@@ -290,7 +303,13 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                 child: Column(
                   children: [
                     // Year picker
-                    Text('Year: ${tempDate.year}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Year: ${tempDate.year}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     SizedBox(
                       height: 100,
                       child: YearPicker(
@@ -306,13 +325,20 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                     ),
                     const SizedBox(height: 20),
                     // Month picker
-                    Text('Month: ${DateFormat('MMMM').format(tempDate)}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      'Month: ${DateFormat('MMMM').format(tempDate)}',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     Expanded(
                       child: GridView.builder(
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 3,
-                          childAspectRatio: 2,
-                        ),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 3,
+                              childAspectRatio: 2,
+                            ),
                         itemCount: 12,
                         itemBuilder: (context, index) {
                           int month = index + 1;
@@ -326,14 +352,20 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                             child: Container(
                               margin: const EdgeInsets.all(4),
                               decoration: BoxDecoration(
-                                color: isSelected ? Colors.blue : Colors.grey[200],
+                                color: isSelected
+                                    ? Colors.blue
+                                    : Colors.grey[200],
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Center(
                                 child: Text(
-                                  DateFormat('MMM').format(DateTime(2023, month)),
+                                  DateFormat(
+                                    'MMM',
+                                  ).format(DateTime(2023, month)),
                                   style: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.black,
+                                    color: isSelected
+                                        ? Colors.white
+                                        : Colors.black,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
@@ -375,7 +407,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("${widget.workerName} - ${selectedViewType} Salary"),
+        title: Text("${widget.workerName} - $selectedViewType Salary"),
         backgroundColor: const Color(0xFF003366),
         foregroundColor: Colors.white,
         actions: [
@@ -409,16 +441,21 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                           ),
                           Expanded(
                             child: DropdownButtonFormField<String>(
-                              value: selectedViewType,
+                              initialValue: selectedViewType,
                               decoration: InputDecoration(
-                                contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 8,
+                                ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 fillColor: Colors.white,
                                 filled: true,
                               ),
-                              items: ['Daily', 'Weekly', 'Monthly'].map((String value) {
+                              items: ['Daily', 'Weekly', 'Monthly'].map((
+                                String value,
+                              ) {
                                 return DropdownMenuItem<String>(
                                   value: value,
                                   child: Text(value),
@@ -440,12 +477,15 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      
+
                       // Period display
                       GestureDetector(
                         onTap: _selectDate,
                         child: Container(
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 12,
+                            horizontal: 16,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFF003366),
                             borderRadius: BorderRadius.circular(8),
@@ -462,12 +502,12 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                selectedViewType == 'Daily' 
+                                selectedViewType == 'Daily'
                                     ? Icons.today
                                     : selectedViewType == 'Weekly'
-                                        ? Icons.view_week
-                                        : Icons.calendar_month,
-                                color: Colors.white
+                                    ? Icons.view_week
+                                    : Icons.calendar_month,
+                                color: Colors.white,
                               ),
                               const SizedBox(width: 8),
                               Expanded(
@@ -482,17 +522,24 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                                 ),
                               ),
                               const SizedBox(width: 8),
-                              const Icon(Icons.arrow_drop_down, color: Colors.white),
+                              const Icon(
+                                Icons.arrow_drop_down,
+                                color: Colors.white,
+                              ),
                             ],
                           ),
                         ),
                       ),
                       const SizedBox(height: 16),
-                      
+
                       // Worker info
                       Row(
                         children: [
-                          const Icon(Icons.person, size: 40, color: Color(0xFF003366)),
+                          const Icon(
+                            Icons.person,
+                            size: 40,
+                            color: Color(0xFF003366),
+                          ),
                           const SizedBox(width: 12),
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -526,7 +573,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                     ],
                   ),
                 ),
-                
+
                 // 🔹 Dockets list
                 Expanded(
                   child: filteredDockets.isEmpty
@@ -534,9 +581,11 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.assignment_outlined, 
-                                   size: 64, 
-                                   color: Colors.grey.shade400),
+                              Icon(
+                                Icons.assignment_outlined,
+                                size: 64,
+                                color: Colors.grey.shade400,
+                              ),
                               const SizedBox(height: 16),
                               Text(
                                 "No dockets found for ${getPeriodDisplayText()}",
@@ -555,19 +604,25 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                           itemBuilder: (context, index) {
                             final docket = filteredDockets[index];
                             final isCompleted = docket["completedTime"] != null;
-                            
+
                             return Card(
                               elevation: 3,
                               margin: const EdgeInsets.symmetric(vertical: 8),
                               child: ListTile(
                                 leading: Icon(
-                                  isCompleted ? Icons.check_circle : Icons.assignment,
-                                  color: isCompleted ? Colors.green : Colors.blue,
+                                  isCompleted
+                                      ? Icons.check_circle
+                                      : Icons.assignment,
+                                  color: isCompleted
+                                      ? Colors.green
+                                      : Colors.blue,
                                   size: 32,
                                 ),
                                 title: Text(
                                   "Docket ID: ${docket["docketID"]}",
-                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
                                 subtitle: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -581,13 +636,19 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                                       ),
                                     ),
                                     const SizedBox(height: 4),
-                                    Text("Assigned: ${docket["assignedTime"] ?? "-"}"),
-                                    Text("Uploaded by: ${docket["uploadedBy"] ?? "-"}"),
+                                    Text(
+                                      "Assigned: ${docket["assignedTime"] ?? "-"}",
+                                    ),
+                                    Text(
+                                      "Uploaded by: ${docket["uploadedBy"] ?? "-"}",
+                                    ),
                                     const SizedBox(height: 8),
                                     Container(
                                       margin: const EdgeInsets.only(top: 4),
                                       padding: const EdgeInsets.symmetric(
-                                          vertical: 4, horizontal: 8),
+                                        vertical: 4,
+                                        horizontal: 8,
+                                      ),
                                       decoration: BoxDecoration(
                                         borderRadius: BorderRadius.circular(12),
                                         color: isCompleted
@@ -608,11 +669,15 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                                 ),
                                 trailing: Container(
                                   padding: const EdgeInsets.symmetric(
-                                      vertical: 6, horizontal: 12),
+                                    vertical: 6,
+                                    horizontal: 12,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.green.shade100,
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.green.shade300),
+                                    border: Border.all(
+                                      color: Colors.green.shade300,
+                                    ),
                                   ),
                                   child: Text(
                                     "Rs. ${docket["salary"]?.toStringAsFixed(2) ?? "0.00"}",
@@ -628,7 +693,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                           },
                         ),
                 ),
-                
+
                 // 🔹 Period Total Salary at the bottom
                 Container(
                   padding: const EdgeInsets.all(20),
@@ -651,7 +716,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            "${selectedViewType} Salary:",
+                            "$selectedViewType Salary:",
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -669,7 +734,9 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            vertical: 8, horizontal: 16),
+                          vertical: 8,
+                          horizontal: 16,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.green,
                           borderRadius: BorderRadius.circular(8),

@@ -1103,7 +1103,7 @@ class _PricingTableCard extends StatelessWidget {
                         Expanded(
                           flex: 2,
                           child: Text(
-                            '${rate.toStringAsFixed(0)}',
+                            rate.toStringAsFixed(0),
                             textAlign: TextAlign.right,
                             style: TextStyle(
                               fontSize: isTablet ? 13 : 12,
@@ -1115,7 +1115,7 @@ class _PricingTableCard extends StatelessWidget {
                       ],
                     ),
                   );
-                }).toList(),
+                }),
 
                 // Total Row
                 if (entries.isNotEmpty)

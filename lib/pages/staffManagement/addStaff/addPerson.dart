@@ -3,7 +3,14 @@ import 'package:flutter/material.dart';
 import '../model/httpServicePeople.dart';
 
 const List<String> kDesignations = [
-  'Admin', 'CE', 'SEE', 'EE', 'TO', 'CSS', 'RO', 'Technician'
+  'Admin',
+  'CE',
+  'SEE',
+  'EE',
+  'TO',
+  'CSS',
+  'RO',
+  'Technician',
 ];
 
 const Map<String, String> kDesignationAccessLevels = {
@@ -26,20 +33,27 @@ const List<String> kBranches = [
   'Kelaniya',
   'Negombo',
   'Galle',
-  'Other'
+  'Other',
 ];
 
 final Map<String, List<String>> kBranchDepots = {
-  'Kelaniya': ['Wattala', 'Kandana', 'Mahara', 'Dalugama','Other'],
-  'Kotte': ['Pitakotte', 'Kolonnawa', 'Kotikawatta','Other'],
-  'Nugegoda': ['Boralesgamuwa', 'Nugegoda','Maharagama','Other'],
-  'Moratuwa': ['Moratuwa North', 'Moratuwa South','Keselwatta','Panadura','Koralawella','Other'],
-  'Kalutara': ['Payagala', 'Kalutara','Aluthgama','Other'],
-  'Negombo': ['Negambo', 'Seeduwa','Ja-Ela','Other'],
-  'Galle': ['Ambalangoda', 'Hikkaduwa','Galle','Other'],
+  'Kelaniya': ['Wattala', 'Kandana', 'Mahara', 'Dalugama', 'Other'],
+  'Kotte': ['Pitakotte', 'Kolonnawa', 'Kotikawatta', 'Other'],
+  'Nugegoda': ['Boralesgamuwa', 'Nugegoda', 'Maharagama', 'Other'],
+  'Moratuwa': [
+    'Moratuwa North',
+    'Moratuwa South',
+    'Keselwatta',
+    'Panadura',
+    'Koralawella',
+    'Other',
+  ],
+  'Kalutara': ['Payagala', 'Kalutara', 'Aluthgama', 'Other'],
+  'Negombo': ['Negambo', 'Seeduwa', 'Ja-Ela', 'Other'],
+  'Galle': ['Ambalangoda', 'Hikkaduwa', 'Galle', 'Other'],
   'Head Office': ['Head Office'],
 };
-  
+
 class AddPersonPage extends StatefulWidget {
   const AddPersonPage({super.key});
 
@@ -58,7 +72,9 @@ class _AddPersonPageState extends State<AddPersonPage> {
   String _salutation = 'Mr';
   final _empNo = TextEditingController();
   final _uuid = TextEditingController();
-  final _accessLevelController = TextEditingController(text: kDesignationAccessLevels['Technician']);
+  final _accessLevelController = TextEditingController(
+    text: kDesignationAccessLevels['Technician'],
+  );
 
   String _designation = 'Technician';
   String get _accessLevel => _accessLevelController.text;
@@ -72,7 +88,8 @@ class _AddPersonPageState extends State<AddPersonPage> {
   final _otherBranchController = TextEditingController();
 
   Future<void> _showCustomBranchDialog() async {
-    final TextEditingController customBranchController = TextEditingController();
+    final TextEditingController customBranchController =
+        TextEditingController();
     final bool? result = await showDialog<bool>(
       context: context,
       builder: (BuildContext context) {
@@ -110,7 +127,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
         _branch.text = _selectedBranch;
         _showOtherBranchField = true;
         _otherBranchController.text = _selectedBranch;
-        
+
         // Reset depot when branch changes to custom
         _selectedDepot = null;
         _depot.clear();
@@ -199,7 +216,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
     if (!_form.currentState!.validate()) return;
 
     setState(() => _saving = true);
-    
+
     final isHeadOffice = _branch.text.trim() == 'Head Office';
     final personData = {
       'firstName': '$_salutation ${_first.text.trim()}',
@@ -212,11 +229,11 @@ class _AddPersonPageState extends State<AddPersonPage> {
       'available': _active ? 'Yes' : 'No',
       'uuid': _uuid.text.trim(),
     };
-    
+
     debugPrint('Is Head Office: $isHeadOffice');
     debugPrint('Original Depot: ${_depot.text.trim()}');
     debugPrint('Final Depot: ${personData['depot']}');
-    
+
     debugPrint('Saving person data: $personData');
     final ok = await _svc.createPerson(
       firstName: personData['firstName']!,
@@ -275,18 +292,24 @@ class _AddPersonPageState extends State<AddPersonPage> {
                           width: 100, // Increased from 80 to 100
                           child: DropdownButtonFormField<String>(
                             isExpanded: true, // Ensure text doesn't overflow
-                            value: _salutation,
+                            initialValue: _salutation,
                             decoration: InputDecoration(
                               labelText: 'Title',
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
                             items: const [
                               DropdownMenuItem(value: 'Mr', child: Text('Mr')),
-                              DropdownMenuItem(value: 'Mrs', child: Text('Mrs')),
-                              DropdownMenuItem(value: 'Ms', child: Text('Ms')),  
+                              DropdownMenuItem(
+                                value: 'Mrs',
+                                child: Text('Mrs'),
+                              ),
+                              DropdownMenuItem(value: 'Ms', child: Text('Ms')),
                             ],
                             onChanged: (value) {
                               if (value != null) {
@@ -307,13 +330,14 @@ class _AddPersonPageState extends State<AddPersonPage> {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            validator: (v) => v!.trim().isEmpty ? 'Required' : null,
+                            validator: (v) =>
+                                v!.trim().isEmpty ? 'Required' : null,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
-                    
+
                     // Last Name row
                     TextFormField(
                       controller: _last,
@@ -326,7 +350,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
                       validator: (v) => v!.trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // Employee number
                     TextFormField(
                       controller: _empNo,
@@ -341,9 +365,10 @@ class _AddPersonPageState extends State<AddPersonPage> {
                       validator: (v) => v!.trim().isEmpty ? 'Required' : null,
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // Branch
-                    if (_showOtherBranchField && !kBranches.contains(_selectedBranch))
+                    if (_showOtherBranchField &&
+                        !kBranches.contains(_selectedBranch))
                       TextFormField(
                         controller: _otherBranchController,
                         decoration: InputDecoration(
@@ -356,12 +381,15 @@ class _AddPersonPageState extends State<AddPersonPage> {
                           _branch.text = value;
                           _selectedBranch = value;
                         },
-                        validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                        validator: (value) =>
+                            value == null || value.isEmpty ? 'Required' : null,
                       )
                     else
                       DropdownButtonFormField<String>(
                         isExpanded: true,
-                        value: kBranches.contains(_selectedBranch) ? _selectedBranch : null,
+                        initialValue: kBranches.contains(_selectedBranch)
+                            ? _selectedBranch
+                            : null,
                         decoration: InputDecoration(
                           labelText: 'Branch *',
                           border: OutlineInputBorder(
@@ -369,10 +397,12 @@ class _AddPersonPageState extends State<AddPersonPage> {
                           ),
                         ),
                         items: kBranches
-                            .map((branch) => DropdownMenuItem(
-                                  value: branch,
-                                  child: Text(branch),
-                                ))
+                            .map(
+                              (branch) => DropdownMenuItem(
+                                value: branch,
+                                child: Text(branch),
+                              ),
+                            )
                             .toList(),
                         onChanged: (value) async {
                           if (value == 'Other') {
@@ -382,7 +412,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
                               _selectedBranch = value;
                               _branch.text = value;
                               _showOtherBranchField = false;
-                              
+
                               if (value == 'Head Office') {
                                 _selectedDepot = 'Head Office';
                                 _depot.text = 'Head Office';
@@ -398,7 +428,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
                         },
                       ),
                     const SizedBox(height: 20),
-                    
+
                     // Depot
                     if (_selectedBranch == 'Head Office')
                       TextFormField(
@@ -423,14 +453,15 @@ class _AddPersonPageState extends State<AddPersonPage> {
                           ),
                         ),
                         onChanged: (value) {
-                          _depot.text = value!;
+                          _depot.text = value;
                         },
-                        validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                        validator: (value) =>
+                            value == null || value.isEmpty ? 'Required' : null,
                       )
                     else if (kBranchDepots.containsKey(_selectedBranch))
                       DropdownButtonFormField<String>(
                         isExpanded: true,
-                        value: _selectedDepot,
+                        initialValue: _selectedDepot,
                         decoration: InputDecoration(
                           labelText: 'Region / Depot *',
                           border: OutlineInputBorder(
@@ -438,7 +469,9 @@ class _AddPersonPageState extends State<AddPersonPage> {
                           ),
                         ),
                         hint: const Text('Select depot'),
-                        items: (kBranchDepots[_selectedBranch] ?? []).map((depot) {
+                        items: (kBranchDepots[_selectedBranch] ?? []).map((
+                          depot,
+                        ) {
                           return DropdownMenuItem(
                             value: depot,
                             child: Text(depot == 'Other' ? 'Other' : depot),
@@ -468,24 +501,31 @@ class _AddPersonPageState extends State<AddPersonPage> {
                           ),
                           hintText: 'Enter depot name',
                         ),
-                        validator: (value) => value == null || value.isEmpty ? 'Required' : null,
+                        validator: (value) =>
+                            value == null || value.isEmpty ? 'Required' : null,
                       ),
                     const SizedBox(height: 20),
-                    
+
                     // Designation and Access Level
                     Row(
                       children: [
                         Expanded(
                           child: DropdownButtonFormField<String>(
-                            value: _designation,
+                            initialValue: _designation,
                             items: kDesignations
-                                .map((d) => DropdownMenuItem(value: d, child: Text(d)))
+                                .map(
+                                  (d) => DropdownMenuItem(
+                                    value: d,
+                                    child: Text(d),
+                                  ),
+                                )
                                 .toList(),
                             onChanged: (v) {
                               if (v != null) {
                                 setState(() {
                                   _designation = v;
-                                  _accessLevelController.text = kDesignationAccessLevels[v] ?? '8';
+                                  _accessLevelController.text =
+                                      kDesignationAccessLevels[v] ?? '8';
                                 });
                               }
                             },
@@ -512,14 +552,16 @@ class _AddPersonPageState extends State<AddPersonPage> {
                               fillColor: Colors.grey[200],
                             ),
                             keyboardType: TextInputType.number,
-                            onChanged: (v) => _accessLevelController.text = v ?? '',
-                            validator: (v) => v!.trim().isEmpty ? 'Required' : null,
+                            onChanged: (v) =>
+                                _accessLevelController.text = v ?? '',
+                            validator: (v) =>
+                                v!.trim().isEmpty ? 'Required' : null,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // UUID
                     TextFormField(
                       controller: _uuid,
@@ -531,7 +573,7 @@ class _AddPersonPageState extends State<AddPersonPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // Active status
                     Card(
                       child: SwitchListTile(
@@ -539,13 +581,13 @@ class _AddPersonPageState extends State<AddPersonPage> {
                         subtitle: Text(_active ? 'Available' : 'Not Available'),
                         value: _active,
                         onChanged: (v) => setState(() => _active = v),
-                        activeColor: const Color(0xFF003366),
+                        activeThumbColor: const Color(0xFF003366),
                       ),
                     ),
                   ],
                 ),
               ),
-              
+
               // Bottom save button
               Padding(
                 padding: const EdgeInsets.all(20),
@@ -560,7 +602,9 @@ class _AddPersonPageState extends State<AddPersonPage> {
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Icon(Icons.save),

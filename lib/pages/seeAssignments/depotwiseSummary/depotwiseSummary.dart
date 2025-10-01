@@ -229,20 +229,70 @@ class _DepotWiseSummaryPageState extends State<DepotWiseSummaryPage> {
 
     print('DEBUG: Max value from data: $maxValue');
 
-    // Add padding and ensure minimum scale
+    // Enhanced Y-axis scaling logic
     if (maxValue == 0) {
       print('DEBUG: Max value is 0, returning 5');
       return 5.0;
     }
+
+    // Calculate appropriate scale based on data range
+    double calculatedMax;
     if (maxValue <= 5) {
-      print('DEBUG: Max value <= 5, returning 10');
-      return 10.0;
+      calculatedMax = 10.0;
+    } else if (maxValue <= 10) {
+      calculatedMax = 15.0;
+    } else if (maxValue <= 20) {
+      calculatedMax = 25.0;
+    } else if (maxValue <= 50) {
+      // Round to nearest 10, then add 20%
+      calculatedMax = ((maxValue / 10).ceil() * 10 * 1.2).ceilToDouble();
+    } else if (maxValue <= 100) {
+      // Round to nearest 20, then add 20%
+      calculatedMax = ((maxValue / 20).ceil() * 20 * 1.2).ceilToDouble();
+    } else {
+      // For larger values, round to nearest appropriate interval
+      int interval = _getAppropriateInterval(maxValue);
+      calculatedMax = ((maxValue / interval).ceil() * interval * 1.2)
+          .ceilToDouble();
     }
 
-    // Simple padding - just add 20% and round up
-    double paddedMax = (maxValue * 1.2).ceilToDouble();
-    print('DEBUG: Calculated maxY: $paddedMax');
-    return paddedMax;
+    print('DEBUG: Calculated maxY: $calculatedMax');
+    return calculatedMax;
+  }
+
+  // Helper method to determine appropriate interval based on max value
+  int _getAppropriateInterval(int maxValue) {
+    if (maxValue <= 100) return 20;
+    if (maxValue <= 500) return 50;
+    if (maxValue <= 1000) return 100;
+    if (maxValue <= 5000) return 500;
+    return 1000;
+  }
+
+  // Calculate Y-axis interval for better tick spacing
+  double _getYAxisInterval() {
+    double maxY = _getMaxYValue();
+
+    if (maxY <= 10) return 2.0;
+    if (maxY <= 25) return 5.0;
+    if (maxY <= 50) return 10.0;
+    if (maxY <= 100) return 20.0;
+    if (maxY <= 200) return 25.0;
+    if (maxY <= 500) return 50.0;
+
+    // For larger values, use appropriate intervals
+    return (maxY / 10).ceilToDouble();
+  }
+
+  // Format Y-axis labels for better readability
+  String _formatYAxisLabel(int value) {
+    if (value >= 1000000) {
+      return '${(value / 1000000).toStringAsFixed(1)}M';
+    } else if (value >= 1000) {
+      return '${(value / 1000).toStringAsFixed(1)}K';
+    } else {
+      return value.toString();
+    }
   }
 
   Widget _buildLegendItem(String label, Color color) {
@@ -543,22 +593,39 @@ class _DepotWiseSummaryPageState extends State<DepotWiseSummaryPage> {
                                           leftTitles: AxisTitles(
                                             sideTitles: SideTitles(
                                               showTitles: true,
-                                              reservedSize: 40,
+                                              reservedSize: 45,
+                                              interval: _getYAxisInterval(),
                                               getTitlesWidget: (value, meta) {
                                                 // Only show whole number labels and skip decimals
-                                                if (value % 1 != 0)
+                                                if (value % 1 != 0) {
                                                   return const Text('');
+                                                }
 
                                                 int intValue = value.round();
-                                                if (intValue < 0)
+                                                if (intValue < 0) {
                                                   return const Text('');
+                                                }
 
-                                                return Text(
-                                                  '$intValue',
-                                                  style: const TextStyle(
-                                                    fontSize: 11,
-                                                    color: Colors.black87,
-                                                    fontWeight: FontWeight.w500,
+                                                // Skip labels that are too close to max to avoid overlap
+                                                double maxY = _getMaxYValue();
+                                                if (intValue > maxY * 0.95) {
+                                                  return const Text('');
+                                                }
+
+                                                return Padding(
+                                                  padding:
+                                                      const EdgeInsets.only(
+                                                        right: 8.0,
+                                                      ),
+                                                  child: Text(
+                                                    _formatYAxisLabel(intValue),
+                                                    style: const TextStyle(
+                                                      fontSize: 11,
+                                                      color: Colors.black87,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                    textAlign: TextAlign.right,
                                                   ),
                                                 );
                                               },
@@ -577,9 +644,17 @@ class _DepotWiseSummaryPageState extends State<DepotWiseSummaryPage> {
                                         ),
                                         borderData: FlBorderData(
                                           show: true,
-                                          border: Border.all(
-                                            color: Colors.grey[300]!,
-                                            width: 1,
+                                          border: Border(
+                                            left: BorderSide(
+                                              color: Colors.grey[400]!,
+                                              width: 1,
+                                            ),
+                                            bottom: BorderSide(
+                                              color: Colors.grey[400]!,
+                                              width: 1,
+                                            ),
+                                            right: BorderSide.none,
+                                            top: BorderSide.none,
                                           ),
                                         ),
                                         barGroups: chartData
@@ -633,11 +708,20 @@ class _DepotWiseSummaryPageState extends State<DepotWiseSummaryPage> {
                                             .toList(),
                                         gridData: FlGridData(
                                           show: true,
-                                          horizontalInterval: 1,
+                                          horizontalInterval:
+                                              _getYAxisInterval(),
                                           getDrawingHorizontalLine: (value) {
+                                            // Don't draw grid line at 0 or very close to maxY
+                                            if (value == 0 ||
+                                                value >
+                                                    _getMaxYValue() * 0.95) {
+                                              return FlLine(
+                                                color: Colors.transparent,
+                                              );
+                                            }
                                             return FlLine(
-                                              color: Colors.grey[300]!,
-                                              strokeWidth: 1,
+                                              color: Colors.grey[200]!,
+                                              strokeWidth: 0.8,
                                             );
                                           },
                                           drawVerticalLine: false,

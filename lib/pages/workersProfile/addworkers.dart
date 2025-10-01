@@ -6,10 +6,7 @@ import 'package:http/http.dart' as http;
 class AddWorkerPage extends StatefulWidget {
   final String loggedInRole; // ✅ Pass role from login (CE or CS)
 
-  const AddWorkerPage({
-    super.key,
-    required this.loggedInRole,
-  });
+  const AddWorkerPage({super.key, required this.loggedInRole});
 
   @override
   State<AddWorkerPage> createState() => _AddWorkerPageState();
@@ -50,11 +47,13 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
         "role": selectedRole ?? "Worker", // ✅ send role
       };
 
-      final response = await http.post(
-        Uri.parse('https://powerprox.sltidc.lk/POSTPeople2.php'),
-        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-        body: body.map((key, value) => MapEntry(key, value.toString())),
-      ).timeout(const Duration(seconds: 30));
+      final response = await http
+          .post(
+            Uri.parse('https://powerprox.sltidc.lk/POSTPeople2.php'),
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: body.map((key, value) => MapEntry(key, value.toString())),
+          )
+          .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -81,9 +80,9 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
         const SnackBar(content: Text("Request timed out. Please try again.")),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
       setState(() => _isLoading = false);
     }
@@ -166,17 +165,17 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
 
               // Depot dropdown
               DropdownButtonFormField<String>(
-                value: selectedDepot,
+                initialValue: selectedDepot,
                 decoration: const InputDecoration(
                   labelText: "Select Depot",
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.location_city),
                 ),
                 items: depots
-                    .map((depot) => DropdownMenuItem(
-                          value: depot,
-                          child: Text(depot),
-                        ))
+                    .map(
+                      (depot) =>
+                          DropdownMenuItem(value: depot, child: Text(depot)),
+                    )
                     .toList(),
                 onChanged: (value) {
                   if (value != null) {
@@ -190,17 +189,17 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
 
               // ✅ Role dropdown
               DropdownButtonFormField<String>(
-                value: selectedRole,
+                initialValue: selectedRole,
                 decoration: const InputDecoration(
                   labelText: "Select Role",
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.work),
                 ),
                 items: roleOptions
-                    .map((role) => DropdownMenuItem(
-                          value: role,
-                          child: Text(role),
-                        ))
+                    .map(
+                      (role) =>
+                          DropdownMenuItem(value: role, child: Text(role)),
+                    )
                     .toList(),
                 onChanged: (value) {
                   if (value != null) {
@@ -237,7 +236,8 @@ class _AddWorkerPageState extends State<AddWorkerPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.teal,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),

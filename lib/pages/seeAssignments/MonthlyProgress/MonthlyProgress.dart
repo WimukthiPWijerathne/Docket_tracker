@@ -659,7 +659,7 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
                   color: Colors.grey[50],
                 ),
                 child: DropdownButtonFormField<String>(
-                  value: _selectedBranch,
+                  initialValue: _selectedBranch,
                   items: kBranches
                       .map(
                         (branch) => DropdownMenuItem(
@@ -708,7 +708,7 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
                   color: Colors.grey[50],
                 ),
                 child: DropdownButtonFormField<String>(
-                  value: availableDepots.contains(_selectedDepot)
+                  initialValue: availableDepots.contains(_selectedDepot)
                       ? _selectedDepot
                       : 'All',
                   items: availableDepots
@@ -758,7 +758,7 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
                   color: Colors.grey[50],
                 ),
                 child: DropdownButtonFormField<String>(
-                  value: _selectedWorker,
+                  initialValue: _selectedWorker,
                   items: _availableWorkers
                       .map(
                         (worker) => DropdownMenuItem(
@@ -822,7 +822,7 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
               color: Colors.grey[50],
             ),
             child: DropdownButtonFormField<String>(
-              value: _selectedBranch,
+              initialValue: _selectedBranch,
               items: kBranches
                   .map(
                     (branch) => DropdownMenuItem(
@@ -873,7 +873,7 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
               color: Colors.grey[50],
             ),
             child: DropdownButtonFormField<String>(
-              value: availableDepots.contains(_selectedDepot)
+              initialValue: availableDepots.contains(_selectedDepot)
                   ? _selectedDepot
                   : 'All',
               items: availableDepots
@@ -920,7 +920,7 @@ class _MonthlyProgressPageState extends State<MonthlyProgressPage>
               color: Colors.grey[50],
             ),
             child: DropdownButtonFormField<String>(
-              value: _selectedWorker,
+              initialValue: _selectedWorker,
               items: _availableWorkers
                   .map(
                     (worker) => DropdownMenuItem(

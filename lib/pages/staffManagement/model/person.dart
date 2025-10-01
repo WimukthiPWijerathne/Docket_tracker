@@ -23,20 +23,21 @@ class Person {
 
   bool get isActive => (available.toLowerCase() == 'yes');
 
-  String get fullName => [firstName, lastName].where((s) => s.trim().isNotEmpty).join(' ').trim();
+  String get fullName =>
+      [firstName, lastName].where((s) => s.trim().isNotEmpty).join(' ').trim();
 
   factory Person.fromJson(Map<String, dynamic> j) {
-    String _s(dynamic v) => (v ?? '').toString();
+    String s(dynamic v) => (v ?? '').toString();
     return Person(
-      personID: _s(j['personID']),
-      firstName: _s(j['firstName']),
-      lastName: _s(j['lastName']),
-      depot: _s(j['depot']),
-      available: _s(j['available']),
-      employeeNo: _s(j['employeeNo']),
-      designation: _s(j['designation']),
-      accessLevel: _s(j['accessLevel']),
-      uuid: _s(j['uuid']),
+      personID: s(j['personID']),
+      firstName: s(j['firstName']),
+      lastName: s(j['lastName']),
+      depot: s(j['depot']),
+      available: s(j['available']),
+      employeeNo: s(j['employeeNo']),
+      designation: s(j['designation']),
+      accessLevel: s(j['accessLevel']),
+      uuid: s(j['uuid']),
     );
   }
 

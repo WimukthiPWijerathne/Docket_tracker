@@ -25,7 +25,13 @@ class _AssignPageState extends State<AssignPage> {
   String? errorMessage;
 
   // Depot filter
-  final List<String> depots = ['All', 'Kadana', 'Mahara', 'Paliyagoda', 'Wattala'];
+  final List<String> depots = [
+    'All',
+    'Kadana',
+    'Mahara',
+    'Paliyagoda',
+    'Wattala',
+  ];
   String selectedDepot = 'All';
 
   @override
@@ -44,7 +50,9 @@ class _AssignPageState extends State<AssignPage> {
     });
 
     try {
-      final fetchedWorkers = await _workerService.fetchWorkersByDepot(selectedDepot);
+      final fetchedWorkers = await _workerService.fetchWorkersByDepot(
+        selectedDepot,
+      );
       if (mounted) {
         setState(() {
           workers = fetchedWorkers;
@@ -84,7 +92,9 @@ class _AssignPageState extends State<AssignPage> {
       return;
     }
 
-    final selectedWorkers = selectedIndices.map((i) => filteredWorkers[i]).toList();
+    final selectedWorkers = selectedIndices
+        .map((i) => filteredWorkers[i])
+        .toList();
 
     // Show loading dialog
     showDialog(
@@ -107,7 +117,9 @@ class _AssignPageState extends State<AssignPage> {
 
         for (final worker in selectedWorkers) {
           try {
-            debugPrint("🔄 Assigning ${worker.name} to docket $docketSerial ($docketId)");
+            debugPrint(
+              "🔄 Assigning ${worker.name} to docket $docketSerial ($docketId)",
+            );
 
             final success = await _assignmentService.assignWorkerToDocket(
               docketId: docketId,
@@ -127,7 +139,9 @@ class _AssignPageState extends State<AssignPage> {
             }
           } catch (e) {
             failCount++;
-            errorMessages.add("❌ Error assigning ${worker.name} → $docketSerial: $e");
+            errorMessages.add(
+              "❌ Error assigning ${worker.name} → $docketSerial: $e",
+            );
           }
 
           await Future.delayed(const Duration(milliseconds: 200));
@@ -156,7 +170,10 @@ class _AssignPageState extends State<AssignPage> {
               children: errorMessages.map((m) => Text(m)).toList(),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text("OK")),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text("OK"),
+              ),
             ],
           ),
         );
@@ -196,11 +213,58 @@ class _AssignPageState extends State<AssignPage> {
       ),
       child: const Row(
         children: [
-          Expanded(flex: 2, child: Text('Employee No', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
-          Expanded(flex: 3, child: Text('Name', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
-          Expanded(flex: 2, child: Text('Depot', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
-          Expanded(flex: 2, child: Text('Status', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366)))),
-          Expanded(flex: 1, child: Center(child: Text('Select', style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF003366))))),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'Employee No',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF003366),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              'Name',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF003366),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'Depot',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF003366),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Text(
+              'Status',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF003366),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Center(
+              child: Text(
+                'Select',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF003366),
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -218,14 +282,28 @@ class _AssignPageState extends State<AssignPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF003366).withOpacity(0.05) : Colors.white,
+          color: isSelected
+              ? const Color(0xFF003366).withOpacity(0.05)
+              : Colors.white,
           border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
         ),
         child: Row(
           children: [
-            Expanded(flex: 2, child: Text(worker.employeeNo, style: const TextStyle(fontSize: 12))),
-            Expanded(flex: 3, child: Text(worker.name, style: const TextStyle(fontSize: 12))),
-            Expanded(flex: 2, child: Text(worker.depot, style: const TextStyle(fontSize: 12))),
+            Expanded(
+              flex: 2,
+              child: Text(
+                worker.employeeNo,
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(worker.name, style: const TextStyle(fontSize: 12)),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(worker.depot, style: const TextStyle(fontSize: 12)),
+            ),
             Expanded(
               flex: 2,
               child: Text(
@@ -244,11 +322,17 @@ class _AssignPageState extends State<AssignPage> {
                   width: 20,
                   height: 20,
                   decoration: BoxDecoration(
-                    border: Border.all(color: isSelected ? const Color(0xFF003366) : Colors.grey),
+                    border: Border.all(
+                      color: isSelected ? const Color(0xFF003366) : Colors.grey,
+                    ),
                     borderRadius: BorderRadius.circular(3),
-                    color: isSelected ? const Color(0xFF003366) : Colors.transparent,
+                    color: isSelected
+                        ? const Color(0xFF003366)
+                        : Colors.transparent,
                   ),
-                  child: isSelected ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
+                  child: isSelected
+                      ? const Icon(Icons.check, size: 14, color: Colors.white)
+                      : null,
                 ),
               ),
             ),
@@ -269,7 +353,7 @@ class _AssignPageState extends State<AssignPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("Workers (${selectedDepot})"),
+        title: Text("Workers ($selectedDepot)"),
         backgroundColor: const Color(0xFF003366),
         foregroundColor: Colors.white,
         actions: [
@@ -281,16 +365,32 @@ class _AssignPageState extends State<AssignPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Workers", style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Color(0xFF003366))),
+            Text(
+              "Workers",
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF003366),
+              ),
+            ),
             const SizedBox(height: 8),
-            Text('Total: ${filteredWorkers.length} workers', style: const TextStyle(fontSize: 16, color: Color(0xFF666666))),
+            Text(
+              'Total: ${filteredWorkers.length} workers',
+              style: const TextStyle(fontSize: 16, color: Color(0xFF666666)),
+            ),
             const SizedBox(height: 16),
 
             // ✅ Depot Filter Dropdown
             Row(
               children: [
-                const Text("Filter by Depot: ",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF003366))),
+                const Text(
+                  "Filter by Depot: ",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF003366),
+                  ),
+                ),
                 const SizedBox(width: 12),
                 DropdownButton<String>(
                   value: selectedDepot,
@@ -326,7 +426,12 @@ class _AssignPageState extends State<AssignPage> {
                   children: [
                     const Icon(Icons.warning, color: Colors.orange),
                     const SizedBox(width: 8),
-                    Expanded(child: Text('API Error: $errorMessage', style: const TextStyle(color: Colors.orange))),
+                    Expanded(
+                      child: Text(
+                        'API Error: $errorMessage',
+                        style: const TextStyle(color: Colors.orange),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -343,19 +448,23 @@ class _AssignPageState extends State<AssignPage> {
                     child: isLoading
                         ? const Center(child: CircularProgressIndicator())
                         : filteredWorkers.isEmpty
-                            ? Center(child: Text('No workers available for "$selectedDepot"'))
-                            : ListView.builder(
-                                padding: EdgeInsets.zero,
-                                itemCount: filteredWorkers.length,
-                                itemBuilder: (context, index) {
-                                  final worker = filteredWorkers[index];
-                                  return _buildWorkerRow(
-                                    worker,
-                                    status.length > index ? status[index] : false,
-                                    index,
-                                  );
-                                },
-                              ),
+                        ? Center(
+                            child: Text(
+                              'No workers available for "$selectedDepot"',
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: EdgeInsets.zero,
+                            itemCount: filteredWorkers.length,
+                            itemBuilder: (context, index) {
+                              final worker = filteredWorkers[index];
+                              return _buildWorkerRow(
+                                worker,
+                                status.length > index ? status[index] : false,
+                                index,
+                              );
+                            },
+                          ),
                   ),
                 ],
               ),
@@ -371,7 +480,13 @@ class _AssignPageState extends State<AssignPage> {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: const Text('Assign', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'Assign',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -383,7 +498,13 @@ class _AssignPageState extends State<AssignPage> {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
-                    child: const Text('Cancel', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    child: const Text(
+                      'Cancel',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ],
