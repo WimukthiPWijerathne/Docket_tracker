@@ -91,6 +91,7 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
   String _selectedDepot = 'All';
   String _selectedTechnician = 'All';
   List<String> _availableTechnicians = ['All'];
+  Map<String, Worker> _workerMap = {}; // Map of ID to Worker for easy lookup
 
   // Data
   final WorkerService _workerService = WorkerService();
@@ -105,8 +106,8 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
   // Chart data
   bool _chartLoading = false;
   String? _chartError;
-  Map<int, int> _monthlyAssigned = {};
   Map<int, int> _monthlyCompleted = {};
+  Map<int, int> _monthlyInProgress = {}; // In-progress count
   List<Docket> _allDockets = [];
   List<WorkLog> _allWorkLogs = [];
 
@@ -135,10 +136,29 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
       final workLogs = results[3] as List<WorkLog>;
 
       final techIds = <String>{'All'};
+      final workerMap = <String, Worker>{};
       for (final w in workers) {
         final id = (w.employeeNo.isNotEmpty ? w.employeeNo : w.personID).trim();
-        if (id.isNotEmpty) techIds.add(id);
+        if (id.isNotEmpty) {
+          techIds.add(id);
+          workerMap[id] = w; // Store worker in map
+        }
       }
+
+      print('=== WORKER DATA DEBUG ===');
+      print('Total workers loaded: ${workers.length}');
+      if (workers.isNotEmpty) {
+        print('--- Sample Workers ---');
+        for (int i = 0; i < (workers.length > 5 ? 5 : workers.length); i++) {
+          final w = workers[i];
+          final id = (w.employeeNo.isNotEmpty ? w.employeeNo : w.personID)
+              .trim();
+          print(
+            'Worker $i: name="${w.name}", employeeNo="${w.employeeNo}", personID="${w.personID}", extracted ID="$id"',
+          );
+        }
+      }
+      print('=== END WORKER DEBUG ===');
 
       setState(() {
         _allWorkers = workers;
@@ -146,6 +166,7 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
         _allDockets = dockets;
         _allWorkLogs = workLogs;
         _availableTechnicians = techIds.toList()..sort();
+        _workerMap = workerMap;
       });
 
       _applyFilters();
@@ -332,8 +353,8 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
     setState(() {
       _chartLoading = true;
       _chartError = null;
-      _monthlyAssigned = {};
       _monthlyCompleted = {};
+      _monthlyInProgress = {};
     });
 
     try {
@@ -343,52 +364,127 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
 
       // Get technicians to query based on filters
       List<String> technicianIds = [];
+      bool showAllTechnicians = false;
+
       if (_selectedTechnician != 'All') {
         technicianIds = [_selectedTechnician];
       } else {
-        // Get all technicians in filtered workers
+        // When "All" is selected, we'll show data for all assignments
+        showAllTechnicians = true;
+        // Still get the list for potential filtering by branch/depot
         technicianIds = _filteredWorkers
             .map((w) => w.employeeNo.isNotEmpty ? w.employeeNo : w.personID)
             .where((id) => id.isNotEmpty)
             .toList();
       }
 
-      if (technicianIds.isEmpty) {
-        setState(() {
-          _chartLoading = false;
-        });
-        return;
+      print('=== CHART DATA DEBUG ===');
+      print('Selected Technician: $_selectedTechnician');
+      print('Show All Technicians: $showAllTechnicians');
+      print('Technician IDs count: ${technicianIds.length}');
+      if (technicianIds.isNotEmpty) {
+        print('First 5 Technician IDs: ${technicianIds.take(5).toList()}');
+      }
+      print('Total Assignments: ${_allAssignments.length}');
+
+      // Print first few assignments to see the format
+      if (_allAssignments.isNotEmpty) {
+        print('--- Sample Assignments ---');
+        for (
+          int i = 0;
+          i < (_allAssignments.length > 5 ? 5 : _allAssignments.length);
+          i++
+        ) {
+          print(
+            'Assignment $i: assignedPersons="${_allAssignments[i].assignedPersons}"',
+          );
+        }
       }
 
-      // Count assignments and completions per month
+      print('Total Dockets: ${_allDockets.length}');
+      print('Total WorkLogs: ${_allWorkLogs.length}');
+
+      // Count assignments, completions, and in-progress per month (last 3 months only)
       final Map<int, int> assigned = {};
       final Map<int, int> completed = {};
+      final Map<int, int> inProgress = {};
 
-      for (int month = 1; month <= currentMonth; month++) {
+      // Initialize only last 3 months
+      for (int i = 0; i < 3; i++) {
+        int month = currentMonth - i;
+
+        if (month < 1) {
+          month += 12;
+        }
+
+        // Use month number as key (we'll filter by year when counting)
         assigned[month] = 0;
         completed[month] = 0;
+        inProgress[month] = 0;
       }
 
       // Count assignments from dockets assigned to technicians
+      int totalMatched = 0;
       for (final assignment in _allAssignments) {
-        final assignedPersons = assignment.assignedPersons
-            .split(',')
-            .map((e) => e.trim().toLowerCase())
-            .toList();
-
         bool matchesTechnician = false;
-        for (final techId in technicianIds) {
-          if (assignedPersons.contains(techId.toLowerCase())) {
-            matchesTechnician = true;
-            break;
+
+        if (showAllTechnicians) {
+          // If showing all technicians, match ALL assignments
+          matchesTechnician = true;
+        } else {
+          final assignedPersons = assignment.assignedPersons
+              .split(',')
+              .map((e) => e.trim().toLowerCase())
+              .toList();
+
+          for (final techId in technicianIds) {
+            final techIdLower = techId.toLowerCase();
+            // Check if assignedPersons contains the ID directly
+            if (assignedPersons.contains(techIdLower)) {
+              matchesTechnician = true;
+              break;
+            }
+
+            // Also check if the worker's name matches
+            final worker = _workerMap[techId];
+            if (worker != null) {
+              final workerNameLower = worker.name.toLowerCase();
+              if (assignedPersons.any(
+                (person) =>
+                    person.contains(workerNameLower) ||
+                    workerNameLower.contains(person),
+              )) {
+                matchesTechnician = true;
+                break;
+              }
+            }
           }
         }
 
         if (matchesTechnician) {
+          totalMatched++;
           try {
             final assignDate = DateTime.parse(assignment.assignedTime);
-            if (assignDate.year == currentYear &&
-                assignDate.month <= currentMonth) {
+
+            // Check if assignment is within last 3 months
+            bool isWithinLast3Months = false;
+            for (int i = 0; i < 3; i++) {
+              int targetMonth = currentMonth - i;
+              int targetYear = currentYear;
+
+              if (targetMonth < 1) {
+                targetMonth += 12;
+                targetYear -= 1;
+              }
+
+              if (assignDate.year == targetYear &&
+                  assignDate.month == targetMonth) {
+                isWithinLast3Months = true;
+                break;
+              }
+            }
+
+            if (isWithinLast3Months && assigned.containsKey(assignDate.month)) {
               assigned[assignDate.month] =
                   (assigned[assignDate.month] ?? 0) + 1;
             }
@@ -398,18 +494,44 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
         }
       }
 
-      // Count completions using the same robust logic as depot summary
-      for (final assignment in _allAssignments) {
-        final assignedPersons = assignment.assignedPersons
-            .split(',')
-            .map((e) => e.trim().toLowerCase())
-            .toList();
+      print('Total assignments matched: $totalMatched');
 
+      // Count completions and in-progress using the same robust logic as depot summary
+      int totalCompletedMatched = 0;
+      int totalInProgressMatched = 0;
+      for (final assignment in _allAssignments) {
         bool matchesTechnician = false;
-        for (final techId in technicianIds) {
-          if (assignedPersons.contains(techId.toLowerCase())) {
-            matchesTechnician = true;
-            break;
+
+        if (showAllTechnicians) {
+          // If showing all technicians, match ALL assignments
+          matchesTechnician = true;
+        } else {
+          final assignedPersons = assignment.assignedPersons
+              .split(',')
+              .map((e) => e.trim().toLowerCase())
+              .toList();
+
+          for (final techId in technicianIds) {
+            final techIdLower = techId.toLowerCase();
+            // Check if assignedPersons contains the ID directly
+            if (assignedPersons.contains(techIdLower)) {
+              matchesTechnician = true;
+              break;
+            }
+
+            // Also check if the worker's name matches
+            final worker = _workerMap[techId];
+            if (worker != null) {
+              final workerNameLower = worker.name.toLowerCase();
+              if (assignedPersons.any(
+                (person) =>
+                    person.contains(workerNameLower) ||
+                    workerNameLower.contains(person),
+              )) {
+                matchesTechnician = true;
+                break;
+              }
+            }
           }
         }
 
@@ -442,38 +564,92 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
                   workLog.completedAt!.toLowerCase() != 'null',
             );
 
-            if (isCompleted) {
-              // Find the completion date from work log
-              final completedWorkLog = _allWorkLogs.firstWhere(
-                (workLog) =>
-                    workLog.docketId == docket.id &&
-                    workLog.completedAt != null &&
-                    workLog.completedAt!.isNotEmpty &&
-                    workLog.completedAt != '0' &&
-                    workLog.completedAt!.toLowerCase() != 'null',
-                orElse: () => WorkLog(
-                  id: '',
-                  assignmentId: '',
-                  docketId: '',
-                  employeeNo: '',
-                  completedAt: null,
-                ),
-              );
+            // Get the assignment month for categorization
+            try {
+              final assignDate = DateTime.parse(assignment.assignedTime);
 
-              if (completedWorkLog.completedAt != null) {
-                try {
-                  final completedDate = DateTime.parse(
-                    completedWorkLog.completedAt!,
-                  );
-                  if (completedDate.year == currentYear &&
-                      completedDate.month <= currentMonth) {
-                    completed[completedDate.month] =
-                        (completed[completedDate.month] ?? 0) + 1;
-                  }
-                } catch (e) {
-                  print('Error parsing completion date: $e');
+              // Check if assignment is within last 3 months
+              bool isWithinLast3Months = false;
+              for (int i = 0; i < 3; i++) {
+                int targetMonth = currentMonth - i;
+                int targetYear = currentYear;
+
+                if (targetMonth < 1) {
+                  targetMonth += 12;
+                  targetYear -= 1;
+                }
+
+                if (assignDate.year == targetYear &&
+                    assignDate.month == targetMonth) {
+                  isWithinLast3Months = true;
+                  break;
                 }
               }
+
+              if (isWithinLast3Months) {
+                if (isCompleted) {
+                  // Find the completion date from work log
+                  final completedWorkLog = _allWorkLogs.firstWhere(
+                    (workLog) =>
+                        workLog.docketId == docket.id &&
+                        workLog.completedAt != null &&
+                        workLog.completedAt!.isNotEmpty &&
+                        workLog.completedAt != '0' &&
+                        workLog.completedAt!.toLowerCase() != 'null',
+                    orElse: () => WorkLog(
+                      id: '',
+                      assignmentId: '',
+                      docketId: '',
+                      employeeNo: '',
+                      completedAt: null,
+                    ),
+                  );
+
+                  if (completedWorkLog.completedAt != null) {
+                    totalCompletedMatched++;
+                    try {
+                      final completedDate = DateTime.parse(
+                        completedWorkLog.completedAt!,
+                      );
+
+                      // Check if completion is within last 3 months
+                      bool completionWithinLast3Months = false;
+                      for (int i = 0; i < 3; i++) {
+                        int targetMonth = currentMonth - i;
+                        int targetYear = currentYear;
+
+                        if (targetMonth < 1) {
+                          targetMonth += 12;
+                          targetYear -= 1;
+                        }
+
+                        if (completedDate.year == targetYear &&
+                            completedDate.month == targetMonth) {
+                          completionWithinLast3Months = true;
+                          break;
+                        }
+                      }
+
+                      if (completionWithinLast3Months &&
+                          completed.containsKey(completedDate.month)) {
+                        completed[completedDate.month] =
+                            (completed[completedDate.month] ?? 0) + 1;
+                      }
+                    } catch (e) {
+                      print('Error parsing completion date: $e');
+                    }
+                  }
+                } else {
+                  // In progress - assigned but not completed
+                  if (inProgress.containsKey(assignDate.month)) {
+                    totalInProgressMatched++;
+                    inProgress[assignDate.month] =
+                        (inProgress[assignDate.month] ?? 0) + 1;
+                  }
+                }
+              }
+            } catch (e) {
+              print('Error parsing assignment date: $e');
             }
           }
         }
@@ -481,10 +657,17 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
 
       print('Monthly assigned: $assigned');
       print('Monthly completed: $completed');
+      print('Monthly in-progress: $inProgress');
+      print(
+        'Total matched assignments: ${assigned.values.fold(0, (sum, val) => sum + val)}',
+      );
+      print('Total completed matched: $totalCompletedMatched');
+      print('Total in-progress matched: $totalInProgressMatched');
+      print('=== END DEBUG ===');
 
       setState(() {
-        _monthlyAssigned = assigned;
         _monthlyCompleted = completed;
+        _monthlyInProgress = inProgress;
       });
     } catch (e) {
       setState(() {
@@ -603,10 +786,10 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
           ],
         ),
         const SizedBox(height: 16),
-        _buildDropdown(
+        _buildTechnicianDropdown(
           value: _selectedTechnician,
           items: _availableTechnicians,
-          label: 'Technician ID',
+          label: 'Technician',
           onChanged: (v) {
             setState(() => _selectedTechnician = v ?? 'All');
             _applyFilters();
@@ -656,15 +839,70 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: _buildDropdown(
+          child: _buildTechnicianDropdown(
             value: _selectedTechnician,
             items: _availableTechnicians,
-            label: 'Technician ID',
+            label: 'Technician',
             onChanged: (v) {
               setState(() => _selectedTechnician = v ?? 'All');
               _applyFilters();
               _loadChartData();
             },
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Build technician dropdown with name and ID display
+  Widget _buildTechnicianDropdown({
+    required String value,
+    required List<String> items,
+    required String label,
+    required ValueChanged<String?> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 14,
+            color: Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(8),
+            color: Colors.white,
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: value,
+              items: items.map((String item) {
+                String displayText = item;
+                if (item != 'All' && _workerMap.containsKey(item)) {
+                  final worker = _workerMap[item]!;
+                  displayText = '${worker.name} ($item)';
+                }
+                return DropdownMenuItem<String>(
+                  value: item,
+                  child: Text(
+                    displayText,
+                    style: const TextStyle(fontSize: 14),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+              onChanged: onChanged,
+              isExpanded: true,
+              icon: const Icon(Icons.arrow_drop_down, color: Colors.grey),
+            ),
           ),
         ),
       ],
@@ -743,8 +981,8 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
               const SizedBox(width: 8),
               Text(
                 _selectedTechnician == 'All'
-                    ? 'Monthly Progress - All Technicians'
-                    : 'Monthly Trends - $_selectedTechnician',
+                    ? 'Last 3 Months Progress - All Technicians'
+                    : 'Last 3 Months Trends - $_selectedTechnician',
                 style: TextStyle(
                   fontSize: isMobile ? 16 : 18,
                   fontWeight: FontWeight.bold,
@@ -769,10 +1007,20 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
                 style: const TextStyle(color: Colors.red),
               ),
             )
-          else if (_monthlyAssigned.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(32.0),
-              child: Center(child: Text('No data available')),
+          else if (_monthlyInProgress.isEmpty && _monthlyCompleted.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                children: [
+                  const Text('No data available'),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Debug: In-Progress entries: ${_monthlyInProgress.length}, '
+                    'Completed entries: ${_monthlyCompleted.length}',
+                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                ],
+              ),
             )
           else
             _buildLineChart(isMobile),
@@ -783,8 +1031,23 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
 
   Widget _buildLineChart(bool isMobile) {
     final now = DateTime.now();
+    final currentMonth = now.month;
+
+    // Calculate the range for last 3 months
+    final List<int> last3Months = [];
+    for (int i = 2; i >= 0; i--) {
+      int month = currentMonth - i;
+      if (month < 1) {
+        month += 12;
+      }
+      last3Months.add(month);
+    }
+
+    final minMonth = last3Months.first.toDouble();
+    final maxMonth = last3Months.last.toDouble();
+
     final maxY = [
-      ..._monthlyAssigned.values,
+      ..._monthlyInProgress.values,
       ..._monthlyCompleted.values,
     ].fold(0, (max, val) => val > max ? val : max).toDouble();
 
@@ -836,7 +1099,9 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
                         'Dec',
                       ];
                       final index = value.toInt();
-                      if (index >= 1 && index <= now.month) {
+                      if (index >= 1 &&
+                          index <= 12 &&
+                          last3Months.contains(index)) {
                         return Padding(
                           padding: const EdgeInsets.only(top: 8.0),
                           child: Text(
@@ -860,14 +1125,14 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
                 show: true,
                 border: Border.all(color: Colors.grey[300]!),
               ),
-              minX: 1,
-              maxX: now.month.toDouble(),
+              minX: minMonth,
+              maxX: maxMonth,
               minY: 0,
               maxY: maxY > 0 ? maxY * 1.1 : 10,
               lineBarsData: [
                 LineChartBarData(
                   spots:
-                      _monthlyAssigned.entries
+                      _monthlyInProgress.entries
                           .map(
                             (e) => FlSpot(e.key.toDouble(), e.value.toDouble()),
                           )
@@ -903,7 +1168,7 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
           runSpacing: 8,
           alignment: WrapAlignment.center,
           children: [
-            _legendItem(_assignedColor, 'Assigned'),
+            _legendItem(_assignedColor, 'In Progress'),
             _legendItem(_completedColor, 'Completed'),
           ],
         ),

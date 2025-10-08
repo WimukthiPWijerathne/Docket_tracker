@@ -187,10 +187,13 @@ class DepotSummaryService {
   static Future<List<DepotSummaryData>> getDepotSummary({
     required List<String> depotNames,
     String? docketType,
+    int? month,
   }) async {
     try {
       print('=== DEBUG: Starting getDepotSummary ===');
-      print('DEBUG: Requested depots: $depotNames, DocketType: $docketType');
+      print(
+        'DEBUG: Requested depots: $depotNames, DocketType: $docketType, Month: $month',
+      );
 
       // Fetch all dockets and work logs in parallel for better performance
       final results = await Future.wait([
@@ -279,8 +282,23 @@ class DepotSummaryService {
           return true; // Include all if no docket type filter
         }).toList();
 
+        // Apply month filtering if specified
+        if (month != null) {
+          depotDockets = depotDockets.where((docket) {
+            try {
+              final uploadedTime = DateTime.parse(docket.uploadedTime);
+              return uploadedTime.month == month;
+            } catch (e) {
+              return false;
+            }
+          }).toList();
+          print(
+            'DEBUG: After month filter ($month): ${depotDockets.length} dockets remaining',
+          );
+        }
+
         print(
-          'DEBUG: Found ${depotDockets.length} dockets for depot $depot after docket type filtering',
+          'DEBUG: Found ${depotDockets.length} dockets for depot $depot after all filtering',
         );
         if (docketType != null && docketType != 'All Types') {
           print('DEBUG: Docket type filter applied: "$docketType"');
@@ -361,8 +379,13 @@ class DepotSummaryService {
   /// Get summary for all depots (when no specific depots are requested)
   static Future<List<DepotSummaryData>> getAllDepotsSummary({
     String? docketType,
+    int? month,
   }) async {
-    return getDepotSummary(depotNames: [], docketType: docketType);
+    return getDepotSummary(
+      depotNames: [],
+      docketType: docketType,
+      month: month,
+    );
   }
 
   /// Get all unique docket types from the database
@@ -398,9 +421,10 @@ class DepotSummaryService {
   static Future<List<DepotSummaryData>> getMultipleDepotSummariesParallel({
     required List<String> depotNames,
     String? docketType,
+    int? month,
   }) async {
     if (depotNames.isEmpty) {
-      return getAllDepotsSummary(docketType: docketType);
+      return getAllDepotsSummary(docketType: docketType, month: month);
     }
 
     try {
@@ -422,7 +446,8 @@ class DepotSummaryService {
         // Process batch in parallel
         final batchResults = await Future.wait(
           batch.map(
-            (depot) => _processDepotData(depot, dockets, workLogs, docketType),
+            (depot) =>
+                _processDepotData(depot, dockets, workLogs, docketType, month),
           ),
         );
 
@@ -442,6 +467,7 @@ class DepotSummaryService {
     List<Docket> dockets,
     List<WorkLog> workLogs,
     String? docketType,
+    int? month,
   ) async {
     print('DEBUG: Processing depot: $depot');
 
@@ -466,6 +492,18 @@ class DepotSummaryService {
       }
       return true;
     }).toList();
+
+    // Apply month filtering if specified
+    if (month != null) {
+      depotDockets = depotDockets.where((docket) {
+        try {
+          final uploadedTime = DateTime.parse(docket.uploadedTime);
+          return uploadedTime.month == month;
+        } catch (e) {
+          return false;
+        }
+      }).toList();
+    }
 
     // Separate completed and in-progress dockets
     List<Docket> completedDockets = [];
@@ -505,6 +543,7 @@ class DepotSummaryService {
   static Future<Map<String, dynamic>> getDepotSummaryWithMetrics({
     required List<String> depotNames,
     String? docketType,
+    int? month,
   }) async {
     final stopwatch = Stopwatch()..start();
 
@@ -515,6 +554,7 @@ class DepotSummaryService {
       final summaryData = await getMultipleDepotSummariesParallel(
         depotNames: depotNames,
         docketType: docketType,
+        month: month,
       );
 
       stopwatch.stop();

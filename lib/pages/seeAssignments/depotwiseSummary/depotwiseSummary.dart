@@ -37,9 +37,27 @@ class _DepotWiseSummaryPageState extends State<DepotWiseSummaryPage> {
   List<String> docketTypes = ['All Types'];
   bool docketTypesLoaded = false;
 
+  // Month filter options
+  final List<String> months = [
+    'All Time',
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
   // Selected filters
   String selectedBranch = 'Kelaniya';
   String selectedDocketType = 'All Types';
+  String selectedMonth = 'All Time';
 
   // Real data from the database
   List<DepotChartData> chartData = [];
@@ -78,6 +96,13 @@ class _DepotWiseSummaryPageState extends State<DepotWiseSummaryPage> {
       List<String> depotNames = _getDepotsForBranch(selectedBranch);
       print('UI DEBUG: Selected branch: $selectedBranch, Depots: $depotNames');
       print('UI DEBUG: Selected docket type: $selectedDocketType');
+      print('UI DEBUG: Selected month: $selectedMonth');
+
+      // Convert month name to month number (1-12) or null for "All Time"
+      int? monthNumber;
+      if (selectedMonth != 'All Time') {
+        monthNumber = months.indexOf(selectedMonth); // Will be 1-12
+      }
 
       // Fetch data for the selected branch's depots using parallel processing
       Map<String, dynamic> result =
@@ -86,6 +111,7 @@ class _DepotWiseSummaryPageState extends State<DepotWiseSummaryPage> {
             docketType: selectedDocketType == 'All Types'
                 ? null
                 : selectedDocketType,
+            month: monthNumber,
           );
 
       List<DepotSummaryData> summaryData =
@@ -404,6 +430,18 @@ class _DepotWiseSummaryPageState extends State<DepotWiseSummaryPage> {
                         ),
                       ],
                     ),
+
+                    const SizedBox(height: 16),
+
+                    // Month Filter Row
+                    _buildFilterDropdown('Month', selectedMonth, months, (
+                      value,
+                    ) {
+                      setState(() {
+                        selectedMonth = value!;
+                        _loadRealData();
+                      });
+                    }),
                   ],
                 ),
               ),
