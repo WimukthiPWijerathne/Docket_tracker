@@ -10,6 +10,7 @@ import '../../pages/workersSummey/workers_summery_page.dart';
 import '../../pages/staffManagement/staffHomePage.dart';
 import '../../pages/technicianPortal/technicianPortalPage.dart';
 import '../seeAssignments/options.dart';
+import '../eDocket/e_docket.dart';
 
 class OptionsPage extends StatefulWidget {
   final String role; // role parameter
@@ -187,6 +188,21 @@ class _OptionsPageState extends State<OptionsPage> {
                         Navigator.of(context).push(
                           MaterialPageRoute(
                             builder: (_) => const SeeAssignmentsOptionsPage(),
+                          ),
+                        );
+                      },
+                    ),
+
+                    // ---- E-Docket (All Roles) ----
+                    _buildOptionCard(
+                      context,
+                      'E-Docket',
+                      Icons.description,
+                      const Color(0xFFFFD700),
+                      () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const EDocketPage(),
                           ),
                         );
                       },

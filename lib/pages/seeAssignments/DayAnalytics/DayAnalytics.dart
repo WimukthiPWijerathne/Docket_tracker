@@ -114,6 +114,7 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
   String _selectedDepot = 'All';
   String _selectedWorker = 'All';
   List<String> _availableWorkers = ['All'];
+  DateTime _selectedDate = DateTime.now(); // Selected date for analytics
 
   // Constants
   static const Color _primaryColor = Color(0xFF003366);
@@ -218,6 +219,38 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
     }
   }
 
+  // Show date picker to select a specific date for analytics
+  Future<void> _showDatePicker() async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      helpText: 'Select Date for Analytics',
+      cancelText: 'Cancel',
+      confirmText: 'Select',
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: _primaryColor,
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (pickedDate != null && pickedDate != _selectedDate) {
+      setState(() {
+        _selectedDate = pickedDate;
+      });
+    }
+  }
+
   // Normalize depot names for robust comparisons (case/space/hyphen insensitive)
   String _normalizeDepot(String value) {
     final lower = value.trim().toLowerCase();
@@ -298,16 +331,16 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
 
   // Get daily assignment statistics
   ({int total, int completed, int ongoing, int overdue}) _getDailyStatistics() {
-    final today = DateTime.now();
+    final selectedDay = _selectedDate;
     final base = _getFilteredAssignments();
     final todayAssignments = base.where((assignment) {
       try {
         final assignedTime = DateTime.parse(
           assignment.assignedTime.replaceAll('/', '-'),
         );
-        return assignedTime.year == today.year &&
-            assignedTime.month == today.month &&
-            assignedTime.day == today.day;
+        return assignedTime.year == selectedDay.year &&
+            assignedTime.month == selectedDay.month &&
+            assignedTime.day == selectedDay.day;
       } catch (_) {
         return false;
       }
@@ -325,16 +358,16 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
 
   // Get today's docket type statistics with filtering
   Map<String, int> _getTodayDocketTypeStats() {
-    final today = DateTime.now();
+    final selectedDay = _selectedDate;
     final base = _getFilteredAssignments();
     final todayAssignments = base.where((assignment) {
       try {
         final assignedTime = DateTime.parse(
           assignment.assignedTime.replaceAll('/', '-'),
         );
-        return assignedTime.year == today.year &&
-            assignedTime.month == today.month &&
-            assignedTime.day == today.day;
+        return assignedTime.year == selectedDay.year &&
+            assignedTime.month == selectedDay.month &&
+            assignedTime.day == selectedDay.day;
       } catch (_) {
         return false;
       }
@@ -420,6 +453,21 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
                   color: Colors.white.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
+                child: const Icon(Icons.calendar_today, size: 20),
+              ),
+              onPressed: _showDatePicker,
+              tooltip: 'Select Date',
+            ),
+          ),
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            child: IconButton(
+              icon: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 child: const Icon(Icons.refresh_rounded, size: 20),
               ),
               onPressed: _loadData,
@@ -468,6 +516,129 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
     );
   }
 
+  // Build date indicator widget
+  Widget _buildDateIndicator(bool isMobile) {
+    final isToday =
+        _selectedDate.year == DateTime.now().year &&
+        _selectedDate.month == DateTime.now().month &&
+        _selectedDate.day == DateTime.now().day;
+
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: isMobile ? 16 : 20,
+        vertical: isMobile ? 12 : 14,
+      ),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            _primaryColor.withOpacity(0.1),
+            _primaryColor.withOpacity(0.05),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _primaryColor.withOpacity(0.2), width: 1),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: _primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.calendar_today,
+                  size: isMobile ? 18 : 20,
+                  color: _primaryColor,
+                ),
+              ),
+              SizedBox(width: isMobile ? 12 : 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isToday ? 'Today\'s Analytics' : 'Analytics for',
+                    style: TextStyle(
+                      fontSize: isMobile ? 12 : 13,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _formatDate(_selectedDate),
+                    style: TextStyle(
+                      fontSize: isMobile ? 16 : 18,
+                      color: _primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          if (isToday)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: Colors.green.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: const BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    'LIVE',
+                    style: TextStyle(
+                      fontSize: isMobile ? 10 : 11,
+                      color: Colors.green.shade700,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  // Format date for display
+  String _formatDate(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[date.month - 1]} ${date.day}, ${date.year}';
+  }
+
   Widget _buildMainContent() {
     final screenWidth = MediaQuery.of(context).size.width;
     final isMobile = screenWidth < 600;
@@ -495,6 +666,11 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
             children: [
               // Top spacing
               SizedBox(height: isMobile ? 16 : 24),
+
+              // Selected Date Indicator
+              _buildDateIndicator(isMobile),
+
+              SizedBox(height: isMobile ? 12 : 16),
 
               // Search Bar with enhanced styling
               Container(
