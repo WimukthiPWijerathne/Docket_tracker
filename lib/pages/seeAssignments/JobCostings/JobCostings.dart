@@ -9,6 +9,20 @@ import '../../../models/assigned_docket.dart';
 import '../../../models/dockets.dart';
 import '../../../models/WorkLog.dart';
 
+/// Job Costings Page - Displays statistics and payment rates for completed dockets
+///
+/// This page shows:
+/// - Pie chart visualization of completed jobs by docket type
+/// - Count of completed dockets by category
+/// - Payment rates per job type (synchronized with Payment module)
+///
+/// Payment rates are aligned with:
+/// - lib/pages/Payments/payments.dart (worker payment calculations)
+/// - lib/pages/Payments/payingRates.dart (rate configuration page)
+///
+/// Note: Rates should be kept in sync across these modules.
+/// In the future, consider creating a shared configuration service.
+
 class JobCostingsPage extends StatefulWidget {
   const JobCostingsPage({super.key});
 
@@ -65,18 +79,19 @@ class _JobCostingsPageState extends State<JobCostingsPage> {
     Color(0xFFFFEB3B), // Yellow
   ];
 
-  // Dummy pricing data for docket types (hourly rates in LKR)
+  // Payment rates by docket type (aligned with Payment module rates)
+  // Note: These rates are per completed docket/job
   static const Map<String, double> _docketTypePricing = {
-    'Service Line Maintenance': 2800.0,
-    'Meter Testing': 1800.0,
-    'Estimate': 1500.0,
-    'Per Visit': 1200.0,
-    'Pole Disconnection': 2200.0,
-    'Material Remove': 1600.0,
-    'Meter Replacement Only': 2500.0,
-    'Visit with Contractor': 2000.0,
-    'Pole Top Maintenance': 3200.0,
-    'Unknown': 1000.0,
+    'Service Line Maintenance': 785.0,
+    'Meter Testing': 985.0,
+    'Estimate': 785.0,
+    'Per Visit': 785.0,
+    'Pole Disconnection': 550.0,
+    'Material Remove': 740.0,
+    'Meter Replacement Only': 785.0,
+    'Visit with Contractor': 1280.0,
+    'Pole Top Maintenance': 675.0,
+    'Unknown': 500.0, // Default for unknown types
   };
 
   // Full depots list
@@ -971,7 +986,7 @@ class _PricingTableCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Hourly Rate Pricing',
+                      'Payment Rate Pricing',
                       style: TextStyle(
                         fontSize: isTablet ? 18 : 16,
                         fontWeight: FontWeight.bold,
@@ -979,7 +994,7 @@ class _PricingTableCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'Cost breakdown by docket type',
+                      'Cost breakdown by completed docket type',
                       style: TextStyle(
                         fontSize: isTablet ? 14 : 12,
                         color: Colors.grey[600],
@@ -1042,7 +1057,7 @@ class _PricingTableCard extends StatelessWidget {
                       Expanded(
                         flex: 2,
                         child: Text(
-                          'Rate/Hour (LKR)',
+                          'Rate/Job (LKR)',
                           textAlign: TextAlign.right,
                           style: TextStyle(
                             fontSize: isTablet ? 14 : 13,
@@ -1182,24 +1197,24 @@ class _PricingTableCard extends StatelessWidget {
           Container(
             padding: EdgeInsets.all(isTablet ? 12 : 10),
             decoration: BoxDecoration(
-              color: Colors.amber[50],
+              color: Colors.blue[50],
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.amber[200]!),
+              border: Border.all(color: Colors.blue[200]!),
             ),
             child: Row(
               children: [
                 Icon(
                   Icons.info_outline,
                   size: isTablet ? 18 : 16,
-                  color: Colors.amber[700],
+                  color: Colors.blue[700],
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'Note: These are sample hourly rates for demonstration purposes.',
+                    'Note: Payment rates are per completed job/docket. Rates are synchronized with the Payment module configuration.',
                     style: TextStyle(
                       fontSize: isTablet ? 12 : 11,
-                      color: Colors.amber[800],
+                      color: Colors.blue[800],
                       fontWeight: FontWeight.w500,
                     ),
                   ),

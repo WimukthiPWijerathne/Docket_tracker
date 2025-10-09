@@ -11,6 +11,7 @@ import '../../pages/staffManagement/staffHomePage.dart';
 import '../../pages/technicianPortal/technicianPortalPage.dart';
 import '../seeAssignments/options.dart';
 import '../eDocket/e_docket.dart';
+import '../Payments/paymentPageOptions.dart';
 
 class OptionsPage extends StatefulWidget {
   final String role; // role parameter
@@ -207,6 +208,22 @@ class _OptionsPageState extends State<OptionsPage> {
                         );
                       },
                     ),
+
+                    // ---- Payments (CE, CS only) ----
+                    if (widget.role == "ce" || widget.role == "cs")
+                      _buildOptionCard(
+                        context,
+                        'Payments',
+                        Icons.payment,
+                        const Color(0xFFFFD700),
+                        () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const PaymentPageOptions(),
+                            ),
+                          );
+                        },
+                      ),
                   ],
                 ),
               ),
