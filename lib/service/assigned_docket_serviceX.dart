@@ -9,7 +9,6 @@ class AssignedDocketService {
   // Fetch all assigned dockets
   Future<List<AssignedDocket>> fetchAssignedDockets() async {
     try {
-      print('🔄 Fetching assigned dockets from: $baseUrl');
       final response = await http.get(
         Uri.parse(baseUrl),
         headers: {'Accept': 'application/json'},

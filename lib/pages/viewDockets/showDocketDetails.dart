@@ -37,7 +37,7 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
   // All docket images now come from a single subdirectory
   int _dirForType(String type) {
     // No longer using different directories based on type
-    return 1; // All docket images are stored in subdirectory 1
+    return 4; // All docket images are now stored in subdirectory 4
   }
 
   String _imageUrl() {
@@ -946,7 +946,7 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
                 const Text('Select a new docket type:'),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: selectedType,
+                  initialValue: selectedType,
                   isExpanded: true,
                   decoration: InputDecoration(
                     border: OutlineInputBorder(

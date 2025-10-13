@@ -39,14 +39,15 @@ class CaptureResultPage extends StatelessWidget {
   static String _ensureJpg(String name) {
     final lower = name.toLowerCase();
     if (lower.endsWith('.jpg')) return name;
-    if (lower.endsWith('.jpeg'))
-      return name.substring(0, name.length - 5) + '.jpg';
+    if (lower.endsWith('.jpeg')) {
+      return '${name.substring(0, name.length - 5)}.jpg';
+    }
     return name.endsWith('.png') || name.endsWith('.webp') ? name : '$name.jpg';
   }
 
   static String _typeFolder(String t) {
-    // Always return '1' for all docket types
-    return '1';
+    // Always return '4' for all docket types
+    return '4';
   }
 
   void _goHome(BuildContext context) {

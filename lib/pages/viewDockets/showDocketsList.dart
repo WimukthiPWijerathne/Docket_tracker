@@ -247,10 +247,10 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
                     final st = effectiveStatus;
                     // Debug summary of status values in current data set
                     final statusCounts = <int, int>{};
-                    step.forEach((d) {
+                    for (var d in step) {
                       final status = _statusOf(d);
                       statusCounts[status] = (statusCounts[status] ?? 0) + 1;
-                    });
+                    }
 
                     debugPrint(
                       '[Status Debug] Status counts before filtering: $statusCounts',
@@ -515,7 +515,7 @@ class _DocketListTile extends StatelessWidget {
   // All docket images now come from a single subdirectory
   int _dirForType(String type) {
     // No longer using different directories based on type
-    return 1; // All docket images are stored in subdirectory 1
+    return 4; // All docket images are now stored in subdirectory 4
   }
 
   String _imageUrl(Docket d) {

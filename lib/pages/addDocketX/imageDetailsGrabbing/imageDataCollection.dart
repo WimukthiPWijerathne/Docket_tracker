@@ -66,7 +66,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
 
   bool _isUploading = false;
   bool? _uploadSuccess;
-  bool _dbSuccess = false;
+  final bool _dbSuccess = false;
 
   String? _savedCompressedPath;
 
@@ -178,8 +178,8 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       );
 
       // 2) Upload image
-      // Always use subdirectory 1 for all docket types
-      const subDir = 1;
+      // Always use subdirectory 4 for all docket types
+      const subDir = 4;
       final imageUploadSuccess = await ApiService.uploadDocketImage(
         fileToUpload,
         rawName,
@@ -257,7 +257,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
     if (name.isEmpty) return name;
     final n = name.toLowerCase();
     if (n.endsWith('.jpeg')) {
-      name = name.substring(0, name.length - 5) + '.jpg';
+      name = '${name.substring(0, name.length - 5)}.jpg';
     } else if (!n.endsWith('.jpg')) {
       name = '$name.jpg';
     }
@@ -384,7 +384,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
                                 ),
                                 const SizedBox(height: 12),
                                 DropdownButtonFormField<String>(
-                                  value: _selectedType,
+                                  initialValue: _selectedType,
                                   items: _allDocketTypes
                                       .map(
                                         (t) => DropdownMenuItem(

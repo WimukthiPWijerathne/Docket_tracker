@@ -286,6 +286,9 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
       }
     }
 
+    // Clear the filtered counts cache to ensure buttons are updated
+    _filteredCountsCache = null;
+
     setState(() {
       _statusTotals = statusTotals;
       _docketCounts = counts;
@@ -558,7 +561,7 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
     final isWide = MediaQuery.of(context).size.width >= 700;
 
     final depotDropdown = DropdownButtonFormField<String>(
-      value: _selectedDepot,
+      initialValue: _selectedDepot,
       isExpanded: true,
       onChanged: _canPickDepot
           ? (v) {
