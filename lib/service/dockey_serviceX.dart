@@ -176,4 +176,35 @@ class DocketServiceX {
       return false;
     }
   }
+
+  // Method to update docket type
+  Future<bool> updateDocketType(
+    String docketId,
+    String docketType,
+  ) async {
+    try {
+      final response = await http.post(
+        Uri.parse(
+          baseUrl.replaceAll(
+            'GETDocketDetailsX.php',
+            'UpdateDocketType.php',
+          ),
+        ),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({'id': docketId, 'docketType': docketType}),
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = json.decode(response.body);
+        return responseData['success'] == true;
+      } else {
+        throw Exception(
+          'Failed to update docket type. Status code: ${response.statusCode}',
+        );
+      }
+    } catch (e) {
+      print('Error in updateDocketType: $e');
+      return false;
+    }
+  }
 }

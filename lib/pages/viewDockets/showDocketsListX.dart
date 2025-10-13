@@ -74,6 +74,26 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
     }
   }
 
+  Color _getStatusColor(String statusStr) {
+    final status = int.tryParse(statusStr) ?? 0;
+    switch (status) {
+      case -1:
+        return const Color(0xFF003366); // Default blue for "All"
+      case 0:
+        return Colors.grey;
+      case 1:
+        return Colors.blue;
+      case 2:
+        return Colors.green;
+      case 3:
+        return Colors.orange;
+      case 4:
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Resolve filters coming from summary page (or fallback to user's depot)
@@ -120,6 +140,14 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
             tooltip: 'Refresh',
           ),
         ],
+        // Add TabBar-style status indicator
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(4),
+          child: Container(
+            color: _getStatusColor(effectiveStatus.toString()),
+            height: 4,
+          ),
+        ),
       ),
       body: SafeArea(
         child: FutureBuilder<List<Docket>>(
@@ -251,6 +279,19 @@ class _DocketListTile extends StatelessWidget {
 
   const _DocketListTile({required this.docket, required this.onTap});
 
+  // All docket images now come from a single subdirectory
+  int _dirForType(String type) {
+    // No longer using different directories based on type
+    return 1; // All docket images are stored in subdirectory 1
+  }
+
+  String _imageUrl(Docket d) {
+    final type = d.docketType;
+    final dir = _dirForType(type);
+    final file = d.imageName;
+    return 'http://124.43.181.243:8000/api/fetch-testdocket-image/$dir/$file';
+  }
+
   @override
   Widget build(BuildContext context) {
     // Extract data
@@ -267,78 +308,221 @@ class _DocketListTile extends StatelessWidget {
     final depot = docket.depot;
     final status = _getStatusLabel(docket.status);
     final statusColor = _getStatusColor(docket.status);
+    final statusIcon = _getStatusIcon(docket.status);
+
+    // Location details
+    final hasLocation =
+        docket.locationDetails != null && docket.locationDetails!.isNotEmpty;
 
     return Card(
-      elevation: 2,
+      elevation: 3,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Status indicator at top
+            Container(height: 6, color: statusColor),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    type,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: statusColor),
-                    ),
-                    child: Text(
-                      status,
-                      style: TextStyle(
-                        color: statusColor,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 12,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left side: Image thumbnail
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          width: 60,
+                          height: 60,
+                          child: Stack(
+                            children: [
+                              // Image
+                              Positioned.fill(
+                                child: Image.network(
+                                  _imageUrl(docket),
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    color: statusColor.withOpacity(0.1),
+                                    child: Icon(statusIcon, color: statusColor),
+                                  ),
+                                  loadingBuilder: (_, child, loadingProgress) {
+                                    if (loadingProgress == null) return child;
+                                    return Container(
+                                      color: statusColor.withOpacity(0.1),
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          color: statusColor,
+                                          value:
+                                              loadingProgress
+                                                      .expectedTotalBytes !=
+                                                  null
+                                              ? loadingProgress
+                                                        .cumulativeBytesLoaded /
+                                                    loadingProgress
+                                                        .expectedTotalBytes!
+                                              : null,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                              // Status indicator overlay
+                              Positioned(
+                                top: 0,
+                                right: 0,
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: statusColor,
+                                    borderRadius: const BorderRadius.only(
+                                      bottomLeft: Radius.circular(8),
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    statusIcon,
+                                    color: Colors.white,
+                                    size: 12,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(width: 16),
+                      // Right side: Info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              type,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: statusColor.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        statusIcon,
+                                        size: 12,
+                                        color: statusColor,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        status,
+                                        style: TextStyle(
+                                          color: statusColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'ID: $id',
+                                  style: const TextStyle(
+                                    color: Colors.black54,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.business,
+                                  size: 14,
+                                  color: Colors.black54,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  depot,
+                                  style: const TextStyle(color: Colors.black87),
+                                ),
+                              ],
+                            ),
+                            if (hasLocation)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.location_on,
+                                      size: 14,
+                                      color: Colors.black54,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        docket.locationDetails!,
+                                        style: const TextStyle(
+                                          color: Colors.black87,
+                                          fontSize: 12,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          docket.imageName,
+                          style: const TextStyle(
+                            color: Colors.black54,
+                            fontSize: 12,
+                            fontStyle: FontStyle.italic,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        uploaded,
+                        style: const TextStyle(
+                          color: Colors.black54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text('ID: $id', style: const TextStyle(color: Colors.black87)),
-              Text(
-                'Depot: $depot',
-                style: const TextStyle(color: Colors.black87),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Flexible(
-                    child: Text(
-                      docket.imageName,
-                      style: const TextStyle(
-                        color: Colors.black54,
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  Text(
-                    uploaded,
-                    style: const TextStyle(color: Colors.black54, fontSize: 12),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -377,6 +561,24 @@ class _DocketListTile extends StatelessWidget {
         return Colors.red;
       default:
         return Colors.grey;
+    }
+  }
+
+  IconData _getStatusIcon(String statusStr) {
+    final status = int.tryParse(statusStr) ?? 0;
+    switch (status) {
+      case 0:
+        return Icons.hourglass_empty; // Unassigned
+      case 1:
+        return Icons.person_outline; // Assigned
+      case 2:
+        return Icons.check_circle_outline; // Completed
+      case 3:
+        return Icons.loop; // Reassigned
+      case 4:
+        return Icons.error_outline; // Issue
+      default:
+        return Icons.help_outline;
     }
   }
 }

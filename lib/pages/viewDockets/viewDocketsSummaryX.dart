@@ -215,67 +215,192 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
         : 2;
 
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_errorMessage.isNotEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(_errorMessage),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _fetchAndBuild,
-              child: const Text('Retry'),
-            ),
-          ],
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Dockets Summary'),
+          backgroundColor: const Color(0xFF003366),
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(color: Color(0xFF003366)),
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Docket Summary'),
-        backgroundColor: const Color(0xFF003366),
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _fetchAndBuild,
-          ),
-        ],
-      ),
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Search and filters
-          Padding(
-            padding: const EdgeInsets.all(16),
+    if (_errorMessage.isNotEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Dockets Summary'),
+          backgroundColor: const Color(0xFF003366),
+          foregroundColor: Colors.white,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Search field
-                TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search docket types',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
+                Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                const SizedBox(height: 16),
+                Text(_errorMessage, textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: _fetchAndBuild,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF003366),
+                    foregroundColor: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    // Depot dropdown
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Apply search filter to the counted types
+    final filteredCounts = _docketCounts.entries.where((e) {
+      if (_query.isEmpty) return true;
+      return e.key.toLowerCase().contains(_query.toLowerCase());
+    }).toList()..sort((a, b) => b.value.compareTo(a.value));
+
+    // Get top three docket types
+    final topThree =
+        (_docketCounts.entries.toList()
+              ..sort((a, b) => b.value.compareTo(a.value)))
+            .take(3)
+            .toList();
+
+    // Tab ids: All + 0..4
+    final List<int> tabs = const [-1, 0, 1, 2, 3, 4];
+
+    return DefaultTabController(
+      length: tabs.length,
+      initialIndex: tabs.indexOf(_selectedStatus),
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Dockets Summary'),
+          backgroundColor: const Color(0xFF003366),
+          foregroundColor: Colors.white,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Refresh',
+              onPressed: _fetchAndBuild,
+            ),
+          ],
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(48),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: TabBar(
+                isScrollable: true,
+                indicatorColor: Colors.white,
+                indicatorWeight: 3,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.white70,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold),
+                unselectedLabelStyle: const TextStyle(
+                  fontWeight: FontWeight.normal,
+                ),
+                onTap: (idx) {
+                  final sel = tabs[idx];
+                  if (sel != _selectedStatus) {
+                    setState(() => _selectedStatus = sel);
+                    _recount();
+                  }
+                },
+                tabs: tabs.map((s) {
+                  final count = _statusTotals[s] ?? 0;
+                  return Tab(
+                    height: 46, // Increase height to prevent overflow
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_statusIcon[s], size: 18),
+                        const SizedBox(width: 6),
+                        Text(_statusLabel[s]!),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2, // Reduced vertical padding
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '$count',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: Color(0xFF003366),
+                              fontSize: 12, // Reduced font size
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 16.0),
+            child: Column(
+              children: [
+                // Header
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.list_alt, color: Color(0xFF003366)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Available Number of Dockets',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: const Color(0xFF003366),
+                              ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Filter bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Column(
+                    children: [
+                      // Search field
+                      TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Search docket types',
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      // Depot dropdown
+                      DropdownButtonFormField<String>(
                         value: _selectedDepot,
                         decoration: InputDecoration(
                           labelText: 'Depot',
@@ -301,83 +426,140 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
                               }
                             : null,
                       ),
+                    ],
+                  ),
+                ),
+
+                // Top 3 docket types (horizontal scroll)
+                if (topThree.isNotEmpty) ...[
+                  SizedBox(
+                    height: 120, // Reduced height
+                    child: ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(
+                        16,
+                        4,
+                        16,
+                        4,
+                      ), // Added vertical padding
+                      scrollDirection: Axis.horizontal,
+                      itemCount: topThree.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 12),
+                      itemBuilder: (_, idx) {
+                        final e = topThree[idx];
+                        return _buildTopDocketCard(
+                          title: e.key,
+                          count: e.value,
+                          rank: idx + 1,
+                          onTap: () {
+                            Navigator.of(context)
+                                .push(
+                                  MaterialPageRoute(
+                                    builder: (_) => ShowDocketsListX(
+                                      title: e.key,
+                                      depot: _selectedDepot == 'All'
+                                          ? null
+                                          : _selectedDepot,
+                                      filterStatus: _selectedStatus,
+                                    ),
+                                  ),
+                                )
+                                .then((_) => _fetchAndBuild());
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // Docket types grid
+                Expanded(child: _buildDocketGrid(crossAxisCount)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Helper method to get an icon for a docket type
+  IconData _iconFor(String type) {
+    final t = type.toLowerCase();
+    if (t.contains('meter')) return Icons.speed;
+    if (t.contains('pole')) return Icons.electric_bolt;
+    if (t.contains('maintenance')) return Icons.build;
+    if (t.contains('visit')) return Icons.directions_walk;
+    if (t.contains('disconnect')) return Icons.power_off;
+    if (t.contains('service')) return Icons.home_repair_service;
+    return Icons.article;
+  }
+
+  Widget _buildTopDocketCard({
+    required String title,
+    required int count,
+    required int rank,
+    required VoidCallback onTap,
+  }) {
+    return SizedBox(
+      width: 220,
+      child: Card(
+        elevation: 3,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.all(12), // Reduced padding
+            child: Column(
+              mainAxisSize:
+                  MainAxisSize.min, // Prevent column from expanding too much
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF003366),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: const EdgeInsets.all(6), // Reduced padding
+                      child: Icon(
+                        _iconFor(title),
+                        color: Colors.white,
+                        size: 20, // Slightly smaller icon
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      '#$rank',
+                      style: const TextStyle(
+                        fontSize: 18, // Slightly smaller text
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF003366),
+                      ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 8), // Reduced spacing
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontWeight: FontWeight.w500),
+                ),
+                const SizedBox(height: 4), // Reduced spacing
+                Text(
+                  '$count Dockets',
+                  style: TextStyle(
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
           ),
-
-          // Status Tabs
-          SizedBox(
-            height: 48,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              children: [
-                for (final entry in _statusTotals.entries)
-                  if (entry.key != -1) // Skip the "All" status in tabs
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Row(
-                          children: [
-                            Icon(
-                              _statusIcon[entry.key],
-                              size: 16,
-                              color: _selectedStatus == entry.key
-                                  ? Colors.white
-                                  : Colors.black87,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(_statusLabel[entry.key] ?? 'Unknown'),
-                            const SizedBox(width: 4),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _selectedStatus == entry.key
-                                    ? Colors.white24
-                                    : Colors.black12,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                entry.value.toString(),
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: _selectedStatus == entry.key
-                                      ? Colors.white
-                                      : Colors.black87,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        selected: _selectedStatus == entry.key,
-                        backgroundColor: _statusChipColor(entry.key),
-                        selectedColor: const Color(0xFF003366),
-                        onSelected: (selected) {
-                          if (selected) {
-                            setState(() {
-                              _selectedStatus = entry.key;
-                              _recount();
-                            });
-                          }
-                        },
-                      ),
-                    ),
-              ],
-            ),
-          ),
-
-          const Divider(),
-
-          // Docket types grid
-          Expanded(child: _buildDocketGrid(crossAxisCount)),
-        ],
+        ),
       ),
     );
   }
@@ -392,7 +574,19 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
         ); // Sort by count descending
 
     if (filteredCounts.isEmpty) {
-      return const Center(child: Text('No matching docket types found'));
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.search_off, size: 64, color: Colors.grey),
+            const SizedBox(height: 16),
+            Text(
+              'No matching docket types found',
+              style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      );
     }
 
     return GridView.builder(
@@ -401,7 +595,7 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 1.2,
+        childAspectRatio: 1.3, // Increased aspect ratio to give more height
       ),
       itemCount: filteredCounts.length,
       itemBuilder: (context, index) {
@@ -411,6 +605,9 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
 
         return Card(
           elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: InkWell(
             onTap: () {
               Navigator.push(
@@ -427,23 +624,32 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
               ).then((_) => _fetchAndBuild()); // Refresh on return
             },
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12), // Reduced padding
               child: Column(
+                mainAxisSize: MainAxisSize.min, // Prevent auto-expansion
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  Icon(
+                    _iconFor(type),
+                    size: 28, // Slightly smaller icon
+                    color: const Color(0xFF003366),
+                  ),
+                  const SizedBox(height: 6), // Reduced spacing
                   Text(
                     count.toString(),
                     style: const TextStyle(
-                      fontSize: 28,
+                      fontSize: 22, // Slightly smaller text
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF003366),
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 6), // Reduced spacing
                   Text(
                     type,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 14),
+                    style: const TextStyle(
+                      fontSize: 13,
+                    ), // Slightly smaller text
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
