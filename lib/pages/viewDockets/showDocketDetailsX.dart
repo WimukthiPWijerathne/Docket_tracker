@@ -828,14 +828,6 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
               const SizedBox(height: 8),
               const Divider(),
               ListTile(
-                leading: const Icon(Icons.update),
-                title: const Text('Update Status'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showStatusUpdateDialog();
-                },
-              ),
-              ListTile(
                 leading: const Icon(Icons.category),
                 title: const Text('Update Docket Type'),
                 onTap: () {
@@ -854,58 +846,6 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
             ],
           ),
         ),
-      ),
-    );
-  }
-
-  void _showStatusUpdateDialog() {
-    int selectedStatus = _status;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Update Status'),
-        content: StatefulBuilder(
-          builder: (context, setDialogState) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (int i = 0; i < 5; i++)
-                RadioListTile<int>(
-                  title: Text(
-                    [
-                      'Unassigned',
-                      'Assigned',
-                      'Completed',
-                      'Reassigned',
-                      'Issue',
-                    ][i],
-                  ),
-                  value: i,
-                  groupValue: selectedStatus,
-                  onChanged: (value) {
-                    setDialogState(() => selectedStatus = value!);
-                  },
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _updateStatus(selectedStatus);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF003366),
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Update'),
-          ),
-        ],
       ),
     );
   }
@@ -1049,37 +989,6 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
         ),
       ),
     );
-  }
-
-  Future<void> _updateStatus(int newStatus) async {
-    setState(() => _updating = true);
-
-    try {
-      final success = await _docketService.updateDocketStatus(
-        widget.docket.id,
-        newStatus.toString(),
-      );
-
-      if (success) {
-        // The API doesn't return the updated docket, so navigate back
-        // and let the parent page refresh the data
-        if (mounted) Navigator.pop(context, true);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to update status')),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _updating = false);
-    }
   }
 
   Future<void> _updateLocationDetails(String newDetails) async {

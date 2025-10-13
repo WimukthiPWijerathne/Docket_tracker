@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../models/docketsX.dart';
 import '../../service/dockey_serviceX.dart';
 import '../loginScreen/fetchUserAccess.dart';
+import 'filter_selectors.dart';
 import 'showDocketDetailsX.dart';
 
 /// List of dockets for a given type, honoring optional depot + status filters.
@@ -31,7 +32,13 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
   final _svc = DocketServiceX();
   late Future<List<Docket>> _future;
 
-  // Status labels (for AppBar)
+  // Date filtering
+  DateTime? _selectedDate;
+  String get _dateFilterLabel => _selectedDate == null
+      ? 'All Dates'
+      : DateFormat(
+          'MMM dd, yyyy',
+        ).format(_selectedDate!); // Status labels (for AppBar)
   static const Map<int, String> _statusLabel = {
     -1: 'All',
     0: 'Unassigned',
@@ -55,10 +62,22 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
   }
 
   Future<void> _reload() async {
+    // Avoid state updates while the widget is building
+    if (!mounted) return;
+
+    // Create future first, then update state
+    final future = _svc.fetchDockets();
+
     setState(() {
-      _future = _svc.fetchDockets();
+      _future = future;
     });
-    await _future;
+
+    try {
+      await future;
+    } catch (e) {
+      // Silently handle any errors, they will be shown by FutureBuilder
+      debugPrint('[ShowDocketsListX] Error during reload: $e');
+    }
   }
 
   bool _isAllDepots(String? depot) =>
@@ -150,102 +169,144 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
         ),
       ),
       body: SafeArea(
-        child: FutureBuilder<List<Docket>>(
-          future: _future,
-          builder: (context, snap) {
-            if (snap.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF003366)),
-              );
-            }
-            if (snap.hasError) {
-              debugPrint('[ShowDocketsListX] Error: ${snap.error}');
-              return _ErrorState(
-                message: 'Failed to load dockets:\n${snap.error}',
-                onRetry: _reload,
-              );
-            }
+        child: Column(
+          children: [
+            _buildDateFilterSelector(),
+            Expanded(
+              child: FutureBuilder<List<Docket>>(
+                future: _future,
+                builder: (context, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: CircularProgressIndicator(
+                        color: Color(0xFF003366),
+                      ),
+                    );
+                  }
+                  if (snap.hasError) {
+                    debugPrint('[ShowDocketsListX] Error: ${snap.error}');
+                    return _ErrorState(
+                      message: 'Failed to load dockets:\n${snap.error}',
+                      onRetry: _reload,
+                    );
+                  }
 
-            final all = (snap.data ?? <Docket>[]);
-            debugPrint('[ShowDocketsListX] Total fetched: ${all.length}');
+                  final all = (snap.data ?? <Docket>[]);
+                  debugPrint('[ShowDocketsListX] Total fetched: ${all.length}');
 
-            // Step 1: Type filter
-            var step = all.where(
-              (d) =>
-                  d.docketType.toLowerCase().trim() ==
-                  widget.title.toLowerCase().trim(),
-            );
-            debugPrint(
-              '[ShowDocketsListX] After type("${widget.title}"): ${step.length}',
-            );
+                  // Step 1: Type filter
+                  var step = all.where(
+                    (d) =>
+                        d.docketType.toLowerCase().trim() ==
+                        widget.title.toLowerCase().trim(),
+                  );
+                  debugPrint(
+                    '[ShowDocketsListX] After type("${widget.title}"): ${step.length}',
+                  );
 
-            // Step 2: Depot filter (if any)
-            if (effectiveDepot != null) {
-              final dep = effectiveDepot.toLowerCase().trim();
-              step = step.where((d) => d.depot.toLowerCase().trim() == dep);
-              debugPrint(
-                '[ShowDocketsListX] After depot("$dep"): ${step.length}',
-              );
-            } else {
-              debugPrint('[ShowDocketsListX] Depot filter: ALL');
-            }
+                  // Step 2: Depot filter (if any)
+                  if (effectiveDepot != null) {
+                    final dep = effectiveDepot.toLowerCase().trim();
+                    step = step.where(
+                      (d) => d.depot.toLowerCase().trim() == dep,
+                    );
+                    debugPrint(
+                      '[ShowDocketsListX] After depot("$dep"): ${step.length}',
+                    );
+                  } else {
+                    debugPrint('[ShowDocketsListX] Depot filter: ALL');
+                  }
 
-            // Step 3: Status filter
-            if (effectiveStatus != -1) {
-              final st = effectiveStatus;
-              // Debug summary of status values in current data set
-              final statusCounts = <int, int>{};
-              step.forEach((d) {
-                final status = _statusOf(d);
-                statusCounts[status] = (statusCounts[status] ?? 0) + 1;
-              });
+                  // Step 3: Status filter
+                  if (effectiveStatus != -1) {
+                    final st = effectiveStatus;
+                    // Debug summary of status values in current data set
+                    final statusCounts = <int, int>{};
+                    step.forEach((d) {
+                      final status = _statusOf(d);
+                      statusCounts[status] = (statusCounts[status] ?? 0) + 1;
+                    });
 
-              debugPrint(
-                '[Status Debug] Status counts before filtering: $statusCounts',
-              );
-              step = step.where((d) => _statusOf(d) == st);
-              debugPrint(
-                '[ShowDocketsListX] After status($st): ${step.length}',
-              );
-            } else {
-              debugPrint('[ShowDocketsListX] Status filter: ALL');
-            }
+                    debugPrint(
+                      '[Status Debug] Status counts before filtering: $statusCounts',
+                    );
+                    step = step.where((d) => _statusOf(d) == st);
+                    debugPrint(
+                      '[ShowDocketsListX] After status($st): ${step.length}',
+                    );
+                  } else {
+                    debugPrint('[ShowDocketsListX] Status filter: ALL');
+                  }
 
-            final filtered = step.toList()
-              ..sort((a, b) {
-                // newest first if possible
-                final at = _parse(a.uploadedTime);
-                final bt = _parse(b.uploadedTime);
-                return bt.compareTo(at);
-              });
+                  // Step 4: Date filter
+                  if (_selectedDate != null) {
+                    step = step.where((d) => _isDocketOnSelectedDate(d));
+                    debugPrint(
+                      '[ShowDocketsListX] After date filter(${DateFormat('yyyy-MM-dd').format(_selectedDate!)}): ${step.length}',
+                    );
+                  }
 
-            if (filtered.isEmpty) {
-              return _EmptyState(
-                title: 'No dockets found',
-                subtitle: [
-                  'Type: "${widget.title}"',
-                  if (!_isAllDepots(effectiveDepot)) 'Depot: "$effectiveDepot"',
-                  if (effectiveStatus != -1) 'Status: "$statusLabel"',
-                ].join(' • '),
-                onRefresh: _reload,
-              );
-            }
+                  final filtered = step.toList()
+                    ..sort((a, b) {
+                      // newest first if possible
+                      final at = _parse(a.uploadedTime);
+                      final bt = _parse(b.uploadedTime);
+                      return bt.compareTo(at);
+                    });
+                  if (filtered.isEmpty) {
+                    return _EmptyState(
+                      title: 'No dockets found',
+                      subtitle: [
+                        'Type: "${widget.title}"',
+                        if (!_isAllDepots(effectiveDepot))
+                          'Depot: "$effectiveDepot"',
+                        if (effectiveStatus != -1) 'Status: "$statusLabel"',
+                        if (_selectedDate != null)
+                          'Date: "${DateFormat('MMM dd, yyyy').format(_selectedDate!)}"',
+                      ].join(' • '),
+                      onRefresh: _reload,
+                    );
+                  }
 
-            return RefreshIndicator(
-              onRefresh: _reload,
-              color: const Color(0xFF003366),
-              child: ListView.separated(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(16),
-                itemCount: filtered.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, i) => _DocketListTile(
-                  docket: filtered[i],
-                  onTap: () => _viewDocket(context, filtered[i]),
-                ),
+                  // Wrap in RepaintBoundary to prevent semantics issues
+                  return RepaintBoundary(
+                    child: RefreshIndicator(
+                      onRefresh: _reload,
+                      color: const Color(0xFF003366),
+                      child: ListView.builder(
+                        // Changed to builder from separated for better performance
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filtered.length,
+                        itemBuilder: (context, i) {
+                          if (i == filtered.length - 1) {
+                            return _DocketListTile(
+                              key: ValueKey(
+                                'docket-${filtered[i].id}',
+                              ), // Add key for stable identity
+                              docket: filtered[i],
+                              onTap: () => _viewDocket(context, filtered[i]),
+                            );
+                          }
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _DocketListTile(
+                              key: ValueKey(
+                                'docket-${filtered[i].id}',
+                              ), // Add key for stable identity
+                              docket: filtered[i],
+                              onTap: () => _viewDocket(context, filtered[i]),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  );
+                },
               ),
-            );
-          },
+            ),
+          ],
         ),
       ),
     );
@@ -271,13 +332,100 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
       _reload(); // Refresh if docket was updated
     }
   }
+
+  // Show date picker and update filter
+  void _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF003366),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  // Clear date filter
+  void _clearDateFilter() {
+    setState(() {
+      _selectedDate = null;
+    });
+  }
+
+  // Go to previous day
+  void _goToPreviousDay() {
+    setState(() {
+      _selectedDate = _selectedDate == null
+          ? DateTime.now().subtract(const Duration(days: 1))
+          : _selectedDate!.subtract(const Duration(days: 1));
+    });
+  }
+
+  // Go to next day
+  void _goToNextDay() {
+    setState(() {
+      _selectedDate = _selectedDate == null
+          ? DateTime.now()
+          : _selectedDate!.add(const Duration(days: 1));
+    });
+  }
+
+  // No weekly filter methods - removed
+
+  // Check if a docket was created on the selected date
+  bool _isDocketOnSelectedDate(Docket docket) {
+    if (_selectedDate == null) {
+      return true;
+    }
+
+    try {
+      final docketDate = DateTime.parse(docket.uploadedTime.split(' ')[0]);
+      return docketDate.year == _selectedDate!.year &&
+          docketDate.month == _selectedDate!.month &&
+          docketDate.day == _selectedDate!.day;
+    } catch (e) {
+      debugPrint('Error parsing docket date: $e');
+      return false;
+    }
+  }
+
+  // Build date filter selector
+  Widget _buildDateFilterSelector() {
+    return buildDateFilterSelector(
+      context: context,
+      selectedDate: _selectedDate,
+      onPreviousDay: _goToPreviousDay,
+      onNextDay: _goToNextDay,
+      onClearFilter: _clearDateFilter,
+      onSelectDate: () => _selectDate(context),
+    );
+  }
+
+  // No week filter selector - removed
 }
 
 class _DocketListTile extends StatelessWidget {
   final Docket docket;
   final VoidCallback onTap;
 
-  const _DocketListTile({required this.docket, required this.onTap});
+  const _DocketListTile({super.key, required this.docket, required this.onTap});
 
   // All docket images now come from a single subdirectory
   int _dirForType(String type) {
@@ -341,35 +489,39 @@ class _DocketListTile extends StatelessWidget {
                           height: 60,
                           child: Stack(
                             children: [
-                              // Image
+                              // Image with RepaintBoundary to prevent semantics issues
                               Positioned.fill(
-                                child: Image.network(
-                                  _imageUrl(docket),
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: statusColor.withOpacity(0.1),
-                                    child: Icon(statusIcon, color: statusColor),
-                                  ),
-                                  loadingBuilder: (_, child, loadingProgress) {
-                                    if (loadingProgress == null) return child;
-                                    return Container(
-                                      color: statusColor.withOpacity(0.1),
-                                      child: Center(
-                                        child: CircularProgressIndicator(
-                                          color: statusColor,
-                                          value:
-                                              loadingProgress
-                                                      .expectedTotalBytes !=
-                                                  null
-                                              ? loadingProgress
-                                                        .cumulativeBytesLoaded /
-                                                    loadingProgress
-                                                        .expectedTotalBytes!
-                                              : null,
+                                child: RepaintBoundary(
+                                  child: Image.network(
+                                    _imageUrl(docket),
+                                    fit: BoxFit.cover,
+                                    frameBuilder: (ctx, child, frame, wasSync) {
+                                      // Use frameBuilder for smoother image loading
+                                      if (frame != null) {
+                                        return child;
+                                      }
+                                      return Container(
+                                        color: statusColor.withOpacity(0.1),
+                                        child: Center(
+                                          child: SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                              color: statusColor,
+                                              strokeWidth: 2,
+                                            ),
+                                          ),
                                         ),
+                                      );
+                                    },
+                                    errorBuilder: (_, __, ___) => Container(
+                                      color: statusColor.withOpacity(0.1),
+                                      child: Icon(
+                                        statusIcon,
+                                        color: statusColor,
                                       ),
-                                    );
-                                  },
+                                    ),
+                                  ),
                                 ),
                               ),
                               // Status indicator overlay

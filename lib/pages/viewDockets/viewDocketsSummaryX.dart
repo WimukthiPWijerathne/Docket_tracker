@@ -150,9 +150,23 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
 
   // SAFELY read the status from each Docket (used for filtering)
   int _statusOf(Docket d) {
-    final str = d.status.trim();
-    final val = int.tryParse(str);
-    return val ?? 0;
+    try {
+      // Handle empty status
+      if (d.status.isEmpty) {
+        debugPrint('Docket ID: ${d.id} has empty status, using fallback logic');
+        return 0; // Default to "Unassigned" status
+      }
+
+      final str = d.status.trim();
+      final val = int.tryParse(str);
+      if (val == null) {
+        debugPrint('Docket ID: ${d.id}, invalid status format: ${d.status}');
+      }
+      return val ?? 0; // Default to "Unassigned" if parsing fails
+    } catch (e) {
+      debugPrint('Docket ID: ${d.id}, error processing status: $e');
+      return 0; // Default to "Unassigned" on error
+    }
   }
 
   void _recount() {
@@ -259,12 +273,6 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
         ),
       );
     }
-
-    // Apply search filter to the counted types
-    final filteredCounts = _docketCounts.entries.where((e) {
-      if (_query.isEmpty) return true;
-      return e.key.toLowerCase().contains(_query.toLowerCase());
-    }).toList()..sort((a, b) => b.value.compareTo(a.value));
 
     // Get top three docket types
     final topThree =
@@ -375,65 +383,19 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
                   ),
                 ),
 
-                // Filter bar
+                // Filter bar (depot + search)
                 Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 8,
                   ),
-                  child: Column(
-                    children: [
-                      // Search field
-                      TextField(
-                        controller: _searchController,
-                        decoration: InputDecoration(
-                          hintText: 'Search docket types',
-                          prefixIcon: const Icon(Icons.search),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      // Depot dropdown
-                      DropdownButtonFormField<String>(
-                        value: _selectedDepot,
-                        decoration: InputDecoration(
-                          labelText: 'Depot',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                        ),
-                        items: _depots
-                            .map(
-                              (d) => DropdownMenuItem(value: d, child: Text(d)),
-                            )
-                            .toList(),
-                        onChanged: _canPickDepot
-                            ? (value) {
-                                setState(() {
-                                  _selectedDepot = value!;
-                                  _recount();
-                                });
-                              }
-                            : null,
-                      ),
-                    ],
-                  ),
+                  child: _buildFilterBar(),
                 ),
 
                 // Top 3 docket types (horizontal scroll)
                 if (topThree.isNotEmpty) ...[
                   SizedBox(
-                    height: 120, // Reduced height
+                    height: 140, // Increased height to prevent overflow
                     child: ListView.separated(
                       padding: const EdgeInsets.fromLTRB(
                         16,
@@ -483,15 +445,102 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
   }
 
   // Helper method to get an icon for a docket type
-  IconData _iconFor(String type) {
-    final t = type.toLowerCase();
-    if (t.contains('meter')) return Icons.speed;
-    if (t.contains('pole')) return Icons.electric_bolt;
-    if (t.contains('maintenance')) return Icons.build;
-    if (t.contains('visit')) return Icons.directions_walk;
-    if (t.contains('disconnect')) return Icons.power_off;
-    if (t.contains('service')) return Icons.home_repair_service;
-    return Icons.article;
+  IconData _iconFor(String title) {
+    switch (title) {
+      case 'Service Line Maintenance':
+        return Icons.handyman;
+      case 'Meter Testing':
+        return Icons.speed;
+      case 'Estimate':
+        return Icons.request_quote;
+      case 'Per Visit':
+        return Icons.directions_walk;
+      case 'Pole Disconnection':
+        return Icons.power_off;
+      case 'Material Remove':
+        return Icons.remove_circle_outline;
+      case 'Meter Replacement Only':
+        return Icons.swap_horiz;
+      case 'Visit with Contractor':
+        return Icons.group;
+      case 'Pole Top Maintenance':
+        return Icons.engineering;
+      default:
+        // Fallback based on keywords if exact match not found
+        final t = title.toLowerCase();
+        if (t.contains('meter')) return Icons.speed;
+        if (t.contains('pole')) return Icons.electric_bolt;
+        if (t.contains('maintenance')) return Icons.build;
+        if (t.contains('visit')) return Icons.directions_walk;
+        if (t.contains('disconnect')) return Icons.power_off;
+        if (t.contains('service')) return Icons.home_repair_service;
+        return Icons.widgets;
+    }
+  }
+
+  Widget _buildFilterBar() {
+    final isWide = MediaQuery.of(context).size.width >= 700;
+
+    final depotDropdown = DropdownButtonFormField<String>(
+      value: _selectedDepot,
+      isExpanded: true,
+      onChanged: _canPickDepot
+          ? (v) {
+              if (v != null) {
+                setState(() {
+                  _selectedDepot = v;
+                  _recount();
+                });
+              }
+            }
+          : null,
+      items: _depots
+          .map((d) => DropdownMenuItem<String>(value: d, child: Text(d)))
+          .toList(),
+      decoration: InputDecoration(
+        labelText: 'Depot',
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+    );
+
+    final searchField = TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        hintText: 'Search docket types...',
+        prefixIcon: const Icon(Icons.search),
+        suffixIcon: _searchController.text.isEmpty
+            ? null
+            : IconButton(
+                icon: const Icon(Icons.clear),
+                onPressed: () => _searchController.clear(),
+              ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
+      ),
+    );
+
+    if (isWide) {
+      return Row(
+        children: [
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 320),
+            child: depotDropdown,
+          ),
+          const SizedBox(width: 16),
+          Expanded(child: searchField),
+        ],
+      );
+    }
+
+    // Narrow: stack vertically
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [depotDropdown, const SizedBox(height: 12), searchField],
+    );
   }
 
   Widget _buildTopDocketCard({
@@ -500,60 +549,88 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
     required int rank,
     required VoidCallback onTap,
   }) {
+    final Color rankColor = rank == 1
+        ? const Color(0xFFFFD700) // gold
+        : rank == 2
+        ? const Color(0xFFC0C0C0) // silver
+        : const Color(0xFFCD7F32); // bronze
+
     return SizedBox(
-      width: 220,
+      width: 260,
       child: Card(
-        elevation: 3,
+        elevation: 5,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
-          child: Padding(
-            padding: const EdgeInsets.all(12), // Reduced padding
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              gradient: LinearGradient(
+                colors: [rankColor.withOpacity(0.12), Colors.white],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
             child: Column(
               mainAxisSize:
                   MainAxisSize.min, // Prevent column from expanding too much
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // rank + icon
                 Row(
                   children: [
                     Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF003366),
-                        borderRadius: BorderRadius.circular(8),
+                        color: rankColor,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      padding: const EdgeInsets.all(6), // Reduced padding
-                      child: Icon(
-                        _iconFor(title),
-                        color: Colors.white,
-                        size: 20, // Slightly smaller icon
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '#$rank',
-                      style: const TextStyle(
-                        fontSize: 18, // Slightly smaller text
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF003366),
+                      child: Text(
+                        '#$rank',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
+                    const Spacer(),
+                    Icon(_iconFor(title), color: const Color(0xFF003366)),
                   ],
                 ),
-                const SizedBox(height: 8), // Reduced spacing
+                const SizedBox(height: 8),
                 Text(
                   title,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontWeight: FontWeight.w500),
+                  style: const TextStyle(
+                    color: Color(0xFF003366),
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-                const SizedBox(height: 4), // Reduced spacing
-                Text(
-                  '$count Dockets',
-                  style: TextStyle(
-                    color: Colors.grey[700],
-                    fontWeight: FontWeight.w500,
-                    fontSize: 12,
+                const SizedBox(height: 8), // Fixed height instead of Spacer
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4, // Reduced vertical padding
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF003366),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -595,7 +672,7 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
         crossAxisCount: crossAxisCount,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 1.3, // Increased aspect ratio to give more height
+        childAspectRatio: 0.9, // Square aspect ratio for more consistent cards
       ),
       itemCount: filteredCounts.length,
       itemBuilder: (context, index) {
@@ -604,7 +681,7 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
         final count = entry.value;
 
         return Card(
-          elevation: 2,
+          elevation: 3,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -624,34 +701,43 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
               ).then((_) => _fetchAndBuild()); // Refresh on return
             },
             child: Padding(
-              padding: const EdgeInsets.all(12), // Reduced padding
+              padding: const EdgeInsets.all(16),
               child: Column(
-                mainAxisSize: MainAxisSize.min, // Prevent auto-expansion
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     _iconFor(type),
-                    size: 28, // Slightly smaller icon
+                    size: 42,
                     color: const Color(0xFF003366),
                   ),
-                  const SizedBox(height: 6), // Reduced spacing
-                  Text(
-                    count.toString(),
-                    style: const TextStyle(
-                      fontSize: 22, // Slightly smaller text
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF003366),
-                    ),
-                  ),
-                  const SizedBox(height: 6), // Reduced spacing
+                  const SizedBox(height: 12),
                   Text(
                     type,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 13,
-                    ), // Slightly smaller text
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF003366),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFD700),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$count',
+                      style: const TextStyle(
+                        color: Color(0xFF003366),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ],
               ),
