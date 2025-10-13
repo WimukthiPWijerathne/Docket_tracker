@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/docketsX.dart';
-import '../../service/dockey_serviceX.dart';
+// import '../../service/dockey_serviceX.dart'; // unused in this page
+// New: local model/service for docket assignment
+import 'docket_assignment_model.dart';
+import 'docket_assignment_service.dart';
 import './updateDockets/httpUpdateDockets.dart';
 
 class DocketDetailsXPage extends StatefulWidget {
@@ -19,7 +22,11 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
   late String
   _docketType; // local, so we can update UI after a successful change
   bool _updating = false;
-  final DocketServiceX _docketService = DocketServiceX();
+  // DocketServiceX was removed because it's not used in this page
+  final DocketAssignmentServiceView _assignmentService =
+      DocketAssignmentServiceView();
+
+  List<DocketAssignmentModel> _assignments = [];
 
   // Keep it consistent with your app
   static const List<String> _allDocketTypes = [
@@ -74,6 +81,16 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
   void initState() {
     super.initState();
     _docketType = widget.docket.docketType;
+    _fetchAssignments();
+  }
+
+  Future<void> _fetchAssignments() async {
+    try {
+      final list = await _assignmentService.fetchByDocketId(widget.docket.id);
+      if (mounted) setState(() => _assignments = list);
+    } catch (e) {
+      print('Error fetching assignments for docket ${widget.docket.id}: $e');
+    }
   }
 
   @override
@@ -496,6 +513,17 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
                       value: widget.docket.depot,
                     ),
                     const SizedBox(height: 16),
+                    // Show Assigned Persons and Time if available
+                    if (_assignments.isNotEmpty) ...[
+                      _InfoRow(
+                        icon: Icons.group,
+                        label: 'Assigned Persons',
+                        value: _formatAssignedPersons(
+                          _assignments.last.assignedPersons,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
                     _InfoRow(
                       icon: Icons.photo,
                       label: 'Image',
@@ -578,7 +606,18 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
                           widget.docket.completedTime == null,
                     ),
 
-                    if (widget.docket.assignTime != null)
+                    // Prefer assignment data fetched from GETDocketAssignmentX.php
+                    if (_assignments.isNotEmpty)
+                      _buildTimelineItem(
+                        icon: Icons.assignment_ind,
+                        title: 'Assigned',
+                        date: _assignments.last.assignedTime ?? '',
+                        subtitle:
+                            'To: ${_formatAssignedPersons(_assignments.last.assignedPersons)}',
+                        isFirst: false,
+                        isLast: widget.docket.completedTime == null,
+                      )
+                    else if (widget.docket.assignTime != null)
                       _buildTimelineItem(
                         icon: Icons.assignment_ind,
                         title: 'Assigned',
@@ -703,6 +742,23 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
       ],
     );
   }
+
+  String _formatAssignedPersons(String assignedPersons) {
+    if (assignedPersons.isEmpty || assignedPersons.toUpperCase() == 'NULL') {
+      return '-';
+    }
+
+    final persons = assignedPersons
+        .split(',')
+        .map((p) => p.trim())
+        .where((p) => p.isNotEmpty)
+        .toList();
+
+    if (persons.isEmpty) return '-';
+    return persons.join(', ');
+  }
+
+  // assigned time display is handled in the timeline using _buildTimelineItem
 
   Color _getStatusColor() {
     switch (_status) {
