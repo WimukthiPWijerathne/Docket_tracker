@@ -17,12 +17,37 @@ const List<String> kDesignations = [
   'Technician',
 ];
 
-const List<String> kDepots = [
+// Branch to Depot mapping
+const Map<String, List<String>> kBranchDepots = {
+  'All': ['All'],
+  'Kelaniya': ['All', 'Wattala', 'Kandana', 'Mahara', 'Dalugama'],
+  'Kotte': ['All', 'Pitakotte', 'Kolonnawa', 'Kotikawatta'],
+  'Nugegoda': ['All', 'Boralesgamuwa', 'Nugegoda', 'Maharagama'],
+  'Moratuwa': [
+    'All',
+    'Moratuwa North',
+    'Moratuwa South',
+    'Keselwatta',
+    'Panadura',
+    'Koralawella',
+  ],
+  'Kalutara': ['All', 'Payagala', 'Kalutara', 'Aluthgama'],
+  'Negombo': ['All', 'Negombo', 'Seeduwa', 'Ja-Ela'],
+  'Galle': ['All', 'Ambalangoda', 'Hikkaduwa', 'Galle'],
+  'Head Office': ['All', 'Head Office'],
+};
+
+// Available branches
+const List<String> kBranches = [
   'All',
-  'Kadana',
-  'Wattala',
-  'Mahara',
-  'Paliyagoda',
+  'Kelaniya',
+  'Kotte',
+  'Nugegoda',
+  'Moratuwa',
+  'Kalutara',
+  'Negombo',
+  'Galle',
+  'Head Office',
 ];
 
 // Mapping of designations to their corresponding access levels
@@ -53,7 +78,13 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
   List<Person> _all = [];
 
   String _category = 'All';
+  String _selectedBranch = 'All';
   String _selectedDepot = 'All';
+
+  // Get available depots based on selected branch
+  List<String> get _availableDepots => _selectedBranch == 'All'
+      ? ['All'] // Show only 'All' when 'All' branches selected
+      : (kBranchDepots[_selectedBranch] ?? ['All']);
 
   @override
   void initState() {
@@ -116,6 +147,18 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
       list = list.where(
         (p) => p.designation.toLowerCase() == _category.toLowerCase(),
       );
+    }
+
+    // Apply branch filter (affects depot filter)
+    if (_selectedBranch != 'All') {
+      final allowedDepots = kBranchDepots[_selectedBranch] ?? const ['All'];
+      list = list.where((p) {
+        // If depot is 'All', show all depots in the branch (except 'All' itself)
+        final depotList = allowedDepots.where((d) => d != 'All').toList();
+        return depotList.any(
+          (depot) => depot.toLowerCase() == p.depot.toLowerCase(),
+        );
+      });
     }
 
     // Apply depot filter
@@ -303,8 +346,9 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
     if (ok) {
       setState(() {
         final idx = _all.indexWhere((x) => x.personID == p.personID);
-        if (idx >= 0)
+        if (idx >= 0) {
           _all[idx] = p.copyWith(available: p.isActive ? 'No' : 'Yes');
+        }
       });
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2074,12 +2118,12 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
                       child: isMobile && isPortrait
                           ? Column(
                               children: [
-                                // First row: Category and Depot dropdowns
+                                // First row: Category and Branch dropdowns
                                 Row(
                                   children: [
                                     Expanded(
                                       child: DropdownButtonFormField<String>(
-                                        initialValue: _category,
+                                        value: _category,
                                         items: kDesignations
                                             .map(
                                               (d) => DropdownMenuItem(
@@ -2109,8 +2153,45 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: DropdownButtonFormField<String>(
-                                        initialValue: _selectedDepot,
-                                        items: kDepots
+                                        value: _selectedBranch,
+                                        items: kBranches
+                                            .map(
+                                              (b) => DropdownMenuItem(
+                                                value: b,
+                                                child: Text(
+                                                  b,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: (v) => setState(() {
+                                          _selectedBranch = v ?? 'All';
+                                          // Reset depot when branch changes
+                                          _selectedDepot = 'All';
+                                        }),
+                                        decoration: const InputDecoration(
+                                          labelText: 'Branch',
+                                          border: OutlineInputBorder(),
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 10,
+                                          ),
+                                        ),
+                                        isExpanded: true,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                // Second row: Depot and Search
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: DropdownButtonFormField<String>(
+                                        value: _selectedDepot,
+                                        items: _availableDepots
                                             .map(
                                               (d) => DropdownMenuItem(
                                                 value: d,
@@ -2136,21 +2217,23 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
                                         isExpanded: true,
                                       ),
                                     ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                // Second row: Search field
-                                TextField(
-                                  controller: _search,
-                                  decoration: const InputDecoration(
-                                    hintText: 'Search any field',
-                                    prefixIcon: Icon(Icons.search),
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      flex: 2,
+                                      child: TextField(
+                                        controller: _search,
+                                        decoration: const InputDecoration(
+                                          hintText: 'Search...',
+                                          prefixIcon: Icon(Icons.search),
+                                          border: OutlineInputBorder(),
+                                          contentPadding: EdgeInsets.symmetric(
+                                            horizontal: 12,
+                                            vertical: 10,
+                                          ),
+                                        ),
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
                               ],
                             )
@@ -2160,9 +2243,9 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
                                 // Category Dropdown
                                 if (!isMobile || !isPortrait) ...[
                                   SizedBox(
-                                    width: isTablet ? 200 : 260,
+                                    width: isTablet ? 160 : 200,
                                     child: DropdownButtonFormField<String>(
-                                      initialValue: _category,
+                                      value: _category,
                                       items: kDesignations
                                           .map(
                                             (d) => DropdownMenuItem(
@@ -2191,13 +2274,49 @@ class _ViewPeoplePageState extends State<ViewPeoplePage> {
                                   const SizedBox(width: 12),
                                 ],
 
+                                // Branch Dropdown
+                                if (!isMobile || !isPortrait) ...[
+                                  SizedBox(
+                                    width: isTablet ? 160 : 200,
+                                    child: DropdownButtonFormField<String>(
+                                      value: _selectedBranch,
+                                      items: kBranches
+                                          .map(
+                                            (b) => DropdownMenuItem(
+                                              value: b,
+                                              child: Text(
+                                                b,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          )
+                                          .toList(),
+                                      onChanged: (v) => setState(() {
+                                        _selectedBranch = v ?? 'All';
+                                        // Reset depot when branch changes
+                                        _selectedDepot = 'All';
+                                      }),
+                                      decoration: const InputDecoration(
+                                        labelText: 'Branch',
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 10,
+                                        ),
+                                      ),
+                                      isExpanded: true,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                ],
+
                                 // Depot Dropdown
                                 if (!isMobile || !isPortrait) ...[
                                   SizedBox(
-                                    width: isTablet ? 180 : 220,
+                                    width: isTablet ? 160 : 200,
                                     child: DropdownButtonFormField<String>(
-                                      initialValue: _selectedDepot,
-                                      items: kDepots
+                                      value: _selectedDepot,
+                                      items: _availableDepots
                                           .map(
                                             (d) => DropdownMenuItem(
                                               value: d,

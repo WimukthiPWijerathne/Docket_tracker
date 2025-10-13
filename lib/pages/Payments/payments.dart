@@ -26,7 +26,6 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
   List<Map<String, dynamic>> filteredDockets = [];
   Map<String, dynamic> docketDetailsMap = {};
   Map<String, WorkLog> workLogsMap = {}; // Store work logs by assignment ID
-  Map<String, WorkLog> workLogsByDocketId = {}; // Store work logs by docket ID (for fallback)
   double totalSalary = 0.0;
 
   // Date selection and view type
@@ -171,65 +170,78 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
     }
   }
 
-  // Fetch work logs to get completion status (same robust method as depot summary)
+  // NEW: Fetch work logs to get completion status
   Future<void> fetchWorkLogs() async {
     try {
       debugPrint("========================================");
       debugPrint(
-        "Fetching work logs for worker: ${widget.workerId} (${widget.workerName})",
+        "Fetching work logs for employee: ${widget.workerId} (${widget.workerName})",
       );
 
-      // Fetch ALL work logs (same as depot summary service)
+      // Fetch ALL work logs, then filter locally by employee identifier rules
       final allLogs = await WorkLogService.getWorkLogs();
       debugPrint("Total work logs fetched: ${allLogs.length}");
 
+      // Print first 3 work logs as samples
       if (allLogs.isNotEmpty) {
-        debugPrint("Sample work logs (first 10):");
-        for (int i = 0; i < allLogs.length && i < 10; i++) {
+        debugPrint("Sample work logs (first 3):");
+        for (int i = 0; i < allLogs.length && i < 3; i++) {
           final log = allLogs[i];
           debugPrint(
-            "  Sample $i: AssignmentID='${log.assignmentId}', DocketID='${log.docketId}', EmployeeNo='${log.employeeNo}', CompletedAt='${log.completedAt}'",
+            "  Sample $i: EmployeeNo='${log.employeeNo}', AssignmentID='${log.assignmentId}', CompletedAt='${log.completedAt}'",
           );
         }
       }
 
-      // Map work logs by BOTH assignmentId AND docketId for flexible lookup
-      // This matches the depot summary service approach
-      workLogsMap.clear();
-      workLogsByDocketId.clear();
+      // Build normalized keys to match employeeNo stored in logs
+      String normalize(String s) => s.trim().replaceAll(' ', '').toLowerCase();
+      final Set<String> targetKeys = {
+        normalize(widget.workerId),
+        normalize(widget.workerName),
+        widget.workerId.trim(),
+        widget.workerName.trim(),
+      };
 
-      debugPrint("Mapping work logs by assignmentId AND docketId...");
-      for (var workLog in allLogs) {
-        // Primary key: assignmentId
-        if (workLog.assignmentId.isNotEmpty) {
-          workLogsMap[workLog.assignmentId] = workLog;
+      debugPrint("Target keys for matching: $targetKeys");
+
+      // Filter work logs - try multiple matching strategies
+      final workLogs = allLogs.where((wl) {
+        final empNo = wl.employeeNo;
+        final normalizedEmpNo = normalize(empNo);
+
+        // Try exact match first
+        if (targetKeys.contains(empNo)) {
+          debugPrint("✅ Exact match: $empNo");
+          return true;
         }
-        
-        // Secondary key: docketId (for fallback matching, same as depot summary)
-        if (workLog.docketId.isNotEmpty) {
-          workLogsByDocketId[workLog.docketId] = workLog;
+
+        // Try normalized match
+        if (targetKeys.contains(normalizedEmpNo)) {
+          debugPrint("✅ Normalized match: $empNo -> $normalizedEmpNo");
+          return true;
         }
-        
+
+        // Try contains match for names
+        if (empNo.toLowerCase().contains(widget.workerName.toLowerCase()) ||
+            widget.workerName.toLowerCase().contains(empNo.toLowerCase())) {
+          debugPrint("✅ Contains match: $empNo <-> ${widget.workerName}");
+          return true;
+        }
+
+        return false;
+      }).toList();
+
+      debugPrint("Found ${workLogs.length} work logs for this employee");
+
+      // Map work logs by assignment ID for quick lookup
+      for (var workLog in workLogs) {
+        workLogsMap[workLog.assignmentId] = workLog;
         debugPrint(
-          "  Mapped: AssignmentID='${workLog.assignmentId}', DocketID='${workLog.docketId}', EmployeeNo='${workLog.employeeNo}', CompletedAt='${workLog.completedAt}'",
+          "Mapped WorkLog: AssignmentID=${workLog.assignmentId}, DocketID=${workLog.docketId}, CompletedAt=${workLog.completedAt}",
         );
       }
 
-      debugPrint(
-        "WorkLogs mapped: ${workLogsMap.length} by assignmentId, ${workLogsByDocketId.length} by docketId",
-      );
-
-      // Show which IDs we have in both maps
-      if (workLogsMap.isNotEmpty) {
-        final assignmentIds = workLogsMap.keys.take(20).join(', ');
-        debugPrint("Assignment IDs in map (first 20): $assignmentIds");
-      }
-      
-      if (workLogsByDocketId.isNotEmpty) {
-        final docketIds = workLogsByDocketId.keys.take(20).join(', ');
-        debugPrint("Docket IDs in map (first 20): $docketIds");
-      }
-
+      debugPrint("WorkLogs mapped: ${workLogsMap.length} entries");
       debugPrint("========================================");
     } catch (e) {
       debugPrint("❌ Error fetching work logs: $e");
@@ -256,15 +268,7 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
 
         debugPrint("Processing ${assignedDockets.length} assigned dockets...");
 
-        // Show which assignment IDs we're looking for
-        final assignmentIds = assignedDockets
-            .map((d) => d["assignmentID"].toString())
-            .take(20)
-            .join(', ');
-        debugPrint("Looking for assignment IDs (first 20): $assignmentIds");
-
         // Add docket details and check completion status from work logs
-        // Using the SAME robust completion logic as depot summary service
         for (var docket in assignedDockets) {
           final docketId = docket["docketID"].toString();
           final assignmentId = docket["assignmentID"].toString();
@@ -278,45 +282,23 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
             final type = details["DocketType"] ?? "Unknown";
             docket["docketType"] = type;
 
-            // Look up work log by assignmentId OR docketId (depot summary uses docketId!)
-            // Strategy 1: Try assignmentId first (most accurate when it matches)
-            WorkLog? workLog = workLogsMap[assignmentId];
-            String matchMethod = 'none';
-
-            // Strategy 2: If not found by assignmentId, try docketId (same as depot summary)
-            if (workLog == null) {
-              workLog = workLogsByDocketId[docketId];
-              if (workLog != null) {
-                matchMethod = 'docketId';
-              }
-            } else {
-              matchMethod = 'assignmentId';
-            }
-
-            debugPrint(
-              "WorkLog lookup: Assignment=$assignmentId, Docket=$docketId, Found=${workLog != null}, Method=$matchMethod",
-            );
-
-            if (workLog == null) {
-              debugPrint("  ⚠️ No workLog found by assignmentId OR docketId");
-              debugPrint("  Looking for: AssignmentID=$assignmentId OR DocketID=$docketId");
-            }
+            // Check if work log exists and is completed
+            final workLog = workLogsMap[assignmentId];
+            debugPrint("WorkLog found: ${workLog != null}");
 
             if (workLog != null) {
               debugPrint("  - WorkLog ID: ${workLog.id}");
               debugPrint("  - Assignment ID: ${workLog.assignmentId}");
-              debugPrint("  - Docket ID: ${workLog.docketId}");
+              debugPrint("  - Employee No: ${workLog.employeeNo}");
               debugPrint("  - Acknowledged: ${workLog.acknowledgedAt}");
               debugPrint("  - Started: ${workLog.startedAt}");
               debugPrint("  - Completed: ${workLog.completedAt}");
             }
 
-            // ⭐ SAME completion check as depot summary service (lines 318-324)
-            // A docket is completed if WorkLog has valid completedAt timestamp
+            // Check if docket is completed using WorkLog completedAt field (same as depot summary)
             final isCompleted =
-                workLog != null &&
-                workLog.completedAt != null &&
-                workLog.completedAt!.isNotEmpty &&
+                workLog?.completedAt != null &&
+                workLog!.completedAt!.isNotEmpty &&
                 workLog.completedAt != '0' &&
                 workLog.completedAt!.toLowerCase() != 'null';
 
@@ -328,15 +310,13 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
             if (isCompleted) {
               final salary = salaryRates[type] ?? 50.0;
               docket["salary"] = salary;
-              debugPrint(
-                "✅ Docket $docketId COMPLETED: Type=$type, Salary=Rs.$salary, CompletedAt=${workLog.completedAt}",
-              );
             } else {
               docket["salary"] = 0.0; // No salary for incomplete work
-              debugPrint(
-                "⏳ Docket $docketId IN PROGRESS: Type=$type, No salary yet",
-              );
             }
+
+            debugPrint(
+              "✅ Docket $docketId (Assignment $assignmentId): Type=$type, Completed=$isCompleted, Salary=${docket["salary"]}",
+            );
           } else {
             debugPrint("⚠️ No details found for docket $docketId");
             docket["docketType"] = "Unknown";
@@ -363,42 +343,36 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
 
     filteredDockets = assignedDockets.where((docket) {
       final docketId = docket["docketID"];
-      final assignmentId = docket["assignmentID"];
       final isCompleted = docket["isCompleted"] == true;
 
       if (isCompleted) {
         completedCount++;
       }
 
-      // Only include COMPLETED dockets (same as depot summary logic)
+      // Only include completed dockets in the filtered results
       if (!isCompleted) {
-        debugPrint(
-          "❌ Docket $docketId (Assignment $assignmentId): Not completed, skipping",
-        );
+        debugPrint("❌ Docket $docketId: Not completed, skipping");
         return false;
       }
 
       // Check if the completion date falls in the selected period
-      // Priority 1: Use WorkLog completedAt (most accurate)
       final completedAt = docket["workLogCompletedAt"];
-      if (completedAt != null && completedAt.toString().isNotEmpty) {
+      if (completedAt != null) {
         bool inPeriod = isInSelectedPeriod(completedAt);
         if (inPeriod) {
           debugPrint(
-            "✅ Docket $docketId (Assignment $assignmentId): Completed on $completedAt, IN period",
+            "✅ Docket $docketId: Completed on $completedAt, IN period",
           );
         } else {
           debugPrint(
-            "⏭️ Docket $docketId (Assignment $assignmentId): Completed on $completedAt, NOT in period",
+            "⏭️ Docket $docketId: Completed on $completedAt, NOT in period",
           );
         }
         return inPeriod;
       }
 
-      // Fallback to checking assignedTime or completedTime (less accurate)
-      debugPrint(
-        "⚠️ Docket $docketId (Assignment $assignmentId): No workLog completedAt, using fallback dates",
-      );
+      // Fallback to checking assignedTime if workLog completedAt is not available
+      debugPrint("⚠️ Docket $docketId: No workLog completedAt, using fallback");
       bool assignedInPeriod = isInSelectedPeriod(docket["assignedTime"]);
       bool completedInPeriod = isInSelectedPeriod(docket["completedTime"]);
 
@@ -414,13 +388,11 @@ class _WorkersSummaryDetailsPageState extends State<WorkersSummaryDetailsPage> {
 
     debugPrint("📊 SUMMARY:");
     debugPrint("  - Total assigned dockets: ${assignedDockets.length}");
-    debugPrint("  - Completed dockets (all time): $completedCount");
+    debugPrint("  - Completed dockets: $completedCount");
     debugPrint(
-      "  - Completed dockets in selected period: ${filteredDockets.length}",
+      "  - Filtered (completed + in period): ${filteredDockets.length}",
     );
-    debugPrint(
-      "  - Total salary for period: Rs. ${totalSalary.toStringAsFixed(2)}",
-    );
+    debugPrint("  - Total salary: Rs. $totalSalary");
     debugPrint("========================================");
   }
 

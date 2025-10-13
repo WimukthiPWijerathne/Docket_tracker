@@ -12,6 +12,7 @@ import '../../pages/technicianPortal/technicianPortalPage.dart';
 import '../seeAssignments/options.dart';
 import '../eDocket/e_docket.dart';
 import '../Payments/paymentPageOptions.dart';
+import '../viewDockets/viewDocketsSummaryX.dart';
 
 class OptionsPage extends StatefulWidget {
   final String role; // role parameter
@@ -220,6 +221,22 @@ class _OptionsPageState extends State<OptionsPage> {
                           Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (_) => const PaymentPageOptions(),
+                            ),
+                          );
+                        },
+                      ),
+
+                    // ---- View Dockets (CE, CS only) ----
+                    if (widget.role == "ce" || widget.role == "cs")
+                      _buildOptionCard(
+                        context,
+                        'View Dockets',
+                        Icons.dashboard,
+                        const Color(0xFFFFD700),
+                        () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (_) => const ViewDocketSummaryXPage(),
                             ),
                           );
                         },

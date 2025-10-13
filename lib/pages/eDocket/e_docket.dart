@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 import 'e_docket_model.dart';
 import 'e_docket_service.dart';
 
@@ -12,13 +14,18 @@ class EDocketPage extends StatefulWidget {
 
 class _EDocketPageState extends State<EDocketPage> {
   final _formKey = GlobalKey<FormBuilderState>();
+  final _imagePicker = ImagePicker();
 
-  Set<int> _selectedErrorIndices = {};
+  final Set<int> _selectedErrorIndices = {};
   bool _isOtherErrorSelected = false;
   bool _isSubmitting = false;
   late DateTime _currentDateTime;
   bool _isManualDateTime = false;
   String _otherErrorText = ''; // Store the "Other" error text
+
+  // Image handling
+  final List<XFile> _selectedImages = [];
+  final int _maxImages = 5;
 
   final List<String> _errorOptions = const [
     'The meter is not reachable.',
@@ -134,7 +141,139 @@ class _EDocketPageState extends State<EDocketPage> {
       _otherErrorText = '';
       _currentDateTime = DateTime.now(); // Update to current time on reset
       _isManualDateTime = false;
+      _selectedImages.clear();
     });
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      if (_selectedImages.length >= _maxImages) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Maximum $_maxImages images allowed'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      final XFile? image = await _imagePicker.pickImage(
+        source: source,
+        imageQuality: 70,
+        maxWidth: 1920,
+        maxHeight: 1080,
+      );
+
+      if (image != null) {
+        setState(() {
+          _selectedImages.add(image);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error picking image: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _pickMultipleImages() async {
+    try {
+      if (_selectedImages.length >= _maxImages) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Maximum $_maxImages images allowed'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      final List<XFile> images = await _imagePicker.pickMultiImage(
+        imageQuality: 70,
+        maxWidth: 1920,
+        maxHeight: 1080,
+      );
+
+      if (images.isNotEmpty) {
+        final remainingSlots = _maxImages - _selectedImages.length;
+        setState(() {
+          _selectedImages.addAll(images.take(remainingSlots));
+        });
+
+        if (images.length > remainingSlots) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Only first $remainingSlots images were added (max $_maxImages total)',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error picking images: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
+  }
+
+  void _showImageSourceDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Add Images'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.camera_alt, color: Color(0xFF003366)),
+                title: const Text('Take Photo'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.photo_library,
+                  color: Color(0xFF003366),
+                ),
+                title: const Text('Choose from Gallery'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickImage(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(
+                  Icons.photo_library,
+                  color: Color(0xFFFFD700),
+                ),
+                title: const Text('Choose Multiple'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickMultipleImages();
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   String? _validateRequired(String? value, String fieldName) {
@@ -714,6 +853,184 @@ class _EDocketPageState extends State<EDocketPage> {
                   ),
                   maxLines: 3,
                   textInputAction: TextInputAction.done,
+                ),
+
+                const SizedBox(height: 24),
+                _buildSectionTitle('Images (Optional)'),
+                const SizedBox(height: 12),
+
+                // Image Upload Section
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[50],
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(
+                            Icons.photo_camera,
+                            color: Color(0xFF003366),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Add up to $_maxImages images',
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _selectedImages.isEmpty
+                                  ? Colors.grey[300]
+                                  : Colors.blue[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '${_selectedImages.length}/$_maxImages',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _selectedImages.isEmpty
+                                    ? Colors.grey[700]
+                                    : Colors.blue[900],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Add Image Button
+                      OutlinedButton.icon(
+                        onPressed: _selectedImages.length >= _maxImages
+                            ? null
+                            : _showImageSourceDialog,
+                        icon: const Icon(Icons.add_photo_alternate),
+                        label: const Text('Add Images'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          side: BorderSide(
+                            color: _selectedImages.length >= _maxImages
+                                ? Colors.grey[300]!
+                                : const Color(0xFF003366),
+                          ),
+                        ),
+                      ),
+
+                      // Display Selected Images
+                      if (_selectedImages.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        const Divider(),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Selected Images',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.grey[700],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                                childAspectRatio: 1,
+                              ),
+                          itemCount: _selectedImages.length,
+                          itemBuilder: (context, index) {
+                            return Stack(
+                              children: [
+                                Container(
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.grey[300]!,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Image.file(
+                                      File(_selectedImages[index].path),
+                                      fit: BoxFit.cover,
+                                      width: double.infinity,
+                                      height: double.infinity,
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  top: 4,
+                                  right: 4,
+                                  child: GestureDetector(
+                                    onTap: () => _removeImage(index),
+                                    child: Container(
+                                      padding: const EdgeInsets.all(4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(
+                                              0.3,
+                                            ),
+                                            blurRadius: 4,
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        Icons.close,
+                                        size: 16,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Image number badge
+                                Positioned(
+                                  bottom: 4,
+                                  left: 4,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.7),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      '${index + 1}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
 
                 const SizedBox(height: 32),

@@ -24,7 +24,9 @@ class UserAccess extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final resp = await http.get(Uri.parse(url)).timeout(const Duration(seconds: 12));
+      final resp = await http
+          .get(Uri.parse(url))
+          .timeout(const Duration(seconds: 12));
       if (resp.statusCode != 200) {
         error = 'HTTP ${resp.statusCode}';
         _setGuest();
@@ -38,7 +40,11 @@ class UserAccess extends ChangeNotifier {
       if (decoded is List) {
         rows = decoded.cast<Map<String, dynamic>>();
       } else if (decoded is Map<String, dynamic>) {
-        final inner = (decoded['people'] ?? decoded['data'] ?? decoded['results'] ?? decoded['records']);
+        final inner =
+            (decoded['people'] ??
+            decoded['data'] ??
+            decoded['results'] ??
+            decoded['records']);
         if (inner is List) {
           rows = inner.cast<Map<String, dynamic>>();
         } else {
@@ -53,7 +59,10 @@ class UserAccess extends ChangeNotifier {
       Map<String, dynamic>? match;
       for (final row in rows) {
         final m = {for (final e in row.entries) e.key.toLowerCase(): e.value};
-        if ((m['uuid']?.toString() ?? '') == userUID) { match = row; break; }
+        if ((m['uuid']?.toString() ?? '') == userUID) {
+          match = row;
+          break;
+        }
       }
 
       if (match == null) {
@@ -66,19 +75,20 @@ class UserAccess extends ChangeNotifier {
       String? read(List<String> keys) {
         for (final k in keys) {
           final real = match!.keys.firstWhere(
-                (kk) => kk.toLowerCase() == k.toLowerCase(),
+            (kk) => kk.toLowerCase() == k.toLowerCase(),
             orElse: () => '',
           );
-          if (real.isNotEmpty) return match![real]?.toString();
+          if (real.isNotEmpty) return match[real]?.toString();
         }
         return null;
       }
 
-      username        = read(['firstName','firstname']) ?? 'User';
+      username = read(['firstName', 'firstname']) ?? 'User';
       userDesignation = read(['designation']) ?? '';
-      depot           = read(['depot']) ?? '';
-      employeeNumber  = read(['employeeNo','employeeno']);
-      accessLevel     = int.tryParse(read(['accessLevel','accesslevel']) ?? '0') ?? 0;
+      depot = read(['depot']) ?? '';
+      employeeNumber = read(['employeeNo', 'employeeno']);
+      accessLevel =
+          int.tryParse(read(['accessLevel', 'accesslevel']) ?? '0') ?? 0;
 
       return isRegistered = true;
     } catch (e) {
