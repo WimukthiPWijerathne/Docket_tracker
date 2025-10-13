@@ -12,7 +12,8 @@ import '../../pages/technicianPortal/technicianPortalPage.dart';
 import '../seeAssignments/options.dart';
 import '../eDocket/e_docket.dart';
 import '../Payments/paymentPageOptions.dart';
-import '../viewDockets/viewDocketsSummaryX.dart';
+import '../viewDockets/viewDocketsSummary.dart';
+import '../addDocketX/cameraCapture/captureImage.dart';
 
 class OptionsPage extends StatefulWidget {
   final String role; // role parameter
@@ -83,6 +84,20 @@ class _OptionsPageState extends State<OptionsPage> {
                               builder: (_) => const DocketTypeSelectionPage(),
                             ),
                           );
+                        },
+                      ),
+
+                    // ---- Add Docket X (CE, CS, CRO) ----
+                    if (widget.role == "ce" ||
+                        widget.role == "cs" ||
+                        widget.role == "cro")
+                      _buildOptionCard(
+                        context,
+                        'Add Docket X',
+                        Icons.add_a_photo,
+                        const Color(0xFF4CAF50),
+                        () {
+                          openDocketCamera(context);
                         },
                       ),
 

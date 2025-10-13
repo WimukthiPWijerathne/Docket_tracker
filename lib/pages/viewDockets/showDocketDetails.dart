@@ -995,9 +995,10 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
     setState(() => _updating = true);
 
     try {
-      final success = await _docketService.updateLocationDetails(
-        widget.docket.id,
-        newDetails,
+      // Use DocketUpdateApi instead of _docketService
+      final success = await DocketUpdateApi.updateLocationDetails(
+        id: widget.docket.id,
+        locationDetails: newDetails,
       );
 
       if (success) {

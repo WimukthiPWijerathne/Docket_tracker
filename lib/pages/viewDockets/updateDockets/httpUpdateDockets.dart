@@ -19,13 +19,15 @@ class DocketUpdateApi {
   static Future<bool> updateDocketType({
     required String id,
     required String newType,
-    String? uploadedBy, // maps to PHP's uploadedBy field if you want to track who made the change
+    String?
+    uploadedBy, // maps to PHP's uploadedBy field if you want to track who made the change
   }) async {
     final payload = <String, dynamic>{
-      'id': id,                 // <- lower-case id (required by your PHP)
-      'DocketType': newType,    // <- the field you want to change
+      'id': id, // <- lower-case id (required by your PHP)
+      'DocketType': newType, // <- the field you want to change
       if (uploadedBy != null && uploadedBy.isNotEmpty)
-        'uploadedBy': uploadedBy, // optional; PHP supports updating this column too
+        'uploadedBy':
+            uploadedBy, // optional; PHP supports updating this column too
     };
 
     try {
@@ -34,12 +36,12 @@ class DocketUpdateApi {
 
       final resp = await http
           .post(
-        Uri.parse(endpoint),
-        headers: const {
-          'Content-Type': 'application/json', // PHP accepts JSON or form
-        },
-        body: jsonEncode(payload),
-      )
+            Uri.parse(endpoint),
+            headers: const {
+              'Content-Type': 'application/json', // PHP accepts JSON or form
+            },
+            body: jsonEncode(payload),
+          )
           .timeout(const Duration(seconds: 25));
 
       debugPrint('[DocketUpdateApi] Status: ${resp.statusCode}');
@@ -56,7 +58,8 @@ class DocketUpdateApi {
         // unless it clearly indicates an error.
         final bodyLower = resp.body.toLowerCase();
         if (bodyLower.contains('fatal error') ||
-            bodyLower.contains('warning') && !bodyLower.contains('no changes')) {
+            bodyLower.contains('warning') &&
+                !bodyLower.contains('no changes')) {
           return false;
         }
         return true;
@@ -91,14 +94,16 @@ class DocketUpdateApi {
     final payload = {'id': id, ...fields};
     try {
       debugPrint('[DocketUpdateApi.updateFields] POST $endpoint');
-      debugPrint('[DocketUpdateApi.updateFields] Payload: ${jsonEncode(payload)}');
+      debugPrint(
+        '[DocketUpdateApi.updateFields] Payload: ${jsonEncode(payload)}',
+      );
 
       final resp = await http
           .post(
-        Uri.parse(endpoint),
-        headers: const {'Content-Type': 'application/json'},
-        body: jsonEncode(payload),
-      )
+            Uri.parse(endpoint),
+            headers: const {'Content-Type': 'application/json'},
+            body: jsonEncode(payload),
+          )
           .timeout(const Duration(seconds: 25));
 
       debugPrint('[DocketUpdateApi.updateFields] Status: ${resp.statusCode}');
@@ -120,5 +125,13 @@ class DocketUpdateApi {
       debugPrint('[DocketUpdateApi.updateFields] Exception: $e');
       return false;
     }
+  }
+
+  /// Update location details for a docket
+  static Future<bool> updateLocationDetails({
+    required String id,
+    required String locationDetails,
+  }) async {
+    return updateFields(id: id, fields: {'locationDetails': locationDetails});
   }
 }

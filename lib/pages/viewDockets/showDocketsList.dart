@@ -6,8 +6,9 @@ import 'package:provider/provider.dart';
 import '../../models/docketsX.dart';
 import '../../service/dockey_serviceX.dart';
 import '../loginScreen/fetchUserAccess.dart';
-import 'filter_selectors.dart';
-import 'showDocketDetailsX.dart';
+import 'filters/date_filter_selector.dart';
+import 'filters/depot_filter_selector.dart';
+import 'showDocketDetails.dart';
 
 /// List of dockets for a given type, honoring optional depot + status filters.
 /// - depot == null or 'All' → show all depots
@@ -34,11 +35,12 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
 
   // Date filtering
   DateTime? _selectedDate;
-  String get _dateFilterLabel => _selectedDate == null
-      ? 'All Dates'
-      : DateFormat(
-          'MMM dd, yyyy',
-        ).format(_selectedDate!); // Status labels (for AppBar)
+
+  // Depot filtering
+  String? _selectedDepot;
+  List<String> _availableDepots = ['All'];
+
+  // Status labels (for AppBar)
   static const Map<int, String> _statusLabel = {
     -1: 'All',
     0: 'Unassigned',
@@ -58,7 +60,29 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
       'title="${widget.title}", depot="${widget.depot}", filterStatus=${widget.filterStatus}',
     );
 
+    // Set initial depot selection from widget
+    if (widget.depot != null && widget.depot!.toLowerCase() != 'all') {
+      _selectedDepot = widget.depot;
+    }
+
+    // Fetch dockets
     _future = _svc.fetchDockets();
+
+    // After fetching dockets, extract unique depot names
+    _future.then((dockets) {
+      final depotSet = <String>{};
+      for (var docket in dockets) {
+        if (docket.depot.isNotEmpty) {
+          depotSet.add(docket.depot);
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _availableDepots = ['All', ...depotSet.toList()..sort()];
+        });
+      }
+    });
   }
 
   Future<void> _reload() async {
@@ -204,9 +228,10 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
                     '[ShowDocketsListX] After type("${widget.title}"): ${step.length}',
                   );
 
-                  // Step 2: Depot filter (if any)
-                  if (effectiveDepot != null) {
-                    final dep = effectiveDepot.toLowerCase().trim();
+                  // Step 2: Depot filter (if any) - Use UI selected depot first, then fallback to widget.depot
+                  final activeDepot = _selectedDepot ?? effectiveDepot;
+                  if (activeDepot != null) {
+                    final dep = activeDepot.toLowerCase().trim();
                     step = step.where(
                       (d) => d.depot.toLowerCase().trim() == dep,
                     );
@@ -258,7 +283,9 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
                       title: 'No dockets found',
                       subtitle: [
                         'Type: "${widget.title}"',
-                        if (!_isAllDepots(effectiveDepot))
+                        if (_selectedDepot != null)
+                          'Depot: "$_selectedDepot"'
+                        else if (!_isAllDepots(effectiveDepot))
                           'Depot: "$effectiveDepot"',
                         if (effectiveStatus != -1) 'Status: "$statusLabel"',
                         if (_selectedDate != null)
@@ -369,24 +396,6 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
     });
   }
 
-  // Go to previous day
-  void _goToPreviousDay() {
-    setState(() {
-      _selectedDate = _selectedDate == null
-          ? DateTime.now().subtract(const Duration(days: 1))
-          : _selectedDate!.subtract(const Duration(days: 1));
-    });
-  }
-
-  // Go to next day
-  void _goToNextDay() {
-    setState(() {
-      _selectedDate = _selectedDate == null
-          ? DateTime.now()
-          : _selectedDate!.add(const Duration(days: 1));
-    });
-  }
-
   // No weekly filter methods - removed
 
   // Check if a docket was created on the selected date
@@ -408,13 +417,89 @@ class _ShowDocketsListXState extends State<ShowDocketsListX> {
 
   // Build date filter selector
   Widget _buildDateFilterSelector() {
-    return buildDateFilterSelector(
-      context: context,
-      selectedDate: _selectedDate,
-      onPreviousDay: _goToPreviousDay,
-      onNextDay: _goToNextDay,
-      onClearFilter: _clearDateFilter,
-      onSelectDate: () => _selectDate(context),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Depot Filter (Left side)
+          Expanded(
+            child: SizedBox(
+              height: 48,
+              child: buildDepotFilterSelector(
+                context: context,
+                selectedDepot: _selectedDepot,
+                availableDepots: _availableDepots,
+                onDepotSelected: (depot) {
+                  setState(() {
+                    _selectedDepot = depot;
+                  });
+                },
+              ),
+            ),
+          ),
+
+          const SizedBox(width: 12),
+
+          // Date Filter (Right side) - without arrows
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _selectDate(context),
+              child: Container(
+                height: 48,
+                padding: const EdgeInsets.symmetric(
+                  vertical: 8,
+                  horizontal: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFDDDDDD)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 2,
+                      spreadRadius: 0,
+                      offset: const Offset(0, 1),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today,
+                      color: Color(0xFF003366),
+                      size: 18,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _selectedDate == null
+                            ? 'All Dates'
+                            : DateFormat('MMM dd, yyyy').format(_selectedDate!),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (_selectedDate != null)
+                      GestureDetector(
+                        onTap: _clearDateFilter,
+                        child: const Icon(
+                          Icons.close,
+                          size: 18,
+                          color: Colors.grey,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

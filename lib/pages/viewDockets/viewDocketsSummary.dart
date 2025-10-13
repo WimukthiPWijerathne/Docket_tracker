@@ -5,7 +5,7 @@ import 'package:provider/provider.dart';
 import '../../models/docketsX.dart';
 import '../../service/dockey_serviceX.dart';
 import '../loginScreen/fetchUserAccess.dart';
-import 'showDocketsListX.dart';
+import 'showDocketsList.dart';
 
 class ViewDocketSummaryXPage extends StatefulWidget {
   const ViewDocketSummaryXPage({super.key});
@@ -74,12 +74,37 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
     }
   }
 
+  // Debounce timer for search
+  DateTime? _lastSearchTime;
+
   @override
   void initState() {
     super.initState();
-    _searchController.addListener(() {
-      setState(() => _query = _searchController.text.trim().toLowerCase());
-    });
+    _searchController.addListener(_handleSearchChange);
+  }
+
+  void _handleSearchChange() {
+    final newQuery = _searchController.text.trim().toLowerCase();
+    // Only update if actually changed
+    if (_query != newQuery) {
+      // Basic debouncing - limit UI updates to once every 300ms
+      final now = DateTime.now();
+      if (_lastSearchTime == null ||
+          now.difference(_lastSearchTime!).inMilliseconds > 300) {
+        setState(() => _query = newQuery);
+        _lastSearchTime = now;
+      } else {
+        // Schedule a single update after the debounce period
+        Future.delayed(Duration(milliseconds: 300), () {
+          if (mounted &&
+              _query != _searchController.text.trim().toLowerCase()) {
+            setState(
+              () => _query = _searchController.text.trim().toLowerCase(),
+            );
+          }
+        });
+      }
+    }
   }
 
   @override
@@ -109,17 +134,50 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
     super.dispose();
   }
 
+  // Debounce for fetch operations
+  DateTime? _lastFetchTime;
+  bool _isFetching = false;
+
   Future<void> _fetchAndBuild() async {
+    // Prevent multiple simultaneous fetches
+    if (_isFetching) {
+      debugPrint('Fetch already in progress, ignoring');
+      return;
+    }
+
+    // Basic debouncing - don't fetch again if we just did
+    final now = DateTime.now();
+    if (_lastFetchTime != null &&
+        now.difference(_lastFetchTime!).inSeconds < 3) {
+      debugPrint('Fetch debounced (too soon after previous fetch)');
+      return;
+    }
+
+    _isFetching = true;
+    _lastFetchTime = now;
+
     try {
-      setState(() {
-        _isLoading = true;
-        _errorMessage = '';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = true;
+          _errorMessage = '';
+        });
+      }
+
+      // Clear cache before fetching to ensure we get fresh status calculations
+      _statusCache.clear();
 
       final dockets = await _docketService.fetchDockets();
+
+      // Check if still mounted after async operation
+      if (!mounted) {
+        _isFetching = false;
+        return;
+      }
+
       _allDockets = dockets;
 
-      // Build depot list
+      // Process depots efficiently in a single pass
       final depotsSet = <String>{};
       for (final d in _allDockets) {
         final depot = d.depot.trim();
@@ -141,20 +199,34 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
 
       _recount();
     } catch (e) {
-      setState(() {
-        _errorMessage = 'Failed to load dockets: $e';
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load dockets: $e';
+          _isLoading = false;
+        });
+      }
+    } finally {
+      _isFetching = false;
     }
   }
 
+  // Status cache to avoid repeated parsing of the same docket status
+  final Map<String, int> _statusCache = {};
+
   // SAFELY read the status from each Docket (used for filtering)
   int _statusOf(Docket d) {
+    // Use cached value if available
+    if (_statusCache.containsKey(d.id)) {
+      return _statusCache[d.id]!;
+    }
+
     try {
       // Handle empty status
       if (d.status.isEmpty) {
         debugPrint('Docket ID: ${d.id} has empty status, using fallback logic');
-        return 0; // Default to "Unassigned" status
+        final status = 0; // Default to "Unassigned" status
+        _statusCache[d.id] = status;
+        return status;
       }
 
       final str = d.status.trim();
@@ -162,52 +234,56 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
       if (val == null) {
         debugPrint('Docket ID: ${d.id}, invalid status format: ${d.status}');
       }
-      return val ?? 0; // Default to "Unassigned" if parsing fails
+      final status = val ?? 0; // Default to "Unassigned" if parsing fails
+      _statusCache[d.id] = status;
+      return status;
     } catch (e) {
       debugPrint('Docket ID: ${d.id}, error processing status: $e');
-      return 0; // Default to "Unassigned" on error
+      final status = 0; // Default to "Unassigned" on error
+      _statusCache[d.id] = status;
+      return status;
     }
   }
 
   void _recount() {
-    // Filter by depot according to selection/permissions
-    Iterable<Docket> depotFiltered = _allDockets;
-
-    String? myDepot;
-    try {
-      // Try to get UserAccess, but don't crash if not available
-      myDepot = Provider.of<UserAccess>(context, listen: false).depot;
-    } catch (e) {
-      // If UserAccess provider is not found, no filtering by depot
-      myDepot = null;
+    // Determine the depot filter
+    String? filterDepot;
+    if (_selectedDepot != 'All') {
+      filterDepot = _selectedDepot;
+    } else if (!_canPickDepot) {
+      try {
+        // Try to get UserAccess, but don't crash if not available
+        filterDepot = Provider.of<UserAccess>(context, listen: false).depot;
+      } catch (e) {
+        // If UserAccess provider is not found, no filtering by depot
+        filterDepot = null;
+      }
     }
 
-    if (!_canPickDepot && myDepot != null) {
-      depotFiltered = depotFiltered.where((d) => d.depot == myDepot);
-    } else if (_selectedDepot != 'All') {
-      depotFiltered = depotFiltered.where((d) => d.depot == _selectedDepot);
-    }
-
-    // Build status totals for tabs (independent of search text)
+    // Process all dockets in a single pass
     final statusTotals = <int, int>{-1: 0, 0: 0, 1: 0, 2: 0, 3: 0, 4: 0};
-    for (final d in depotFiltered) {
-      final s = _statusOf(d).clamp(0, 4);
-      statusTotals[-1] = (statusTotals[-1] ?? 0) + 1;
-      statusTotals[s] = (statusTotals[s] ?? 0) + 1;
-    }
-
-    // Apply status filter for the grid/top3 counting
-    Iterable<Docket> filtered = depotFiltered;
-    if (_selectedStatus != -1) {
-      filtered = filtered.where((d) => _statusOf(d) == _selectedStatus);
-    }
-
-    // Count by type
     final counts = <String, int>{};
-    for (final d in filtered) {
-      final t = d.docketType.trim();
-      if (t.isEmpty) continue;
-      counts[t] = (counts[t] ?? 0) + 1;
+
+    for (final d in _allDockets) {
+      // Apply depot filter
+      if (filterDepot != null && d.depot != filterDepot) {
+        continue;
+      }
+
+      // Get status only once per docket
+      final status = _statusOf(d).clamp(0, 4);
+
+      // Count for status totals
+      statusTotals[-1] = (statusTotals[-1] ?? 0) + 1;
+      statusTotals[status] = (statusTotals[status] ?? 0) + 1;
+
+      // Apply status filter for type counting
+      if (_selectedStatus == -1 || status == _selectedStatus) {
+        final docketType = d.docketType.trim();
+        if (docketType.isNotEmpty) {
+          counts[docketType] = (counts[docketType] ?? 0) + 1;
+        }
+      }
     }
 
     setState(() {
@@ -641,14 +717,25 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
     );
   }
 
+  // Memoize filtered docket counts
+  List<MapEntry<String, int>>? _filteredCountsCache;
+  String? _lastQueryForCache;
+
   Widget _buildDocketGrid(int crossAxisCount) {
-    final filteredCounts =
-        _docketCounts.entries.where((e) {
-          if (_query.isEmpty) return true;
-          return e.key.toLowerCase().contains(_query.toLowerCase());
-        }).toList()..sort(
-          (a, b) => b.value.compareTo(a.value),
-        ); // Sort by count descending
+    // Only filter and sort if query changed or cache is empty
+    if (_filteredCountsCache == null || _lastQueryForCache != _query) {
+      _filteredCountsCache =
+          _docketCounts.entries.where((e) {
+            if (_query.isEmpty) return true;
+            return e.key.toLowerCase().contains(_query.toLowerCase());
+          }).toList()..sort(
+            (a, b) => b.value.compareTo(a.value),
+          ); // Sort by count descending
+
+      _lastQueryForCache = _query;
+    }
+
+    final filteredCounts = _filteredCountsCache!;
 
     if (filteredCounts.isEmpty) {
       return Center(
@@ -674,6 +761,8 @@ class _ViewDocketSummaryXPageState extends State<ViewDocketSummaryXPage> {
         mainAxisSpacing: 16,
         childAspectRatio: 0.9, // Square aspect ratio for more consistent cards
       ),
+      // Use cacheExtent to pre-render more items for smoother scrolling
+      cacheExtent: 500,
       itemCount: filteredCounts.length,
       itemBuilder: (context, index) {
         final entry = filteredCounts[index];
