@@ -1,25 +1,31 @@
 // lib/utils/captureImage.dart
 import 'dart:developer' as developer;
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 
 import '../imageDetailsGrabbing/imageDataCollection.dart';
-
-
-
 
 /// Entry point: open camera → capture → go to preview.
 /// Use this from your "Add Docket" button: await openDocketCamera(context);
 Future<void> openDocketCamera(BuildContext context) async {
   try {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const _DocketCameraPage()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const _DocketCameraPage()));
   } catch (e, st) {
-    developer.log('openDocketCamera error: $e', name: 'DocketCamera', stackTrace: st);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Camera failed: $e')),
+    developer.log(
+      'openDocketCamera error: $e',
+      name: 'DocketCamera',
+      stackTrace: st,
     );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('Camera failed: $e')));
   }
 }
 
@@ -35,6 +41,10 @@ class _DocketCameraPageState extends State<_DocketCameraPage>
   CameraController? _controller;
   Future<void>? _initFuture;
   bool _isTakingPicture = false;
+  // Last overlay frame rect (in logical pixels relative to the preview widget)
+  Rect? _lastFrameRect;
+  // Logical size of the preview widget when frame was calculated
+  Size? _lastPreviewLogicalSize;
 
   @override
   void initState() {
@@ -53,7 +63,8 @@ class _DocketCameraPageState extends State<_DocketCameraPage>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     final cameraController = _controller;
-    if (cameraController == null || !cameraController.value.isInitialized) return;
+    if (cameraController == null || !cameraController.value.isInitialized)
+      return;
 
     if (state == AppLifecycleState.inactive) {
       cameraController.dispose();
@@ -66,7 +77,7 @@ class _DocketCameraPageState extends State<_DocketCameraPage>
     try {
       final cameras = await availableCameras();
       final backCamera = cameras.firstWhere(
-            (c) => c.lensDirection == CameraLensDirection.back,
+        (c) => c.lensDirection == CameraLensDirection.back,
         orElse: () => cameras.first,
       );
       final controller = CameraController(
@@ -78,7 +89,11 @@ class _DocketCameraPageState extends State<_DocketCameraPage>
       await controller.initialize();
       if (mounted) setState(() {});
     } catch (e, st) {
-      developer.log('Camera init error: $e', name: 'DocketCamera', stackTrace: st);
+      developer.log(
+        'Camera init error: $e',
+        name: 'DocketCamera',
+        stackTrace: st,
+      );
       rethrow;
     }
   }
@@ -92,19 +107,30 @@ class _DocketCameraPageState extends State<_DocketCameraPage>
       final rawFile = await ctrl.takePicture();
 
       if (!mounted) return;
+
+      XFile fileToPreview = rawFile;
+      if (_lastFrameRect != null && _lastPreviewLogicalSize != null) {
+        final cropped = await _cropCapturedToFrame(
+          rawFile.path,
+          _lastFrameRect!,
+          _lastPreviewLogicalSize!,
+        );
+        if (cropped != null) fileToPreview = cropped;
+      }
+
       // 👉 Go to preview. Do renaming/compression there.
       // Make sure your ImagePreviewPage accepts: ImagePreviewPage({required XFile capturedFile, String? docketType})
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => ImagePreviewPage(capturedFile: rawFile),
+          builder: (_) => ImagePreviewPage(capturedFile: fileToPreview),
         ),
       );
     } catch (e, st) {
       developer.log('Capture error: $e', name: 'DocketCamera', stackTrace: st);
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Capture failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Capture failed: $e')));
     } finally {
       if (mounted) setState(() => _isTakingPicture = false);
     }
@@ -129,13 +155,18 @@ class _DocketCameraPageState extends State<_DocketCameraPage>
                 CameraPreview(_controller!),
 
                 // Simple overlay (optional)
-                const _DocketFrameOverlay(
-                  frameWidth: 300,
-                  frameHeight: 400,
+                _DocketFrameOverlay(
+                  // increased slightly to give a larger capture area for dockets
+                  frameWidth: 340,
+                  frameHeight: 480,
                   cornerRadius: 8,
                   borderWidth: 4,
                   borderColor: Colors.white,
                   overlayOpacity: 0.7,
+                  onFrameRect: (rect, logicalSize) {
+                    _lastFrameRect = rect;
+                    _lastPreviewLogicalSize = logicalSize;
+                  },
                 ),
 
                 // Shutter + hint
@@ -200,6 +231,7 @@ class _DocketFrameOverlay extends StatelessWidget {
   final double borderWidth;
   final Color borderColor;
   final double overlayOpacity;
+  final void Function(Rect frameRect, Size logicalSize)? onFrameRect;
 
   const _DocketFrameOverlay({
     required this.frameWidth,
@@ -208,6 +240,7 @@ class _DocketFrameOverlay extends StatelessWidget {
     this.borderWidth = 3,
     this.borderColor = Colors.black,
     this.overlayOpacity = 0.5,
+    this.onFrameRect,
   });
 
   @override
@@ -221,6 +254,15 @@ class _DocketFrameOverlay extends StatelessWidget {
             frameWidth,
             frameHeight,
           );
+          // notify caller about frame position & preview logical size
+          if (onFrameRect != null) {
+            try {
+              onFrameRect!(
+                frameRect,
+                Size(constraints.maxWidth, constraints.maxHeight),
+              );
+            } catch (_) {}
+          }
           return SizedBox.expand(
             child: CustomPaint(
               painter: _DarkenOutsidePainter(
@@ -255,7 +297,10 @@ class _DarkenOutsidePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rrect = RRect.fromRectAndRadius(frameRect, Radius.circular(cornerRadius));
+    final rrect = RRect.fromRectAndRadius(
+      frameRect,
+      Radius.circular(cornerRadius),
+    );
 
     // Darken outside the frame
     final overlayPath = Path()
@@ -288,6 +333,85 @@ class _DarkenOutsidePainter extends CustomPainter {
   }
 }
 
+/// Crop the captured image file to the provided [frameRect] which is expressed
+/// in logical pixels relative to the preview widget size [previewLogicalSize].
+/// Returns an [XFile] pointing to a temporary JPEG containing the cropped area,
+/// or null on failure.
+Future<XFile?> _cropCapturedToFrame(
+  String capturedPath,
+  Rect frameRect,
+  Size previewLogicalSize,
+) async {
+  try {
+    final bytes = await File(capturedPath).readAsBytes();
+
+    // Decode image to get actual pixel size
+    final codec = await ui.instantiateImageCodec(bytes);
+    final frameInfo = await codec.getNextFrame();
+    final ui.Image srcImage = frameInfo.image;
+    final int srcW = srcImage.width;
+    final int srcH = srcImage.height;
+
+    // Map logical preview coords -> image pixel coords
+    final double scaleX = srcW / previewLogicalSize.width;
+    final double scaleY = srcH / previewLogicalSize.height;
+
+    final int srcLeft = (frameRect.left * scaleX).clamp(0, srcW - 1).toInt();
+    final int srcTop = (frameRect.top * scaleY).clamp(0, srcH - 1).toInt();
+    final int srcWidth = (frameRect.width * scaleX)
+        .clamp(0, srcW - srcLeft)
+        .toInt();
+    final int srcHeight = (frameRect.height * scaleY)
+        .clamp(0, srcH - srcTop)
+        .toInt();
+
+    // Draw the cropped region into a new image
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final paint = Paint();
+    final srcRect = Rect.fromLTWH(
+      srcLeft.toDouble(),
+      srcTop.toDouble(),
+      srcWidth.toDouble(),
+      srcHeight.toDouble(),
+    );
+    final dstRect = Rect.fromLTWH(
+      0,
+      0,
+      srcWidth.toDouble(),
+      srcHeight.toDouble(),
+    );
+    canvas.drawImageRect(srcImage, srcRect, dstRect, paint);
+    final picture = recorder.endRecording();
+    final ui.Image cropped = await picture.toImage(srcWidth, srcHeight);
+
+    final byteData = await cropped.toByteData(format: ui.ImageByteFormat.png);
+    if (byteData == null) return null;
+    final pngBytes = byteData.buffer.asUint8List();
+
+    // Compress PNG to JPEG to reduce size using flutter_image_compress
+    final tempDir = await getTemporaryDirectory();
+    final outPath = p.join(
+      tempDir.path,
+      'docket_cropped_${DateTime.now().millisecondsSinceEpoch}.jpg',
+    );
+    final compressed = await FlutterImageCompress.compressWithList(
+      pngBytes,
+      format: CompressFormat.jpeg,
+      quality: 85,
+    );
+    final outFile = File(outPath);
+    await outFile.writeAsBytes(compressed);
+    return XFile(outFile.path);
+  } catch (e, st) {
+    developer.log(
+      'cropCapturedToFrame error: $e',
+      name: 'DocketCamera',
+      stackTrace: st,
+    );
+    return null;
+  }
+}
 
 //v1
 // import 'dart:developer' as developer;

@@ -518,9 +518,7 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
                       _InfoRow(
                         icon: Icons.group,
                         label: 'Assigned Persons',
-                        value: _formatAssignedPersons(
-                          _assignments.last.assignedPersons,
-                        ),
+                        value: _aggregateAssignedPersons(),
                       ),
                     ],
                     const SizedBox(height: 16),
@@ -612,8 +610,7 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
                         icon: Icons.assignment_ind,
                         title: 'Assigned',
                         date: _assignments.last.assignedTime ?? '',
-                        subtitle:
-                            'To: ${_formatAssignedPersons(_assignments.last.assignedPersons)}',
+                        subtitle: 'To: ${_aggregateAssignedPersons()}',
                         isFirst: false,
                         isLast: widget.docket.completedTime == null,
                       )
@@ -756,6 +753,26 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
 
     if (persons.isEmpty) return '-';
     return persons.join(', ');
+  }
+
+  /// Aggregate assigned persons from all fetched assignment entries.
+  /// Returns a formatted string or '-' when none available.
+  String _aggregateAssignedPersons() {
+    if (_assignments.isEmpty) return '-';
+    final names = <String>{};
+    for (final a in _assignments) {
+      final ap = a.assignedPersons;
+      if (ap.isEmpty) continue;
+      final formatted = _formatAssignedPersons(ap);
+      if (formatted == '-') continue;
+      final parts = formatted
+          .split(',')
+          .map((s) => s.trim())
+          .where((s) => s.isNotEmpty);
+      names.addAll(parts);
+    }
+    if (names.isEmpty) return '-';
+    return names.join(', ');
   }
 
   // assigned time display is handled in the timeline using _buildTimelineItem
