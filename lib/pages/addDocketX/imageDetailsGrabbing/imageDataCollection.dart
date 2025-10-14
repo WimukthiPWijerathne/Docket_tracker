@@ -4,7 +4,6 @@ import 'dart:developer' as developer;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:cross_file/cross_file.dart';
 
 import 'package:leco_docket_tracker/services/api_service.dart';
 import '../../../utils/file_helper.dart';
@@ -59,6 +58,9 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
   String? _selectedType;
   late final TextEditingController _filenameCtrl;
   final TextEditingController _transformerCtrl = TextEditingController();
+  final TextEditingController _transformerDigitsCtrl =
+      TextEditingController(); // For 4 digits only
+  String _transformerPrefix = ""; // "AZ" or "BZ"
   final TextEditingController _poleCtrl = TextEditingController();
   final TextEditingController _meterShiftCtrl = TextEditingController();
   final TextEditingController _docketSerialCtrl =
@@ -80,6 +82,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
   void dispose() {
     _filenameCtrl.dispose();
     _transformerCtrl.dispose();
+    _transformerDigitsCtrl.dispose();
     _poleCtrl.dispose();
     _meterShiftCtrl.dispose();
     _docketSerialCtrl.dispose(); // ✅ NEW
@@ -114,7 +117,9 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
 
   bool get _canSave {
     final name = _filenameCtrl.text.trim().toLowerCase();
-    final transformerOk = _transformerCtrl.text.trim().isNotEmpty;
+    final transformerOk =
+        _transformerPrefix.isNotEmpty &&
+        _transformerDigitsCtrl.text.length == 4;
     final hasJpgExt = name.endsWith('.jpg') || name.endsWith('.jpeg');
     return !_isUploading && _selectedType != null && transformerOk && hasJpgExt;
   }
@@ -126,9 +131,17 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
       );
       return;
     }
-    if (_transformerCtrl.text.trim().isEmpty) {
+    if (_transformerPrefix.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter transformer number')),
+        const SnackBar(content: Text('Please select either AZ or BZ prefix')),
+      );
+      return;
+    }
+    if (_transformerDigitsCtrl.text.length != 4) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a 4-digit transformer number'),
+        ),
       );
       return;
     }
@@ -484,12 +497,7 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
               ),
             ),
             const SizedBox(height: 8),
-            _buildField(
-              _transformerCtrl,
-              'Transformer Number',
-              isRequired: true,
-              helper: 'Required. Enter the transformer number for this docket.',
-            ),
+            _buildTransformerField(),
             _buildField(
               _poleCtrl,
               'Pole Number',
@@ -510,6 +518,139 @@ class _ImagePreviewPageState extends State<ImagePreviewPage> {
             const SizedBox(height: 8),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTransformerField() {
+    void _updateTransformerValue() {
+      // Update the main transformer controller with combined value
+      _transformerCtrl.text =
+          '$_transformerPrefix${_transformerDigitsCtrl.text}';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Transformer Number',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              ),
+              const Text(' *', style: TextStyle(color: Colors.red)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Prefix Buttons
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _transformerPrefix = 'AZ';
+                      _updateTransformerValue();
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _transformerPrefix == 'AZ'
+                        ? const Color(0xFF003366)
+                        : Colors.grey[300],
+                    foregroundColor: _transformerPrefix == 'AZ'
+                        ? Colors.white
+                        : Colors.black87,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('AZ'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _transformerPrefix = 'BZ';
+                      _updateTransformerValue();
+                    });
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _transformerPrefix == 'BZ'
+                        ? const Color(0xFF003366)
+                        : Colors.grey[300],
+                    foregroundColor: _transformerPrefix == 'BZ'
+                        ? Colors.white
+                        : Colors.black87,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('BZ'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // 4-digit input field with prefix
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade400),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Row(
+              children: [
+                // Prefix display
+                if (_transformerPrefix.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 15,
+                    ),
+                    color: const Color(0xFF003366).withOpacity(0.1),
+                    child: Text(
+                      _transformerPrefix,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ),
+                // Digit input
+                Expanded(
+                  child: TextField(
+                    controller: _transformerDigitsCtrl,
+                    keyboardType: TextInputType.number,
+                    maxLength: 4,
+                    onChanged: (value) {
+                      _updateTransformerValue();
+                      setState(() {});
+                    },
+                    decoration: InputDecoration(
+                      hintText: _transformerPrefix.isEmpty
+                          ? 'Select AZ/BZ above first'
+                          : 'Enter 4 digits',
+                      helperText: null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 15,
+                      ),
+                      counterText: '',
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Text(
+              'Required. Enter a 4-digit transformer number.',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ),
+        ],
       ),
     );
   }

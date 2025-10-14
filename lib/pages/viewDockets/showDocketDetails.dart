@@ -112,10 +112,36 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
 
   Future<void> _fetchAssignments() async {
     try {
+      print(
+        '🔍 FETCHING ASSIGNMENTS FOR SPECIFIC DOCKET ID: ${widget.docket.id}',
+      );
+      print(
+        '🔍 DOCKET TYPE: ${widget.docket.docketType}, STATUS: ${widget.docket.status}',
+      );
+
       final list = await _assignmentService.fetchByDocketId(widget.docket.id);
-      if (mounted) setState(() => _assignments = list);
+
+      print(
+        '📋 ASSIGNMENT COUNT: ${list.length} assignments found for docket ${widget.docket.id}',
+      );
+      for (var assign in list) {
+        print(
+          '👤 Assignment ID: ${assign.assignmentID}, DocketID: ${assign.docketID}, Persons: "${assign.assignedPersons}"',
+        );
+      }
+
+      // Filter assignments that match this specific docket ID
+      final filteredAssignments = list
+          .where((assign) => assign.docketID == widget.docket.id.toString())
+          .toList();
+
+      print(
+        '🔎 FILTERED: ${filteredAssignments.length} assignments match this docket ID',
+      );
+
+      if (mounted) setState(() => _assignments = filteredAssignments);
     } catch (e) {
-      print('Error fetching assignments for docket ${widget.docket.id}: $e');
+      print('❌ Error fetching assignments for docket ${widget.docket.id}: $e');
     }
   }
 
@@ -545,8 +571,9 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
                       value: widget.docket.depot,
                     ),
                     const SizedBox(height: 16),
-                    // Show Assigned Persons and Time if available
-                    if (_assignments.isNotEmpty) ...[
+                    // Show Assigned Persons only for assigned (status=1) or completed (status=2) dockets
+                    if ((_status == 1 || _status == 2 || _status == 3) &&
+                        _assignments.isNotEmpty) ...[
                       _InfoRow(
                         icon: Icons.group,
                         label: 'Assigned Persons',
@@ -636,24 +663,70 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
                           widget.docket.completedTime == null,
                     ),
 
-                    // Prefer assignment data fetched from GETDocketAssignmentX.php
-                    if (_assignments.isNotEmpty)
-                      _buildTimelineItem(
-                        icon: Icons.assignment_ind,
-                        title: 'Assigned',
-                        date: _assignments.last.assignedTime ?? '',
-                        subtitle: 'To: ${_aggregateAssignedPersons()}',
-                        isFirst: false,
-                        isLast: widget.docket.completedTime == null,
-                      )
-                    else if (widget.docket.assignTime != null)
-                      _buildTimelineItem(
-                        icon: Icons.assignment_ind,
-                        title: 'Assigned',
-                        date: widget.docket.assignTime ?? '',
-                        subtitle: 'To: ${widget.docket.assignedTo ?? 'N/A'}',
-                        isFirst: false,
-                        isLast: widget.docket.completedTime == null,
+                    // Assignment info - show only for assigned, completed or reassigned dockets
+                    if (_status == 1 || _status == 2 || _status == 3)
+                      Builder(
+                        builder: (context) {
+                          // First try to use the assignment data from API
+                          final matchingAssignments = _assignments
+                              .where(
+                                (a) =>
+                                    a.docketID == widget.docket.id.toString(),
+                              )
+                              .toList();
+
+                          if (matchingAssignments.isNotEmpty) {
+                            print(
+                              '🕒 TIMELINE: Using assignment data from API for docket ${widget.docket.id}',
+                            );
+
+                            // Get the most recent assignment date for the timeline
+                            final lastAssignmentDate =
+                                matchingAssignments
+                                    .map((a) => a.assignedTime ?? '')
+                                    .where((date) => date.isNotEmpty)
+                                    .toList()
+                                  ..sort(); // Sort dates ascending
+
+                            final assignmentDate = lastAssignmentDate.isNotEmpty
+                                ? lastAssignmentDate
+                                      .last // Get latest date
+                                : '';
+
+                            print(
+                              '🕒 TIMELINE: Assignment date: $assignmentDate',
+                            );
+
+                            return _buildTimelineItem(
+                              icon: Icons.assignment_ind,
+                              title: matchingAssignments.length > 1
+                                  ? 'Assigned Persons'
+                                  : 'Assigned',
+                              date: assignmentDate,
+                              subtitle: 'To: ${_aggregateAssignedPersons()}',
+                              isFirst: false,
+                              isLast: widget.docket.completedTime == null,
+                            );
+                          }
+                          // Fallback to docket's own assignTime if available
+                          else if (widget.docket.assignTime != null) {
+                            print(
+                              '🕒 TIMELINE: Using fallback assignment data for docket ${widget.docket.id}',
+                            );
+                            return _buildTimelineItem(
+                              icon: Icons.assignment_ind,
+                              title: 'Assigned',
+                              date: widget.docket.assignTime ?? '',
+                              subtitle:
+                                  'To: ${widget.docket.assignedTo ?? 'N/A'}',
+                              isFirst: false,
+                              isLast: widget.docket.completedTime == null,
+                            );
+                          }
+
+                          // No assignment info available
+                          return const SizedBox.shrink();
+                        },
                       ),
 
                     // For completed dockets, always show the timeline item
@@ -811,39 +884,57 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
     );
   }
 
-  String _formatAssignedPersons(String assignedPersons) {
-    if (assignedPersons.isEmpty || assignedPersons.toUpperCase() == 'NULL') {
-      return '-';
-    }
-
-    final persons = assignedPersons
-        .split(',')
-        .map((p) => p.trim())
-        .where((p) => p.isNotEmpty)
-        .toList();
-
-    if (persons.isEmpty) return '-';
-    return persons.join(', ');
-  }
-
   /// Aggregate assigned persons from all fetched assignment entries.
   /// Returns a formatted string or '-' when none available.
+  /// Shows all assigned persons from all matching assignments for multi-person dockets.
   String _aggregateAssignedPersons() {
+    print('📊 DOCKET ID: ${widget.docket.id}, STATUS: ${_status}');
+    print('📊 ASSIGNMENTS COUNT: ${_assignments.length}');
+
+    // If no assignments, return early
     if (_assignments.isEmpty) return '-';
-    final names = <String>{};
-    for (final a in _assignments) {
-      final ap = a.assignedPersons;
-      if (ap.isEmpty) continue;
-      final formatted = _formatAssignedPersons(ap);
-      if (formatted == '-') continue;
-      final parts = formatted
-          .split(',')
-          .map((s) => s.trim())
-          .where((s) => s.isNotEmpty);
-      names.addAll(parts);
+
+    // Debug each assignment
+    for (int i = 0; i < _assignments.length; i++) {
+      final a = _assignments[i];
+      print(
+        '📊 ASSIGNMENT[$i]: ID=${a.assignmentID}, DocketID=${a.docketID}, Persons="${a.assignedPersons}"',
+      );
     }
-    if (names.isEmpty) return '-';
-    return names.join(', ');
+
+    // Verify that assignments are for this specific docket
+    final matchingAssignments = _assignments
+        .where((a) => a.docketID == widget.docket.id.toString())
+        .toList();
+
+    print('📊 MATCHING ASSIGNMENTS: ${matchingAssignments.length}');
+
+    if (matchingAssignments.isEmpty) return '-';
+
+    // Collect all assigned persons from all matching assignments
+    final allPersons = <String>{};
+
+    for (final assignment in matchingAssignments) {
+      print('📊 Processing assignment: ${assignment.assignmentID}');
+      final ap = assignment.assignedPersons;
+
+      if (ap.isNotEmpty && ap.toUpperCase() != 'NULL') {
+        final personsList = ap
+            .split(',')
+            .map((p) => p.trim())
+            .where((p) => p.isNotEmpty && p.toUpperCase() != 'NULL');
+
+        print(
+          '📊 Found persons in assignment ${assignment.assignmentID}: ${personsList.join(', ')}',
+        );
+        allPersons.addAll(personsList);
+      }
+    }
+
+    print('📊 ALL UNIQUE PERSONS: ${allPersons.join(', ')}');
+
+    if (allPersons.isEmpty) return '-';
+    return allPersons.join(', ');
   }
 
   // assigned time display is handled in the timeline using _buildTimelineItem

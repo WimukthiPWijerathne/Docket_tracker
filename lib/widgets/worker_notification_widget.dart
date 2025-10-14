@@ -7,21 +7,23 @@ import 'package:intl/intl.dart';
 
 class WorkerNotificationWidget extends StatefulWidget {
   final String? userUUID;
-
-  const WorkerNotificationWidget({super.key, this.userUUID});
+  
+  const WorkerNotificationWidget({
+    super.key,
+    this.userUUID,
+  });
 
   @override
-  State<WorkerNotificationWidget> createState() =>
-      _WorkerNotificationWidgetState();
+  State<WorkerNotificationWidget> createState() => _WorkerNotificationWidgetState();
 }
 
 class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
   final AssignedDocketService _assignedDocketService = AssignedDocketService();
   final dockey.DocketService _docketService = dockey.DocketService();
-
+  
   bool _isLoading = true;
   String? _error;
-
+  
   List<AssignedDocket> _todayAssignedDockets = [];
   Map<String, Docket> _docketsMap = {};
 
@@ -73,7 +75,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
             .map((e) => e.trim())
             .where((e) => e.isNotEmpty)
             .toList();
-
+        
         if (!assignedPersons.contains(widget.userUUID)) {
           return false;
         }
@@ -81,7 +83,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
         // Parse assigned time and check if it's today
         try {
           DateTime assignedDateTime;
-
+          
           // Handle different date formats
           if (assignment.assignedTime.contains('/')) {
             // Format: DD/MM/YYYY or DD/MM/YYYY HH:MM:SS
@@ -105,9 +107,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
             assignedDateTime = DateTime.parse(assignment.assignedTime);
           }
 
-          final assignedDateString = DateFormat(
-            'yyyy-MM-dd',
-          ).format(assignedDateTime);
+          final assignedDateString = DateFormat('yyyy-MM-dd').format(assignedDateTime);
           return assignedDateString == todayString;
         } catch (e) {
           print('Error parsing assigned time: ${assignment.assignedTime} - $e');
@@ -130,7 +130,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
   Widget build(BuildContext context) {
     // Determine if there are assigned dockets
     final hasAssignedDockets = _todayAssignedDockets.isNotEmpty;
-
+    
     // Choose colors based on assignment status
     final List<Color> gradientColors = hasAssignedDockets
         ? [
@@ -173,11 +173,9 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  hasAssignedDockets
-                      ? Icons.notification_important
-                      : Icons.work_outline,
-                  color: hasAssignedDockets
-                      ? const Color(0xFF003366)
+                  hasAssignedDockets ? Icons.notification_important : Icons.work_outline,
+                  color: hasAssignedDockets 
+                      ? const Color(0xFF003366) 
                       : Colors.white,
                   size: 24,
                 ),
@@ -190,8 +188,8 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
                     Text(
                       'Today\'s Assignments',
                       style: TextStyle(
-                        color: hasAssignedDockets
-                            ? const Color(0xFF003366)
+                        color: hasAssignedDockets 
+                            ? const Color(0xFF003366) 
                             : Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -199,14 +197,14 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _isLoading
-                          ? 'Loading your assignments...'
-                          : _error != null
+                      _isLoading 
+                        ? 'Loading your assignments...'
+                        : _error != null
                           ? 'Unable to load assignment data'
                           : 'You have ${_todayAssignedDockets.length} dockets assigned today',
                       style: TextStyle(
-                        color: hasAssignedDockets
-                            ? const Color(0xFF003366).withOpacity(0.8)
+                        color: hasAssignedDockets 
+                            ? const Color(0xFF003366).withOpacity(0.8) 
                             : Colors.white.withOpacity(0.9),
                         fontSize: 14,
                       ),
@@ -215,10 +213,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(20),
@@ -226,8 +221,8 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
                 child: Text(
                   DateFormat('MMM dd').format(DateTime.now()),
                   style: TextStyle(
-                    color: hasAssignedDockets
-                        ? const Color(0xFF003366)
+                    color: hasAssignedDockets 
+                        ? const Color(0xFF003366) 
                         : Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -236,7 +231,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
               ),
             ],
           ),
-
+          
           // Today's assignments list
           if (!_isLoading && _error == null) ...[
             const SizedBox(height: 12),
@@ -277,7 +272,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
                   itemBuilder: (context, index) {
                     final assignment = _todayAssignedDockets[index];
                     final docket = _docketsMap[assignment.docketID];
-
+                    
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(12),
@@ -316,9 +311,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
                                 Text(
                                   'Docket ID: ${assignment.docketID}',
                                   style: TextStyle(
-                                    color: const Color(
-                                      0xFF003366,
-                                    ).withOpacity(0.8),
+                                    color: const Color(0xFF003366).withOpacity(0.8),
                                     fontSize: 12,
                                   ),
                                 ),
@@ -327,9 +320,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
                                   Text(
                                     'Location: ${docket!.depot}',
                                     style: TextStyle(
-                                      color: const Color(
-                                        0xFF003366,
-                                      ).withOpacity(0.8),
+                                      color: const Color(0xFF003366).withOpacity(0.8),
                                       fontSize: 12,
                                     ),
                                   ),
@@ -338,10 +329,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.3),
                               borderRadius: BorderRadius.circular(12),
@@ -362,13 +350,13 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
                 ),
               ),
           ],
-
+          
           // Help Text
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: hasAssignedDockets
+              color: hasAssignedDockets 
                   ? Colors.white.withOpacity(0.2)
                   : const Color(0xFF003366).withOpacity(0.1),
               borderRadius: BorderRadius.circular(8),
@@ -377,7 +365,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
               children: [
                 Icon(
                   Icons.info_outline,
-                  color: hasAssignedDockets
+                  color: hasAssignedDockets 
                       ? const Color(0xFF003366).withOpacity(0.8)
                       : const Color(0xFF003366).withOpacity(0.7),
                   size: 16,
@@ -387,7 +375,7 @@ class _WorkerNotificationWidgetState extends State<WorkerNotificationWidget> {
                   child: Text(
                     'Use "Assigned Dockets" to view all your tasks and update progress',
                     style: TextStyle(
-                      color: hasAssignedDockets
+                      color: hasAssignedDockets 
                           ? const Color(0xFF003366).withOpacity(0.8)
                           : const Color(0xFF003366).withOpacity(0.7),
                       fontSize: 13,
