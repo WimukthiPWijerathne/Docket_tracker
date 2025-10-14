@@ -7,21 +7,19 @@ import 'package:http/http.dart' as http;
 
 class TechnicianAssignmentStats extends StatefulWidget {
   final String? userUUID;
-  
-  const TechnicianAssignmentStats({
-    super.key,
-    this.userUUID,
-  });
+
+  const TechnicianAssignmentStats({super.key, this.userUUID});
 
   @override
-  State<TechnicianAssignmentStats> createState() => _TechnicianAssignmentStatsState();
+  State<TechnicianAssignmentStats> createState() =>
+      _TechnicianAssignmentStatsState();
 }
 
 class _TechnicianAssignmentStatsState extends State<TechnicianAssignmentStats> {
   final AssignedDocketService _assignedDocketService = AssignedDocketService();
   bool _isLoading = true;
   String? _error;
-  
+
   int _totalAssigned = 0;
   int _completedAssigned = 0;
   int _inProgressAssigned = 0;
@@ -74,15 +72,16 @@ class _TechnicianAssignmentStatsState extends State<TechnicianAssignmentStats> {
 
       // Count statistics
       _totalAssigned = userAssignedDockets.length;
-      
+
       for (final docket in userAssignedDockets) {
         final workLog = workLogsMap[docket.docketID];
-        final isCompleted = workLog != null && 
+        final isCompleted =
+            workLog != null &&
             workLog.completedAt != null &&
             workLog.completedAt!.isNotEmpty &&
             workLog.completedAt != '0' &&
             workLog.completedAt!.toLowerCase() != 'null';
-            
+
         if (isCompleted) {
           _completedAssigned++;
         } else {
@@ -141,10 +140,7 @@ class _TechnicianAssignmentStatsState extends State<TechnicianAssignmentStats> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF003366),
-            Color(0xFF004080),
-          ],
+          colors: [Color(0xFF003366), Color(0xFF004080)],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
@@ -207,7 +203,7 @@ class _TechnicianAssignmentStatsState extends State<TechnicianAssignmentStats> {
                 ),
             ],
           ),
-          
+
           if (_error != null) ...[
             const SizedBox(height: 16),
             Container(
@@ -231,7 +227,7 @@ class _TechnicianAssignmentStatsState extends State<TechnicianAssignmentStats> {
               ),
             ),
           ],
-          
+
           if (!_isLoading && _error == null) ...[
             const SizedBox(height: 20),
             Row(
@@ -264,7 +260,7 @@ class _TechnicianAssignmentStatsState extends State<TechnicianAssignmentStats> {
                 ),
               ],
             ),
-            
+
             if (_totalAssigned > 0) ...[
               const SizedBox(height: 16),
               Container(
@@ -275,11 +271,7 @@ class _TechnicianAssignmentStatsState extends State<TechnicianAssignmentStats> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(
-                      Icons.analytics,
-                      color: Colors.white,
-                      size: 20,
-                    ),
+                    const Icon(Icons.analytics, color: Colors.white, size: 20),
                     const SizedBox(width: 8),
                     Text(
                       'Completion Rate: ${((_completedAssigned / _totalAssigned) * 100).toStringAsFixed(1)}%',
@@ -299,7 +291,12 @@ class _TechnicianAssignmentStatsState extends State<TechnicianAssignmentStats> {
     );
   }
 
-  Widget _buildStatCard(String title, String count, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String count,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -309,11 +306,7 @@ class _TechnicianAssignmentStatsState extends State<TechnicianAssignmentStats> {
       ),
       child: Column(
         children: [
-          Icon(
-            icon,
-            color: color,
-            size: 28,
-          ),
+          Icon(icon, color: color, size: 28),
           const SizedBox(height: 8),
           Text(
             count,

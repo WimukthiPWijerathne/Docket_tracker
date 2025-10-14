@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../service/assigned_docket_service.dart';
+import '../service/assigned_docket_serviceX.dart';
 import '../models/assigned_docket.dart';
 import '../models/WorkLog.dart';
 // AssignedDocketsPage removed; navigation now goes to TechnicianPortalPage
@@ -21,18 +21,19 @@ class TechnicianNotificationBanner extends StatefulWidget {
   });
 
   @override
-  State<TechnicianNotificationBanner> createState() => _TechnicianNotificationBannerState();
+  State<TechnicianNotificationBanner> createState() =>
+      _TechnicianNotificationBannerState();
 }
 
-class _TechnicianNotificationBannerState extends State<TechnicianNotificationBanner> {
+class _TechnicianNotificationBannerState
+    extends State<TechnicianNotificationBanner> {
   final AssignedDocketService _assignedDocketService = AssignedDocketService();
   bool _isLoading = true;
   String? _error;
-  
+
   int _totalAssigned = 0;
   int _completedAssigned = 0;
   int _inProgressAssigned = 0;
-  List<AssignedDocket> _pendingDockets = [];
 
   @override
   void initState() {
@@ -49,7 +50,6 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
         _totalAssigned = 0;
         _completedAssigned = 0;
         _inProgressAssigned = 0;
-        _pendingDockets = [];
       });
       return;
     }
@@ -84,11 +84,45 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
       }
 
       // Filter dockets assigned to this user
-      // If an employeeNo is provided, filter by that employee number (using assignedPersonsList helper)
+      // Hardcoded employee number to "1238" to match assignedPersons from API
+      String target = widget.employeeNo ?? '1238';
+
+      bool _matchesTarget(List<String> assignedList, String target) {
+        if (target.isEmpty) return false;
+        final t = target.trim();
+
+        // exact match (case-insensitive)
+        for (final a in assignedList) {
+          if (a.toLowerCase() == t.toLowerCase()) return true;
+        }
+
+        // normalized alphanumeric comparison (remove non-alphanum)
+        final normalize = (String s) =>
+            s.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toLowerCase();
+        final nt = normalize(t);
+        for (final a in assignedList) {
+          if (normalize(a) == nt) return true;
+        }
+
+        // numeric-only comparison: compare digit sequences (helps when assignedPersons is numeric but employeeNo has prefix like 'W-181')
+        final digits = (String s) {
+          final m = RegExp(r"(\d+)").firstMatch(s);
+          return m == null ? null : m.group(0);
+        };
+        final tDigits = digits(t);
+        if (tDigits != null) {
+          for (final a in assignedList) {
+            final aDigits = digits(a);
+            if (aDigits != null && aDigits == tDigits) return true;
+          }
+        }
+
+        return false;
+      }
+
       final userAssignedDockets = assignedDockets.where((docket) {
         final assignedList = docket.assignedPersonsList;
-        final target = widget.employeeNo ?? widget.userUUID ?? '';
-        return target.isNotEmpty && assignedList.contains(target);
+        return _matchesTarget(assignedList, target);
       }).toList();
 
       // Reset counters first
@@ -99,9 +133,12 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
       // Count statistics
       _totalAssigned = userAssignedDockets.length;
 
+      // Check WorkLog completedAt field to determine completion status
+      // Similar logic to TechnicianPortalPage._isCompleted()
       for (final docket in userAssignedDockets) {
         final workLog = workLogsMap[docket.docketID];
-        final isCompleted = workLog != null &&
+        final isCompleted =
+            workLog != null &&
             workLog.completedAt != null &&
             workLog.completedAt!.isNotEmpty &&
             workLog.completedAt != '0' &&
@@ -110,12 +147,9 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
         if (isCompleted) {
           _completedAssigned++;
         } else {
-          _inProgressAssigned++;
+          _inProgressAssigned++; // Remaining dockets (not yet completed)
         }
       }
-
-      // Build list of pending (not completed) assigned dockets for quick access
-      _pendingDockets = userAssignedDockets.where((d) => !d.isCompleted).toList();
 
       setState(() {
         _isLoading = false;
@@ -173,30 +207,35 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
           // ignore if no scaffold available
         }
 
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const TechnicianPortalPage(),
-          ),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const TechnicianPortalPage()));
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF003366),
-              Color(0xFF004080),
-            ],
+            colors: _inProgressAssigned > 0
+                ? [
+                    const Color(
+                      0xFF1976D2,
+                    ), // Brighter blue for pending assignments
+                    const Color(0xFF2196F3),
+                  ]
+                : [
+                    const Color(0xFF00796B), // Teal for no pending assignments
+                    const Color(0xFF26A69A),
+                  ],
           ),
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -209,13 +248,15 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withOpacity(0.25),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
-                    Icons.notifications_active,
+                  child: Icon(
+                    _inProgressAssigned > 0
+                        ? Icons.assignment_late
+                        : Icons.assignment_turned_in,
                     color: Colors.white,
-                    size: 24,
+                    size: 28,
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -224,10 +265,10 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Welcome Technician!',
+                        'Your Assignments',
                         style: TextStyle(
                           color: Colors.white,
-                          fontSize: 16,
+                          fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -236,13 +277,14 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
                         _isLoading
                             ? 'Loading your assignments...'
                             : _error != null
-                                ? 'Unable to load assignment data'
-                                : (_totalAssigned > 0
-                                    ? 'You have $_totalAssigned assigned dockets' + (widget.employeeNo != null && widget.employeeNo!.isNotEmpty ? ' for ${widget.employeeNo}' : '')
-                                    : 'No assigned dockets at the moment'),
+                            ? 'Unable to load assignment data'
+                            : (_totalAssigned > 0
+                                  ? 'You have $_totalAssigned assigned docket${_totalAssigned > 1 ? 's' : ''}'
+                                  : 'No assigned dockets at the moment'),
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withOpacity(0.95),
                           fontSize: 14,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -250,17 +292,20 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
                 ),
                 // Small badge for incomplete dockets
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: _inProgressAssigned > 0
-                        ? Colors.orangeAccent
-                        : Colors.white.withOpacity(0.2),
+                        ? const Color(0xFFFF6B6B) // Bright red for pending
+                        : Colors.white.withOpacity(0.25),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     _inProgressAssigned > 0
                         ? '$_inProgressAssigned PENDING'
-                        : 'NO PENDING',
+                        : 'ALL DONE',
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 12,
@@ -273,17 +318,25 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
 
             // Assignment Statistics (if loaded successfully)
             if (!_isLoading && _error == null && _totalAssigned > 0) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.white.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1,
+                  ),
                 ),
                 child: Row(
                   children: [
                     Expanded(
-                      child: _buildStatItem('Total', _totalAssigned, Icons.assignment),
+                      child: _buildStatItem(
+                        'Total',
+                        _totalAssigned,
+                        Icons.assignment,
+                      ),
                     ),
                     Container(
                       width: 1,
@@ -291,7 +344,11 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
                       color: Colors.white.withOpacity(0.3),
                     ),
                     Expanded(
-                      child: _buildStatItem('Completed', _completedAssigned, Icons.check_circle),
+                      child: _buildStatItem(
+                        'Completed',
+                        _completedAssigned,
+                        Icons.check_circle,
+                      ),
                     ),
                     Container(
                       width: 1,
@@ -299,7 +356,11 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
                       color: Colors.white.withOpacity(0.3),
                     ),
                     Expanded(
-                      child: _buildStatItem('In Progress', _inProgressAssigned, Icons.hourglass_empty),
+                      child: _buildStatItem(
+                        'Remaining',
+                        _inProgressAssigned,
+                        Icons.pending_actions,
+                      ),
                     ),
                   ],
                 ),
@@ -307,66 +368,38 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
             ],
 
             // Help Text
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.white.withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.25),
+                  width: 1,
+                ),
               ),
               child: Row(
                 children: [
                   Icon(
-                    Icons.info_outline,
-                    color: Colors.white.withOpacity(0.8),
-                    size: 16,
+                    Icons.touch_app,
+                    color: Colors.white.withOpacity(0.95),
+                    size: 18,
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Use "Assigned Dockets" to view your tasks and "Technician Portal" for advanced features',
+                      'Tap to view and manage your assigned dockets',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
+                        color: Colors.white.withOpacity(0.95),
                         fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            // Pending assigned docket chips (show up to 6)
-            if (_pendingDockets.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _pendingDockets.take(6).map((docket) {
-                  return GestureDetector(
-                    onTap: () {
-                      debugPrint('DEBUG: Pending docket chip tapped: ${docket.docketID}');
-                      try {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Opening Technician Portal for ${docket.docketID}...')),
-                        );
-                      } catch (e) {}
-
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const TechnicianPortalPage(),
-                        ),
-                      );
-                    },
-                    child: Chip(
-                      backgroundColor: Colors.white.withOpacity(0.12),
-                      label: Text(
-                        docket.docketID,
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ],
           ],
         ),
       ),
@@ -376,26 +409,25 @@ class _TechnicianNotificationBannerState extends State<TechnicianNotificationBan
   Widget _buildStatItem(String label, int count, IconData icon) {
     return Column(
       children: [
-        Icon(
-          icon,
-          color: Colors.white,
-          size: 20,
-        ),
-        const SizedBox(height: 4),
+        Icon(icon, color: Colors.white, size: 24),
+        const SizedBox(height: 6),
         Text(
           count.toString(),
           style: const TextStyle(
             color: Colors.white,
-            fontSize: 18,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
           ),
         ),
+        const SizedBox(height: 2),
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
+            color: Colors.white.withOpacity(0.95),
             fontSize: 11,
+            fontWeight: FontWeight.w500,
           ),
+          textAlign: TextAlign.center,
         ),
       ],
     );

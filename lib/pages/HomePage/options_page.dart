@@ -14,6 +14,8 @@ import '../eDocket/e_docket.dart';
 import '../Payments/paymentPageOptions.dart';
 import '../viewDockets/viewDocketsSummary.dart';
 import '../addDocketX/cameraCapture/captureImage.dart';
+// Technician notification banner
+import '../../widgets/technician_notification_banner.dart';
 
 class OptionsPage extends StatefulWidget {
   final String role; // role parameter
@@ -61,6 +63,13 @@ class _OptionsPageState extends State<OptionsPage> {
                 style: Theme.of(context).textTheme.bodyLarge,
               ),
               const SizedBox(height: 40),
+
+              // Show technician notification banner only for workers
+              if (widget.role == 'worker')
+                TechnicianNotificationBanner(
+                  userUUID: '1238',
+                  employeeNo: '1238',
+                ),
 
               // Options Grid
               Expanded(
