@@ -2,11 +2,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import 'services/view_worklog_service.dart';
+import '../../models/WorkLog.dart';
 
 import '../../models/docketsX.dart';
 import '../../service/dockey_serviceX.dart';
 import '../loginScreen/fetchUserAccess.dart';
-import 'filters/date_filter_selector.dart';
 import 'filters/depot_filter_selector.dart';
 import 'showDocketDetails.dart';
 
@@ -747,12 +748,51 @@ class _DocketListTile extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        uploaded,
-                        style: const TextStyle(
-                          color: Colors.black54,
-                          fontSize: 12,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            uploaded,
+                            style: const TextStyle(
+                              color: Colors.black54,
+                              fontSize: 12,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          // Show completed time if available (fetch via local view service)
+                          FutureBuilder(
+                            future: ViewWorkLogService.getWorkLogForDocket(
+                              docket.id.toString(),
+                            ),
+                            builder: (context, snap) {
+                              if (snap.connectionState !=
+                                  ConnectionState.done) {
+                                return const SizedBox.shrink();
+                              }
+                              if (snap.hasError || snap.data == null)
+                                return const SizedBox.shrink();
+                              final workLog = snap.data as WorkLog;
+                              if (workLog.completedAt == null ||
+                                  workLog.completedAt!.isEmpty)
+                                return const SizedBox.shrink();
+                              try {
+                                final dt = DateFormat(
+                                  'MMM dd, yyyy • hh:mm a',
+                                ).format(DateTime.parse(workLog.completedAt!));
+                                return Text(
+                                  dt,
+                                  style: TextStyle(
+                                    color: Colors.green[700],
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                );
+                              } catch (_) {
+                                return const SizedBox.shrink();
+                              }
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),

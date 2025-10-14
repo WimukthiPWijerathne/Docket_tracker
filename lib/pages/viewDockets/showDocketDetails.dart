@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../models/docketsX.dart';
+import '../../models/WorkLog.dart';
+import 'services/view_worklog_service.dart';
 // import '../../service/dockey_serviceX.dart'; // unused in this page
 // New: local model/service for docket assignment
 import 'docket_assignment_model.dart';
@@ -82,7 +84,31 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
     super.initState();
     _docketType = widget.docket.docketType;
     _fetchAssignments();
+    _fetchWorkLog();
   }
+
+  Future<void> _fetchWorkLog() async {
+    try {
+      print('Fetching WorkLog for docket ID: ${widget.docket.id}');
+      print('Docket status: $_status, Status label: $_statusLabel');
+      print('Docket completedTime: ${widget.docket.completedTime}');
+
+      final wl = await ViewWorkLogService.getWorkLogForDocket(
+        widget.docket.id.toString(),
+      );
+      print('WorkLog fetch result: $wl'); // Debug print
+      print(
+        'WorkLog details - completedAt: ${wl?.completedAt}, startedAt: ${wl?.startedAt}',
+      ); // Debug print
+
+      if (mounted) setState(() => _workLog = wl);
+    } catch (e) {
+      print('Error fetching WorkLog: $e'); // Debug error
+      // ignore - optional fallback to docket.completedTime
+    }
+  }
+
+  WorkLog? _workLog;
 
   Future<void> _fetchAssignments() async {
     try {
@@ -95,6 +121,12 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Debug: Print docket information at build time
+    print('Building DocketDetailsX for docket: ${widget.docket.id}');
+    print('Status: ${widget.docket.status} (_status: $_status)');
+    print('Docket completed time: "${widget.docket.completedTime}"');
+    print('Docket type: ${widget.docket.docketType}');
+
     // Comment out UserAccess dependency
     // final ua = context.read<UserAccess>();
 
@@ -624,14 +656,53 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
                         isLast: widget.docket.completedTime == null,
                       ),
 
-                    if (widget.docket.completedTime != null)
-                      _buildTimelineItem(
-                        icon: Icons.check_circle,
-                        title: 'Completed',
-                        date: widget.docket.completedTime ?? '',
-                        subtitle: 'By: ${widget.docket.assignedTo ?? 'N/A'}',
-                        isFirst: false,
-                        isLast: true,
+                    // For completed dockets, always show the timeline item
+                    if (_status == 2 || widget.docket.completedTime != null)
+                      Builder(
+                        builder: (context) {
+                          // Debug prints for completion timeline
+                          print('Worklog and completion status:');
+                          print(
+                            'WorkLog completedAt: ${_workLog?.completedAt}',
+                          );
+                          print(
+                            'Docket completedTime: ${widget.docket.completedTime}',
+                          );
+                          print('Status: $_status');
+
+                          // Try to get a valid date string
+                          String completedDate = '';
+
+                          // First try workLog.completedAt
+                          if (_workLog?.completedAt != null &&
+                              _workLog!.completedAt!.isNotEmpty) {
+                            completedDate = _workLog!.completedAt!;
+                          }
+                          // Then try docket.completedTime
+                          else if (widget.docket.completedTime != null &&
+                              widget.docket.completedTime!.isNotEmpty) {
+                            completedDate = widget.docket.completedTime!;
+                          }
+                          // If both are null/empty, use a timestamp from now
+                          else if (_status == 2) {
+                            // If status is completed but no date is available,
+                            // show current time as fallback
+                            completedDate = DateTime.now().toIso8601String();
+                          }
+
+                          print(
+                            'Final completed date to display: $completedDate',
+                          );
+
+                          return _buildTimelineItem(
+                            icon: Icons.check_circle,
+                            title: 'Completed',
+                            date: completedDate,
+                            subtitle: '', // Removed 'By:' part as requested
+                            isFirst: false,
+                            isLast: true,
+                          );
+                        },
                       ),
                   ],
                 ),
@@ -1144,6 +1215,8 @@ Widget _buildTimelineItem({
   required bool isFirst,
   required bool isLast,
 }) {
+  print('Building timeline item for $title with date: "$date"');
+
   // Format date if possible
   String formattedDate = date;
   if (date.isNotEmpty) {
@@ -1151,9 +1224,14 @@ Widget _buildTimelineItem({
       final dateTime = DateTime.parse(date);
       final formatter = DateFormat('MMM dd, yyyy • hh:mm a');
       formattedDate = formatter.format(dateTime);
+      print('Successfully formatted date: $formattedDate');
     } catch (e) {
+      print('Error formatting date "$date": $e');
       // Keep the original if parsing fails
     }
+  } else {
+    formattedDate = 'N/A';
+    print('Empty date provided, using N/A');
   }
 
   return Row(
