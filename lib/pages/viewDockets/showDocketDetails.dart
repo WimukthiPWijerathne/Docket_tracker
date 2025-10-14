@@ -83,27 +83,27 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
   void initState() {
     super.initState();
     _docketType = widget.docket.docketType;
-    _fetchAssignments();
-    _fetchWorkLog();
+    // Fetch data in parallel
+    _fetchDataInParallel();
+  }
+
+  /// Fetch all required data in parallel for better performance
+  Future<void> _fetchDataInParallel() async {
+    // Create a list of futures to execute in parallel
+    final futures = [_fetchAssignments(), _fetchWorkLog()];
+
+    // Execute all futures in parallel and wait for all to complete
+    await Future.wait(futures);
   }
 
   Future<void> _fetchWorkLog() async {
     try {
-      print('Fetching WorkLog for docket ID: ${widget.docket.id}');
-      print('Docket status: $_status, Status label: $_statusLabel');
-      print('Docket completedTime: ${widget.docket.completedTime}');
-
       final wl = await ViewWorkLogService.getWorkLogForDocket(
         widget.docket.id.toString(),
       );
-      print('WorkLog fetch result: $wl'); // Debug print
-      print(
-        'WorkLog details - completedAt: ${wl?.completedAt}, startedAt: ${wl?.startedAt}',
-      ); // Debug print
 
       if (mounted) setState(() => _workLog = wl);
     } catch (e) {
-      print('Error fetching WorkLog: $e'); // Debug error
       // ignore - optional fallback to docket.completedTime
     }
   }
@@ -112,36 +112,16 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
 
   Future<void> _fetchAssignments() async {
     try {
-      print(
-        '🔍 FETCHING ASSIGNMENTS FOR SPECIFIC DOCKET ID: ${widget.docket.id}',
-      );
-      print(
-        '🔍 DOCKET TYPE: ${widget.docket.docketType}, STATUS: ${widget.docket.status}',
-      );
-
       final list = await _assignmentService.fetchByDocketId(widget.docket.id);
-
-      print(
-        '📋 ASSIGNMENT COUNT: ${list.length} assignments found for docket ${widget.docket.id}',
-      );
-      for (var assign in list) {
-        print(
-          '👤 Assignment ID: ${assign.assignmentID}, DocketID: ${assign.docketID}, Persons: "${assign.assignedPersons}"',
-        );
-      }
 
       // Filter assignments that match this specific docket ID
       final filteredAssignments = list
           .where((assign) => assign.docketID == widget.docket.id.toString())
           .toList();
 
-      print(
-        '🔎 FILTERED: ${filteredAssignments.length} assignments match this docket ID',
-      );
-
       if (mounted) setState(() => _assignments = filteredAssignments);
     } catch (e) {
-      print('❌ Error fetching assignments for docket ${widget.docket.id}: $e');
+      print('Error fetching assignments for docket ${widget.docket.id}: $e');
     }
   }
 
@@ -676,10 +656,6 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
                               .toList();
 
                           if (matchingAssignments.isNotEmpty) {
-                            print(
-                              '🕒 TIMELINE: Using assignment data from API for docket ${widget.docket.id}',
-                            );
-
                             // Get the most recent assignment date for the timeline
                             final lastAssignmentDate =
                                 matchingAssignments
@@ -692,10 +668,6 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
                                 ? lastAssignmentDate
                                       .last // Get latest date
                                 : '';
-
-                            print(
-                              '🕒 TIMELINE: Assignment date: $assignmentDate',
-                            );
 
                             return _buildTimelineItem(
                               icon: Icons.assignment_ind,
@@ -888,26 +860,13 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
   /// Returns a formatted string or '-' when none available.
   /// Shows all assigned persons from all matching assignments for multi-person dockets.
   String _aggregateAssignedPersons() {
-    print('📊 DOCKET ID: ${widget.docket.id}, STATUS: ${_status}');
-    print('📊 ASSIGNMENTS COUNT: ${_assignments.length}');
-
     // If no assignments, return early
     if (_assignments.isEmpty) return '-';
-
-    // Debug each assignment
-    for (int i = 0; i < _assignments.length; i++) {
-      final a = _assignments[i];
-      print(
-        '📊 ASSIGNMENT[$i]: ID=${a.assignmentID}, DocketID=${a.docketID}, Persons="${a.assignedPersons}"',
-      );
-    }
 
     // Verify that assignments are for this specific docket
     final matchingAssignments = _assignments
         .where((a) => a.docketID == widget.docket.id.toString())
         .toList();
-
-    print('📊 MATCHING ASSIGNMENTS: ${matchingAssignments.length}');
 
     if (matchingAssignments.isEmpty) return '-';
 
@@ -915,7 +874,6 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
     final allPersons = <String>{};
 
     for (final assignment in matchingAssignments) {
-      print('📊 Processing assignment: ${assignment.assignmentID}');
       final ap = assignment.assignedPersons;
 
       if (ap.isNotEmpty && ap.toUpperCase() != 'NULL') {
@@ -924,14 +882,9 @@ class _DocketDetailsXPageState extends State<DocketDetailsXPage> {
             .map((p) => p.trim())
             .where((p) => p.isNotEmpty && p.toUpperCase() != 'NULL');
 
-        print(
-          '📊 Found persons in assignment ${assignment.assignmentID}: ${personsList.join(', ')}',
-        );
         allPersons.addAll(personsList);
       }
     }
-
-    print('📊 ALL UNIQUE PERSONS: ${allPersons.join(', ')}');
 
     if (allPersons.isEmpty) return '-';
     return allPersons.join(', ');
@@ -1306,8 +1259,6 @@ Widget _buildTimelineItem({
   required bool isFirst,
   required bool isLast,
 }) {
-  print('Building timeline item for $title with date: "$date"');
-
   // Format date if possible
   String formattedDate = date;
   if (date.isNotEmpty) {
@@ -1315,14 +1266,11 @@ Widget _buildTimelineItem({
       final dateTime = DateTime.parse(date);
       final formatter = DateFormat('MMM dd, yyyy • hh:mm a');
       formattedDate = formatter.format(dateTime);
-      print('Successfully formatted date: $formattedDate');
     } catch (e) {
-      print('Error formatting date "$date": $e');
       // Keep the original if parsing fails
     }
   } else {
     formattedDate = 'N/A';
-    print('Empty date provided, using N/A');
   }
 
   return Row(
