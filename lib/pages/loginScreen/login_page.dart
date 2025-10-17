@@ -59,7 +59,8 @@ class _LoginPageState extends State<LoginPage> {
             if (!mounted) return;
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
-                builder: (context) => OptionsPage(role: role!), // pass role here
+                builder: (context) =>
+                    OptionsPage(role: role!), // pass role here
               ),
             );
           });
@@ -95,9 +96,7 @@ class _LoginPageState extends State<LoginPage> {
     return Card(
       elevation: 4,
       color: Theme.of(context).cardColor,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -105,25 +104,28 @@ class _LoginPageState extends State<LoginPage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Image.asset('assets/images/leco_logo.webp',
-                  width: 80, height: 80, fit: BoxFit.contain),
+              Image.asset(
+                'assets/images/leco_logo.webp',
+                width: 80,
+                height: 80,
+                fit: BoxFit.contain,
+              ),
               const SizedBox(height: 24),
               Text(
                 'Docket Tracker',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).colorScheme.primary,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Log in to continue',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .onSurface
-                          .withOpacity(0.7),
-                    ),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.7),
+                ),
               ),
               const SizedBox(height: 32),
               TextFormField(
@@ -143,9 +145,11 @@ class _LoginPageState extends State<LoginPage> {
                   labelText: 'Password',
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
-                    icon: Icon(_isPasswordVisible
-                        ? Icons.visibility
-                        : Icons.visibility_off),
+                    icon: Icon(
+                      _isPasswordVisible
+                          ? Icons.visibility
+                          : Icons.visibility_off,
+                    ),
                     onPressed: () {
                       setState(() {
                         _isPasswordVisible = !_isPasswordVisible;

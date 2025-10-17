@@ -67,8 +67,8 @@ class _OptionsPageState extends State<OptionsPage> {
               // Show technician notification banner only for workers
               if (widget.role == 'worker')
                 TechnicianNotificationBanner(
-                  userUUID: '1238',
-                  employeeNo: '1238',
+                  userUUID: 'E-997',
+                  employeeNo: 'E-997',
                 ),
 
               // Options Grid

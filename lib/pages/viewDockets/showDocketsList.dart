@@ -760,38 +760,48 @@ class _DocketListTile extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           // Show completed time if available (fetch via local view service)
-                          FutureBuilder(
-                            future: ViewWorkLogService.getWorkLogForDocket(
-                              docket.id.toString(),
+                          // Only show for dockets with status 2 (Completed)
+                          if (int.tryParse(docket.status) == 2)
+                            FutureBuilder(
+                              future: ViewWorkLogService.getWorkLogForDocket(
+                                docket.id.toString(),
+                              ),
+                              builder: (context, snap) {
+                                if (snap.connectionState !=
+                                    ConnectionState.done) {
+                                  return const SizedBox.shrink();
+                                }
+                                if (snap.hasError || snap.data == null)
+                                  return const SizedBox.shrink();
+                                final workLog = snap.data as WorkLog;
+                                // Double-check that we're only showing completed timestamps for completed dockets
+                                // This ensures consistency between docket status and worklog data
+                                final docketStatus =
+                                    int.tryParse(docket.status) ?? 0;
+                                if (docketStatus != 2 ||
+                                    workLog.completedAt == null ||
+                                    workLog.completedAt!.isEmpty)
+                                  return const SizedBox.shrink();
+                                try {
+                                  final dt =
+                                      DateFormat(
+                                        'MMM dd, yyyy • hh:mm a',
+                                      ).format(
+                                        DateTime.parse(workLog.completedAt!),
+                                      );
+                                  return Text(
+                                    dt,
+                                    style: TextStyle(
+                                      color: Colors.green[700],
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  );
+                                } catch (_) {
+                                  return const SizedBox.shrink();
+                                }
+                              },
                             ),
-                            builder: (context, snap) {
-                              if (snap.connectionState !=
-                                  ConnectionState.done) {
-                                return const SizedBox.shrink();
-                              }
-                              if (snap.hasError || snap.data == null)
-                                return const SizedBox.shrink();
-                              final workLog = snap.data as WorkLog;
-                              if (workLog.completedAt == null ||
-                                  workLog.completedAt!.isEmpty)
-                                return const SizedBox.shrink();
-                              try {
-                                final dt = DateFormat(
-                                  'MMM dd, yyyy • hh:mm a',
-                                ).format(DateTime.parse(workLog.completedAt!));
-                                return Text(
-                                  dt,
-                                  style: TextStyle(
-                                    color: Colors.green[700],
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                );
-                              } catch (_) {
-                                return const SizedBox.shrink();
-                              }
-                            },
-                          ),
                         ],
                       ),
                     ],
