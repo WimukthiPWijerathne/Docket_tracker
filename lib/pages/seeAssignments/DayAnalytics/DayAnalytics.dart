@@ -5,12 +5,12 @@ import 'package:http/http.dart' as http;
 
 // --- Models
 import '../../../models/assigned_docket.dart';
-import '../../../models/dockets.dart';
+import '../../../models/docketsX.dart';
 import '../../../models/WorkLog.dart';
 
 // --- Services
-import '../../../service/assigned_docket_service.dart';
-import '../../../service/dockey_service.dart' as dockey;
+import '../../../service/assigned_docket_serviceX.dart';
+import '../../../service/dockey_serviceX.dart' as dockey;
 
 // Branch and Depot constants from technician portal
 const List<String> kBranches = [
@@ -95,7 +95,7 @@ class SeeAssignmentsPage extends StatefulWidget {
 class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
     with TickerProviderStateMixin {
   final _assignedDocketSvc = AssignedDocketService();
-  final _docketSvc = dockey.DocketService();
+  final _docketSvc = dockey.DocketServiceX();
 
   bool _loading = true;
   String? _error;
@@ -453,21 +453,6 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
                   color: Colors.white.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.calendar_today, size: 20),
-              ),
-              onPressed: _showDatePicker,
-              tooltip: 'Select Date',
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            child: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
                 child: const Icon(Icons.refresh_rounded, size: 20),
               ),
               onPressed: _loadData,
@@ -516,7 +501,7 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
     );
   }
 
-  // Build date indicator widget
+  // Build date selector widget with navigation
   Widget _buildDateIndicator(bool isMobile) {
     final isToday =
         _selectedDate.year == DateTime.now().year &&
@@ -524,97 +509,298 @@ class _SeeAssignmentsPageState extends State<SeeAssignmentsPage>
         _selectedDate.day == DateTime.now().day;
 
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isMobile ? 16 : 20,
-        vertical: isMobile ? 12 : 14,
-      ),
+      padding: EdgeInsets.all(isMobile ? 16 : 20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            _primaryColor.withOpacity(0.1),
-            _primaryColor.withOpacity(0.05),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _primaryColor.withOpacity(0.2), width: 1),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
+          // Date display row
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: _primaryColor.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(
-                  Icons.calendar_today,
-                  size: isMobile ? 18 : 20,
-                  color: _primaryColor,
-                ),
-              ),
-              SizedBox(width: isMobile ? 12 : 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              Row(
                 children: [
-                  Text(
-                    isToday ? 'Today\'s Analytics' : 'Analytics for',
-                    style: TextStyle(
-                      fontSize: isMobile ? 12 : 13,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [_primaryColor, _primaryColor.withOpacity(0.8)],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _primaryColor.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      Icons.calendar_month_rounded,
+                      size: isMobile ? 22 : 24,
+                      color: Colors.white,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatDate(_selectedDate),
-                    style: TextStyle(
-                      fontSize: isMobile ? 16 : 18,
-                      color: _primaryColor,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  SizedBox(width: isMobile ? 12 : 16),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isToday ? 'Today\'s Analytics' : 'Analytics for',
+                        style: TextStyle(
+                          fontSize: isMobile ? 12 : 13,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatDate(_selectedDate),
+                        style: TextStyle(
+                          fontSize: isMobile ? 18 : 20,
+                          color: _primaryColor,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
+              ),
+              if (isToday)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.green.withOpacity(0.3),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: Colors.green,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'LIVE',
+                        style: TextStyle(
+                          fontSize: isMobile ? 10 : 11,
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+
+          SizedBox(height: isMobile ? 16 : 20),
+
+          // Navigation buttons
+          Row(
+            children: [
+              // Previous day button
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedDate = _selectedDate.subtract(
+                          const Duration(days: 1),
+                        );
+                      });
+                      _loadData();
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        vertical: isMobile ? 12 : 14,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _primaryColor.withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.chevron_left_rounded,
+                            color: _primaryColor,
+                            size: isMobile ? 20 : 22,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Previous',
+                            style: TextStyle(
+                              color: _primaryColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: isMobile ? 13 : 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // Today button
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: isToday
+                      ? null
+                      : () {
+                          setState(() {
+                            _selectedDate = DateTime.now();
+                          });
+                          _loadData();
+                        },
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isMobile ? 16 : 20,
+                      vertical: isMobile ? 12 : 14,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isToday ? _primaryColor : Colors.white,
+                      border: Border.all(color: _primaryColor, width: 1.5),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Today',
+                      style: TextStyle(
+                        color: isToday ? Colors.white : _primaryColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: isMobile ? 13 : 14,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(width: 12),
+
+              // Next day button
+              Expanded(
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selectedDate = _selectedDate.add(
+                          const Duration(days: 1),
+                        );
+                      });
+                      _loadData();
+                    },
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      padding: EdgeInsets.symmetric(
+                        vertical: isMobile ? 12 : 14,
+                      ),
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: _primaryColor.withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Next',
+                            style: TextStyle(
+                              color: _primaryColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: isMobile ? 13 : 14,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: _primaryColor,
+                            size: isMobile ? 20 : 22,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-          if (isToday)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: Colors.green.withOpacity(0.3),
-                  width: 1,
+
+          SizedBox(height: isMobile ? 12 : 14),
+
+          // Pick specific date button
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _showDatePicker,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: EdgeInsets.symmetric(vertical: isMobile ? 10 : 12),
+                decoration: BoxDecoration(
+                  color: _primaryColor.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _primaryColor.withOpacity(0.2),
+                    width: 1,
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.date_range_rounded,
+                      color: _primaryColor,
+                      size: isMobile ? 18 : 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Pick Specific Date',
+                      style: TextStyle(
+                        color: _primaryColor,
+                        fontWeight: FontWeight.w600,
+                        fontSize: isMobile ? 13 : 14,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    'LIVE',
-                    style: TextStyle(
-                      fontSize: isMobile ? 10 : 11,
-                      color: Colors.green.shade700,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
             ),
+          ),
         ],
       ),
     );

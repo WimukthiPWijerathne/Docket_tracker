@@ -4,13 +4,12 @@ import '../models/worker_model.dart';
 
 // Worker Service class
 
-
 class WorkerService {
   static const String baseUrl = 'https://powerprox.sltidc.lk';
-  
+
   Future<List<Worker>> fetchWorkers() async {
     try {
-      final url = Uri.parse('$baseUrl/GETPeople2.php');
+      final url = Uri.parse('$baseUrl/GETPeopleX.php');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {

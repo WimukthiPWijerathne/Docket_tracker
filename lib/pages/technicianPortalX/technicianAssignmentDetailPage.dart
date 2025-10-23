@@ -4,14 +4,15 @@ import 'package:intl/intl.dart';
 import 'package:leco_docket_tracker/pages/technicianPortal/widgets/kvRow.dart';
 import 'package:leco_docket_tracker/pages/technicianPortal/widgets/photoGrid.dart';
 import 'package:leco_docket_tracker/pages/technicianPortal/services/workLogService.dart';
-import 'package:leco_docket_tracker/pages/technicianPortal/services/httpUpdateDocketStatus2.dart';
 
 import '../../models/WorkPhoto.dart';
 import '../../models/dockets.dart';
 import '../../models/docketAssignment.dart' as models;
 import '../../models/WorkLog.dart';
+// update DocketDetails.status
+import 'services/httpUpdateDocketStatus2.dart';
 
-import '../viewDockets/updateDockets/httpUpdateDockets.dart';
+// import '../viewDockets/updateDockets/httpUpdateDockets.dart';
 
 class AssignmentDetailPage extends StatefulWidget {
   final Docket docket;
@@ -528,9 +529,8 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
       _localIsCompleted = true;
 
       // 2) Update Docket row
-      final docketUpdated = await DocketUpdateApi.updateFields(
-        id: widget.docket.id,
-        fields: {'completedTime': nowStr},
+      final docketUpdated = await DocketStatusApi.markCompleted(
+        widget.docket.id,
       );
 
       if (docketUpdated) {
@@ -660,127 +660,6 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
       _showError('Failed to save notes: $e');
     } finally {
       setState(() => _saving = false);
-    }
-  }
-
-  /// Handle request for additional work
-  Future<void> _handleRequestAdditionalWork() async {
-    // Show confirmation dialog
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Request Additional Work'),
-        content: const Text(
-          'Are you sure you want to request additional work for this docket?\n\n'
-          'This will notify the supervisor that extra work or resources are needed.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF003366),
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Confirm Request'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      setState(() => _saving = true);
-
-      try {
-        // Check if workLog exists
-        if (_workLog?.id == null || _workLog!.id.isEmpty) {
-          _showError('Work log not found. Please try refreshing the page.');
-          return;
-        }
-
-        // Update workLog status to 1 (Additional Work Requested)
-        await WorkLogService.updateWorkLog(
-          workLogId: _workLog!.id,
-          status: '1',
-        );
-
-        // Update local state
-        if (_workLog != null) {
-          _workLog = _workLog!.copyWith(status: '1');
-        }
-
-        _showSuccess('Additional work request submitted successfully');
-
-        // Refresh if callback provided
-        if (widget.onChanged != null) {
-          await widget.onChanged!();
-        }
-      } catch (e) {
-        _showError('Failed to submit request: $e');
-      } finally {
-        setState(() => _saving = false);
-      }
-    }
-  }
-
-  /// Handle escalation
-  Future<void> _handleEscalate() async {
-    // Show simple confirmation dialog
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.warning_amber, color: Colors.orange),
-            SizedBox(width: 8),
-            Text('Escalate Issue'),
-          ],
-        ),
-        content: const Text(
-          'Are you sure you want to escalate this docket?\n\n'
-          'This will notify management immediately.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-            child: const Text('Escalate'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      setState(() => _saving = true);
-
-      try {
-        // Update docket status to 5 (Escalated)
-        final success = await DocketStatusApi.markEscalated(widget.docket.id);
-
-        if (success) {
-          _showSuccess(
-            'Issue escalated successfully. Management has been notified.',
-          );
-
-          // Refresh if callback provided
-          if (widget.onChanged != null) {
-            await widget.onChanged!();
-          }
-        } else {
-          _showError('Failed to escalate docket. Please try again.');
-        }
-      } catch (e) {
-        _showError('Error escalating docket: $e');
-      } finally {
-        setState(() => _saving = false);
-      }
     }
   }
 
@@ -1819,6 +1698,127 @@ class _AssignmentDetailPageState extends State<AssignmentDetailPage> {
         ),
       ],
     );
+  }
+
+  /// Handle request for additional work
+  Future<void> _handleRequestAdditionalWork() async {
+    // Show confirmation dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Request Additional Work'),
+        content: const Text(
+          'Are you sure you want to request additional work for this docket?\n\n'
+          'This will notify the supervisor that extra work or resources are needed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF003366),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Confirm Request'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() => _saving = true);
+
+      try {
+        // Check if workLog exists
+        if (_workLog?.id == null || _workLog!.id.isEmpty) {
+          _showError('Work log not found. Please try refreshing the page.');
+          return;
+        }
+
+        // Update workLog status to 1 (Additional Work Requested)
+        await WorkLogService.updateWorkLog(
+          workLogId: _workLog!.id,
+          status: '1',
+        );
+
+        // Update local state
+        if (_workLog != null) {
+          _workLog = _workLog!.copyWith(status: '1');
+        }
+
+        _showSuccess('Additional work request submitted successfully');
+
+        // Refresh if callback provided
+        if (widget.onChanged != null) {
+          await widget.onChanged!();
+        }
+      } catch (e) {
+        _showError('Failed to submit request: $e');
+      } finally {
+        setState(() => _saving = false);
+      }
+    }
+  }
+
+  /// Handle escalation
+  Future<void> _handleEscalate() async {
+    // Show simple confirmation dialog
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber, color: Colors.orange),
+            SizedBox(width: 8),
+            Text('Escalate Issue'),
+          ],
+        ),
+        content: const Text(
+          'Are you sure you want to escalate this docket?\n\n'
+          'This will notify management immediately.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Escalate'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() => _saving = true);
+
+      try {
+        // Update docket status to 5 (Escalated)
+        final success = await DocketStatusApi.markEscalated(widget.docket.id);
+
+        if (success) {
+          _showSuccess(
+            'Issue escalated successfully. Management has been notified.',
+          );
+
+          // Refresh if callback provided
+          if (widget.onChanged != null) {
+            await widget.onChanged!();
+          }
+        } else {
+          _showError('Failed to escalate docket. Please try again.');
+        }
+      } catch (e) {
+        _showError('Error escalating docket: $e');
+      } finally {
+        setState(() => _saving = false);
+      }
+    }
   }
 
   Widget _buildNotesSection() {

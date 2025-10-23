@@ -14,6 +14,7 @@ import '../eDocket/e_docket.dart';
 import '../Payments/paymentPageOptions.dart';
 import '../viewDockets/viewDocketsSummary.dart';
 import '../addDocketX/cameraCapture/captureImage.dart';
+import '../pendingDockets/pendingDockets.dart';
 // Technician notification banner
 import '../../widgets/technician_notification_banner.dart';
 
@@ -265,6 +266,21 @@ class _OptionsPageState extends State<OptionsPage> {
                           );
                         },
                       ),
+
+                    // ---- Pending Dockets (All Roles) ----
+                    _buildOptionCard(
+                      context,
+                      'Pending Dockets',
+                      Icons.pending_actions,
+                      const Color(0xFFFF9800),
+                      () {
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => const PendingDocketsPage(),
+                          ),
+                        );
+                      },
+                    ),
                   ],
                 ),
               ),

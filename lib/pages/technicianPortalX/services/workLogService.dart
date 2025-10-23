@@ -6,7 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import '../../../models/WorkPhoto.dart';
 import '../../../models/WorkLog.dart';
-import '../../../services/api_service.dart';
+import '../../../service/api_service.dart';
 
 enum PhotoKind { before, after, extra }
 
@@ -621,5 +621,140 @@ class WorkLogService {
         'http://124.43.181.243:8000/api/fetch-testdocket-image/$subdirectory/$cleanImageName';
     print('DEBUG getImageUrl: ${workPhoto.imageName} -> $url');
     return url;
+  }
+
+  // ===== Add to WorkLogService =====
+
+  /// Get DocketDetails by docketID (uses your PHP endpoint)
+  static Future<Map<String, dynamic>?> getDocketDetails(String docketId) async {
+    final url =
+        '$baseUrl/GETDocketDetailsX.php?docketID=${Uri.encodeComponent(docketId)}';
+    final r = await http.get(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (r.statusCode != 200)
+      throw 'GETDocketDetailsX failed: ${r.statusCode} ${r.body}';
+    final data = jsonDecode(r.body);
+    if (data == null) return null;
+    // API may return a single object or array; normalize
+    if (data is List && data.isNotEmpty)
+      return Map<String, dynamic>.from(data.first);
+    if (data is Map<String, dynamic>) return data;
+    return null;
+  }
+
+  /// Get ONLY pending extra works (status=1); optional depot filter
+  static Future<List<Map<String, dynamic>>> getPendingExtraWorks({
+    String? depot,
+  }) async {
+    // 1) Pull worklogs (status=1). If your PHP supports ?status=1 add it; else fetch all & filter.
+    String url = getWorkLogUrl;
+    final qp = <String, String>{'status': '1'};
+    if (depot != null && depot.trim().isNotEmpty)
+      qp['depot'] = depot.trim(); // if PHP supports depot
+    if (qp.isNotEmpty) {
+      url +=
+          '?${qp.entries.map((e) => '${e.key}=${Uri.encodeComponent(e.value)}').join('&')}';
+    }
+
+    final r = await http.get(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (r.statusCode != 200) {
+      throw 'GET worklogs failed: ${r.statusCode} ${r.body}';
+    }
+
+    final payload = jsonDecode(r.body);
+    final List wl = (payload is List)
+        ? payload
+        : (payload is Map ? [payload] : []);
+    // Fallback client-side filter if server doesn’t accept status param
+    final pending = wl
+        .where((e) => (e['status']?.toString() ?? '0') == '1')
+        .toList();
+
+    // 2) Enrich each row with details + photos kind=EXTRA
+    final results = <Map<String, dynamic>>[];
+    for (final raw in pending) {
+      final String workLogId = raw['id']?.toString() ?? '';
+      final String docketId =
+          raw['docketID']?.toString() ?? raw['docketId']?.toString() ?? '';
+      if (workLogId.isEmpty || docketId.isEmpty) continue;
+
+      // a) details (region/depot/anything else you show)
+      final details = await getDocketDetails(docketId);
+
+      // b) photos (EXTRA)
+      final photos = await getWorkPhotos(workLogId: workLogId, kind: 'EXTRA');
+      final photoUrls = <String>[];
+      for (final p in photos) {
+        photoUrls.add(getImageUrl(p)); // you already have this helper
+      }
+
+      // Build a single map your UI can read
+      results.add({
+        'workLogId': workLogId,
+        'assignmentId': raw['assignmentID']?.toString() ?? '',
+        'docketId': docketId,
+        'employeeNo': raw['employeeNo']?.toString() ?? '',
+        'remarks': raw['remarks']?.toString(),
+        'startedAt': raw['startedAt']?.toString(),
+        'attendingAt': raw['attendingAt']?.toString(),
+        'region':
+            details?['Region']?.toString() ?? details?['region']?.toString(),
+        'depot': details?['depot']?.toString() ?? details?['Depot']?.toString(),
+        'photos': photoUrls,
+      });
+    }
+    // Optional depot filter if server didn’t filter:
+    if (depot != null && depot.trim().isNotEmpty) {
+      return results
+          .where((m) => (m['depot'] ?? '').toString() == depot.trim())
+          .toList();
+    }
+    return results;
+  }
+
+  /// Update only status of worklog (1=Pending/ACK, 2=Approved, 3=Rejected)
+  static Future<void> updateWorkLogStatusOnly({
+    required String workLogId,
+    required int status, // 1/2/3
+  }) async {
+    final body = jsonEncode({'id': workLogId, 'status': status});
+    final r = await http.post(
+      Uri.parse(updateWorkLogUrl),
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    if (r.statusCode != 200)
+      throw 'Update status failed: ${r.statusCode} ${r.body}';
+    // If your PHP returns {"success":true} you can check it here.
+  }
+
+  /// Create approval audit row (new, tiny PHP you’ll add below)
+  static Future<void> createExtraWorkApprovalAudit({
+    required String workLogId,
+    required String docketId,
+    required String action, // 'ACK' | 'APPROVE' | 'REJECT'
+    required String actionBy, // approver user/empNo
+    String? remarks,
+  }) async {
+    final url = '$baseUrl/POSTExtraWorkApproval.php';
+    final body = jsonEncode({
+      'workLogId': workLogId,
+      'docketId': docketId,
+      'action': action,
+      'actionBy': actionBy,
+      'remarks': remarks,
+    });
+    final r = await http.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: body,
+    );
+    if (r.statusCode != 200)
+      throw 'Audit insert failed: ${r.statusCode} ${r.body}';
   }
 }

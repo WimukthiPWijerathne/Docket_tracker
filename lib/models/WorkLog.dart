@@ -3,6 +3,7 @@ class WorkLog {
   final String assignmentId;
   final String docketId;
   final String employeeNo;
+  final String? status;
   final String? acknowledgedAt;
   final String? attendingAt;
   final String? startedAt;
@@ -16,6 +17,7 @@ class WorkLog {
     required this.assignmentId,
     required this.docketId,
     required this.employeeNo,
+    this.status,
     this.acknowledgedAt,
     this.attendingAt,
     this.startedAt,
@@ -36,6 +38,7 @@ class WorkLog {
       docketId:
           json['docketId']?.toString() ?? json['docketID']?.toString() ?? '',
       employeeNo: json['employeeNo']?.toString() ?? '',
+      status: json['status']?.toString(),
       acknowledgedAt: json['acknowledgedAt']?.toString(),
       attendingAt: json['attendingAt']?.toString(),
       startedAt: json['startedAt']?.toString(),
@@ -53,6 +56,7 @@ class WorkLog {
       'assignmentId': assignmentId,
       'docketId': docketId,
       'employeeNo': employeeNo,
+      'status': status,
       'acknowledgedAt': acknowledgedAt,
       'attendingAt': attendingAt,
       'startedAt': startedAt,
@@ -69,6 +73,7 @@ class WorkLog {
     String? assignmentId,
     String? docketId,
     String? employeeNo,
+    String? status,
     String? acknowledgedAt,
     String? attendingAt,
     String? startedAt,
@@ -82,6 +87,7 @@ class WorkLog {
       assignmentId: assignmentId ?? this.assignmentId,
       docketId: docketId ?? this.docketId,
       employeeNo: employeeNo ?? this.employeeNo,
+      status: status ?? this.status,
       acknowledgedAt: acknowledgedAt ?? this.acknowledgedAt,
       attendingAt: attendingAt ?? this.attendingAt,
       startedAt: startedAt ?? this.startedAt,

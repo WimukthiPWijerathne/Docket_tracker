@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../../services/worker_service.dart';
 import '../../../models/worker_model.dart';
-import '../../../service/assigned_docket_service.dart';
+import '../../../service/assigned_docket_serviceX.dart';
 import '../../../models/assigned_docket.dart';
 import '../../../models/dockets.dart';
 import '../../../models/WorkLog.dart';
@@ -138,10 +138,14 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
       final techIds = <String>{'All'};
       final workerMap = <String, Worker>{};
       for (final w in workers) {
-        final id = (w.employeeNo.isNotEmpty ? w.employeeNo : w.personID).trim();
-        if (id.isNotEmpty) {
-          techIds.add(id);
-          workerMap[id] = w; // Store worker in map
+        // Only include workers with access level 8
+        if (w.accessLevel == '8') {
+          final id = (w.employeeNo.isNotEmpty ? w.employeeNo : w.personID)
+              .trim();
+          if (id.isNotEmpty) {
+            techIds.add(id);
+            workerMap[id] = w; // Store worker in map
+          }
         }
       }
 
@@ -191,7 +195,7 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
       try {
         final response = await http
             .get(
-              Uri.parse('https://powerprox.sltidc.lk/GETDocketDetails2.php'),
+              Uri.parse('https://powerprox.sltidc.lk/GETDocketDetailsX.php'),
               headers: {'Accept': 'application/json'},
             )
             .timeout(
@@ -297,6 +301,9 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
   void _applyFilters() {
     List<Worker> list = List.of(_allWorkers);
 
+    // Filter by access level 8 first
+    list = list.where((w) => w.accessLevel == '8').toList();
+
     if (_selectedBranch != 'All') {
       final allowedDepots = kBranchDepots[_selectedBranch] ?? const ['All'];
       list = list.where((w) => allowedDepots.contains(w.depot)).toList();
@@ -322,6 +329,9 @@ class _TechnicianSummaryPageState extends State<TechnicianSummaryPage> {
 
   void _rebuildAvailableTechnicians() {
     List<Worker> base = List.of(_allWorkers);
+
+    // Filter by access level 8 first
+    base = base.where((w) => w.accessLevel == '8').toList();
 
     if (_selectedBranch != 'All') {
       final allowedDepots = kBranchDepots[_selectedBranch] ?? const ['All'];

@@ -3,10 +3,10 @@ import 'package:fl_chart/fl_chart.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-import '../../../service/assigned_docket_service.dart';
-import '../../../service/dockey_service.dart' as dockey;
+import '../../../service/assigned_docket_serviceX.dart';
+import '../../../service/dockey_serviceX.dart' as dockey;
 import '../../../models/assigned_docket.dart';
-import '../../../models/dockets.dart';
+import '../../../models/docketsX.dart';
 import '../../../models/WorkLog.dart';
 
 /// Job Costings Page - Displays statistics and payment rates for completed dockets
@@ -34,7 +34,7 @@ class _JobCostingsPageState extends State<JobCostingsPage> {
   static const Color _primaryColor = Color(0xFF003366);
 
   final _assignedSvc = AssignedDocketService();
-  final _docketSvc = dockey.DocketService();
+  final _docketSvc = dockey.DocketServiceX();
 
   bool _loading = true;
   String? _error;

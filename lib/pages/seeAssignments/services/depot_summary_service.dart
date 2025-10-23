@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../../../models/dockets.dart';
+import '../../../models/docketsX.dart';
 import '../../../models/WorkLog.dart';
 
 // Data model for depot summary
@@ -36,7 +36,7 @@ class DepotSummaryService {
       try {
         final response = await http
             .get(
-              Uri.parse('$_baseUrl/GETDocketDetails2.php'),
+              Uri.parse('$_baseUrl/GETDocketDetailsX.php'),
               headers: {'Accept': 'application/json'},
             )
             .timeout(
